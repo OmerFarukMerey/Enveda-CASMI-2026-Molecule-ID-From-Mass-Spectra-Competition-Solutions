@@ -96,7 +96,8 @@ def _batches(parquet: pq.ParquetFile, columns: list[str]):
         yield batch.to_pydict()
 
 
-def _fingerprint(mzs: list[float] | None, intensities: list[float] | None) -> bytes | None:
+def peak_fingerprint(mzs: list[float] | None, intensities: list[float] | None) -> bytes | None:
+    """Digest of the exact peak arrays; None when the arrays are unusable."""
     if mzs is None or intensities is None or len(mzs) != len(intensities):
         return None
     if any(value is None for value in mzs) or any(value is None for value in intensities):
@@ -133,7 +134,7 @@ def _measurement_fingerprints(parquet: pq.ParquetFile, indices: set[int]) -> dic
                 intensities = batch.column(1)
                 while cursor < len(wanted) and wanted[cursor] < batch_end:
                     row = wanted[cursor]
-                    result[row] = _fingerprint(
+                    result[row] = peak_fingerprint(
                         mzs[row - offset].as_py(), intensities[row - offset].as_py()
                     )
                     cursor += 1
@@ -374,16 +375,21 @@ def build_validation(
     return manifest
 
 
+def _excluded_aliases(manifest: dict) -> set[str]:
+    excluded = set(manifest["excluded_invalid_identity_aliases"])
+    excluded.update(
+        alias for entry in manifest["structure_holdout"] for alias in entry["identity_aliases"]
+    )
+    return excluded
+
+
 def reference_filter(manifest: dict) -> Callable[[int, str | None], bool]:
     """Compile the exact row eligibility rule for spectral reference and supervision.
 
     Call with the original zero-based parquet row index and supplied inchikey14.
     Apply the same identity exclusions to any external library separately.
     """
-    excluded = set(manifest["excluded_invalid_identity_aliases"])
-    excluded.update(
-        alias for entry in manifest["structure_holdout"] for alias in entry["identity_aliases"]
-    )
+    excluded = _excluded_aliases(manifest)
     class1_rows = {
         alias: entry["reference"]["row_index"]
         for entry in manifest["class1_single_spectrum"]
@@ -396,6 +402,29 @@ def reference_filter(manifest: dict) -> Callable[[int, str | None], bool]:
             return False
         reference_index = class1_rows.get(supplied)
         return reference_index is None or row_index == reference_index
+
+    return eligible
+
+
+def class1_library_filter(manifest: dict) -> Callable[[int, str | None, str | None], bool]:
+    """Reference eligibility with the full public library of each class-1 structure.
+
+    Unlike reference_filter, a class-1 structure keeps every row from a source
+    other than the query source, not only its designated reference. Holdout and
+    invalid-label exclusions are unchanged. This rule is for spectral reference
+    evaluation only, not supervised training. Callers that can see peaks must
+    still drop same-structure rows whose peaks exactly copy the query spectrum.
+    """
+    excluded = _excluded_aliases(manifest)
+    class1_aliases = {
+        alias for entry in manifest["class1_single_spectrum"] for alias in entry["identity_aliases"]
+    }
+    total_rows = manifest["input"]["rows"]
+
+    def eligible(row_index: int, supplied: str | None, source: str | None) -> bool:
+        if row_index < 0 or row_index >= total_rows or not supplied or supplied in excluded:
+            return False
+        return supplied not in class1_aliases or (bool(source) and source != QUERY_SOURCE)
 
     return eligible
 

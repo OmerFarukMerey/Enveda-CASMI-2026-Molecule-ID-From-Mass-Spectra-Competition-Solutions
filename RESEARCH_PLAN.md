@@ -80,7 +80,7 @@ The [Stage A audit and validation report](STAGE_A_REPORT.md) records the full so
 
 ### Stage B baseline outcome
 
-The [first retrieval baseline](STAGE_B_REPORT.md) (exact adduct, 20 ppm precursor gate, √intensity cosine) scores **MRR@25 0.296, recall@25 0.404, top-1 0.248** on the 250 class-1 queries. Only 107 designated references pass the gate; within those, recall@25 is 94%. Next: measure class-1 against the full public library of each structure (not one designated spectrum), and compare a neutral-mass gate across compatible adducts with exact adduct matching, on the same folds.
+The [retrieval baseline](STAGE_B_REPORT.md) (exact adduct, 20 ppm precursor gate, √intensity cosine, no tuning) was measured on the 250 class-1 queries under two library rules. With only the manifest's single designated reference per structure: **MRR@25 0.296**. With every other-source spectrum of the structure: **MRR@25 0.890, recall@25 0.964, top-1 0.836**. No exact query copies were found, and no best same-structure cosine reached 0.99, but independent acquisition is not proven. At most 8 queries remain unreachable, so a neutral-mass gate has a small ceiling here. The larger unmeasured loss is classes 2 and 3, where library search scores zero. **Next: Stage C**: a frozen, license-compatible structure catalog and its coverage on the structure holdout, before cosine variants or learned ranking.
 
 ### Sources
 

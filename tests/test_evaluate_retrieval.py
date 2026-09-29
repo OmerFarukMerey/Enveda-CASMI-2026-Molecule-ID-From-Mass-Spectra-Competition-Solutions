@@ -157,6 +157,40 @@ def test_no_gated_candidate_gives_zero_without_invalid_empty_submission(tmp_path
     assert output.exists()
 
 
+def test_library_policy_uses_other_sources_but_not_query_source_or_exact_copies(tmp_path: Path) -> None:
+    rows = [
+        _row("CCO", "enveda-np-examples", 100.0, (51.0, 52.0)),  # query
+        # Designated reference (RIKEN has priority) fails the exact-adduct gate.
+        _row("CCO", "riken", 100.0, (51.0, 53.0), adduct="[M+Na]+"),
+        _row("CCO", "gnps", 100.0, (51.0, 52.0)),  # exact copy of the query peaks
+        _row("CCO", "massbank", 100.0, (51.0, 54.0)),  # independent, half the peaks match
+        # Same source as the query: never a reference, even though it matches perfectly.
+        _row("CCO", "enveda-np-examples", 100.0, (51.0, 52.001)),
+        _row("CCCl", "riken", 300.0, (90.0,)),  # the structure holdout
+    ]
+    train, manifest_path, output, manifest = _fixture(tmp_path, rows)
+    assert manifest["class1_single_spectrum"][0]["reference"]["row_index"] == 1
+
+    designated = run(train, manifest_path, output)
+    assert designated["class1_reference_policy"] == "designated"
+    assert designated["eligible_reference_rows"] == 1
+    assert designated["reachable_query_count"] == 0
+    assert designated["candidate_recall_at_25"] == 0.0
+
+    library = run(train, manifest_path, output, class1_references="library")
+    assert library["eligible_reference_rows"] == 3  # rows 1-3; query source and holdout excluded
+    assert library["holdout_excluded_rows"] == 1
+    assert library["exact_copy_pairs_removed"] == 1
+    assert library["reachable_query_count"] == 1
+    # A surviving same-source row would have scored ~1.0; the massbank row scores 0.5.
+    assert library["reachable_best_same_structure_cosine_ge_0_99"] == 0
+    assert library["candidate_recall_at_25"] == library["top1"] == library["mrr_at_25"] == 1.0
+    assert library["correct_hit_reference_source_counts"] == {"massbank": 1}
+    assert library["explicit_reference_gated_count"] == 0  # unchanged diagnostic
+    with pytest.raises(ValueError, match="class1_references"):
+        run(train, manifest_path, output, class1_references="everything")
+
+
 def test_manifest_identity_row_groups_filename_and_parameter_validation(tmp_path: Path) -> None:
     rows = [
         _row("CCO", "enveda-np-examples", 100.0, (51.0,)),

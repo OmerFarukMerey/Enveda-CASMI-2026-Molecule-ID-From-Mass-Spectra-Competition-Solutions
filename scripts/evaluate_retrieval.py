@@ -2,6 +2,11 @@
 
 The manifest is a private validation split, and all output belongs under ignored data/.
 No holdout structure is a reference; this is not a class-2 or class-3 estimate.
+
+Two class-1 reference policies are available. ``designated`` keeps only the one
+reference row chosen by the manifest. ``library`` keeps every row of a class-1
+structure from a source other than the query source, minus exact copies of the
+query spectrum, which is closer to the library available at inference.
 """
 
 from __future__ import annotations
@@ -16,13 +21,16 @@ import sys
 from time import perf_counter
 from typing import Iterator
 
+import numpy as np
 import pyarrow.parquet as pq
 
 # Also allow `python scripts/evaluate_retrieval.py` from the project root.
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.build_validation import check_manifest, reference_filter
+from scripts.build_validation import (
+    check_manifest, class1_library_filter, peak_fingerprint, reference_filter,
+)
 from src.metric import canonicalize_smiles_to_ik14, evaluate
 from src.spectral_search import PreparedSpectrum, prepare_spectrum, spectral_cosine
 
@@ -31,6 +39,9 @@ METADATA_COLUMNS = ["ingest_lib", "inchikey14", "adduct", "precursor_mz"]
 SPECTRUM_COLUMNS = ["normalized_smiles", "ms2_mzs", "ms2_normalized_intensities"]
 BATCH_SIZE = 8192
 PEAK_BATCH_SIZE = 128
+CLASS1_POLICIES = ("designated", "library")
+NEAR_IDENTICAL_COSINE = 0.99
+COSINE_QUANTILES = (0.1, 0.25, 0.5, 0.75, 0.9)
 
 
 def _positive_float(value: object) -> float | None:
@@ -120,6 +131,7 @@ def run(
     fragment_tolerance_da: float = 0.02,
     max_peaks: int = 100,
     max_rank: int = 25,
+    class1_references: str = "designated",
 ) -> dict:
     """Score every adduct/precursor-gated reference against each class-1 query."""
     started = perf_counter()
@@ -131,6 +143,8 @@ def run(
     _positive_int(max_rank, "max_rank")
     if max_rank > 25:
         raise ValueError("max_rank must not exceed the official 25-candidate limit")
+    if class1_references not in CLASS1_POLICIES:
+        raise ValueError(f"class1_references must be one of {CLASS1_POLICIES}")
 
     train, manifest_path, output = Path(train), Path(manifest_path), Path(output)
     if "data" not in output.resolve().parts:
@@ -164,7 +178,13 @@ def run(
     reference_rows = {pair["reference"]["row_index"]: pair for pair in pairs}
     query_metadata: dict[int, tuple[str | None, float | None]] = {}
     reference_metadata: dict[int, tuple[str | None, float | None]] = {}
-    allowed = reference_filter(manifest)
+    designated_allowed = reference_filter(manifest)
+    library_allowed = class1_library_filter(manifest)
+
+    def allowed(index: int, supplied: str | None, source: str | None) -> bool:
+        if class1_references == "library":
+            return library_allowed(index, supplied, source)
+        return designated_allowed(index, supplied)
 
     # First pass reads only scalar metadata, never peak arrays or SMILES.
     offset = 0
@@ -205,22 +225,22 @@ def run(
         for pair in pairs
     )
 
-    # Second metadata pass retains only the row indices and ppm errors of gated
-    # references. No candidate is truncated before its score is known.
-    gated: dict[int, tuple[float, list[tuple[int, float]]]] = {}
+    # Second metadata pass retains only the row indices, sources and ppm errors
+    # of gated references. No candidate is truncated before scoring.
+    gated: dict[int, tuple[float, str | None, list[tuple[int, float]]]] = {}
     eligible_count = excluded_holdout = gated_pairs = 0
     excluded_aliases = {
         alias for entry in manifest["structure_holdout"] for alias in entry["identity_aliases"]
     }
     offset = 0
-    for batch in parquet.iter_batches(columns=METADATA_COLUMNS[1:], batch_size=BATCH_SIZE, use_threads=False):
-        supplied, adducts, masses = (batch.column(i) for i in range(3))
+    for batch in parquet.iter_batches(columns=METADATA_COLUMNS, batch_size=BATCH_SIZE, use_threads=False):
+        sources, supplied, adducts, masses = (batch.column(i) for i in range(4))
         for local in range(batch.num_rows):
             index = offset + local
             supplied_key = supplied[local].as_py()
             if supplied_key in excluded_aliases:
                 excluded_holdout += 1
-            if not allowed(index, supplied_key):
+            if not allowed(index, supplied_key, sources[local].as_py()):
                 continue
             eligible_count += 1
             label = adducts[local].as_py()
@@ -240,7 +260,7 @@ def run(
                 if abs(mz - query_mz) <= fraction * query_mz
             ]
             if matches:
-                gated[index] = mz, matches
+                gated[index] = mz, sources[local].as_py(), matches
                 gated_pairs += len(matches)
         offset += batch.num_rows
     if offset != info["rows"]:
@@ -258,31 +278,48 @@ def run(
     # Query spectra are the only spectra retained; all candidate peak arrays are
     # converted and released one selected row at a time in the final pass.
     query_spectra: dict[int, PreparedSpectrum] = {}
+    query_fingerprints: dict[int, bytes | None] = {}
     solutions: dict[str, str] = {}
     for index, smiles, mzs, intensities in _selected_rows(parquet, set(query_rows)):
         if not isinstance(smiles, str) or canonicalize_smiles_to_ik14(smiles) != query_rows[index]["query"]["canonical_inchikey14"]:
             raise ValueError(f"Manifest query row {index} canonical identity differs from parquet")
         solutions[str(index)] = smiles
+        query_fingerprints[index] = peak_fingerprint(mzs, intensities)
         mz = query_metadata[index][1]
         if mz is not None and mzs is not None and intensities is not None:
             query_spectra[index] = prepare_spectrum(mz, mzs, intensities, max_peaks=max_peaks)
 
     # Score all gated references, then keep the best row for each official
     # tautomer-canonical connectivity key (not the supplied parquet label).
+    # A same-structure reference whose peaks exactly copy the query is not an
+    # independent measurement and is dropped before scoring.
     best: dict[int, dict[str, tuple[tuple[float, float, int, str], str]]] = defaultdict(dict)
+    best_same_structure: dict[int, float] = {}
+    exact_copy_pairs = 0
     for index, smiles, mzs, intensities in _selected_rows(parquet, set(gated)):
         key = canonicalize_smiles_to_ik14(smiles) if isinstance(smiles, str) else None
         if index in reference_rows and key != reference_rows[index]["reference"]["canonical_inchikey14"]:
             raise ValueError(f"Manifest reference row {index} canonical identity differs from parquet")
         if key is None or not isinstance(smiles, str) or mzs is None or intensities is None:
             continue
-        precursor, matched_queries = gated[index]
+        precursor, _, matched_queries = gated[index]
         reference_spectrum = prepare_spectrum(precursor, mzs, intensities, max_peaks=max_peaks)
+        reference_fingerprint: bytes | None = None
         for query_index, ppm_error in matched_queries:
             spectrum = query_spectra.get(query_index)
             if spectrum is None:
                 continue
+            same_structure = key == query_rows[query_index]["query"]["canonical_inchikey14"]
+            if same_structure:
+                if reference_fingerprint is None:
+                    reference_fingerprint = peak_fingerprint(mzs, intensities)
+                query_fingerprint = query_fingerprints[query_index]
+                if query_fingerprint is not None and query_fingerprint == reference_fingerprint:
+                    exact_copy_pairs += 1
+                    continue
             score = spectral_cosine(spectrum, reference_spectrum, tolerance_da=fragment_tolerance_da)
+            if same_structure:
+                best_same_structure[query_index] = max(score, best_same_structure.get(query_index, 0.0))
             ordering = (-score, ppm_error, index, key)
             previous = best[query_index].get(key)
             if previous is None or ordering < previous[0]:
@@ -304,10 +341,17 @@ def run(
     for source in ("gnps", "riken", "massbank"):
         by_source[source]
     gated_query_count = len({
-        query_index for _, matches in gated.values() for query_index, _ in matches
+        query_index for _, _, matches in gated.values() for query_index, _ in matches
     })
+    reachable = [str(index) for index in best_same_structure]
+    hit_sources: dict[str, int] = defaultdict(int)
+    for index, candidates in best.items():
+        answer = candidates.get(query_rows[index]["query"]["canonical_inchikey14"])
+        if answer is not None and ranks.get(str(index), 0.0) > 0:
+            hit_sources[str(gated[answer[0][2]][1])] += 1
     summary = {
         "class1_count": len(pairs),
+        "class1_reference_policy": class1_references,
         "eligible_reference_rows": eligible_count,
         "holdout_excluded_rows": excluded_holdout,
         "gated_reference_rows": len(gated),
@@ -317,16 +361,37 @@ def run(
         "explicit_reference_gated_count": explicit_gated,
         "explicit_reference_gate_failures": len(pairs) - explicit_gated,
         "explicit_reference_gate_coverage": explicit_gated / len(pairs),
+        # A query is reachable when at least one same-structure reference passed
+        # the gate and was scored; this caps candidate recall.
+        "reachable_query_count": len(reachable),
+        "reachable_query_coverage": len(reachable) / len(pairs),
+        "reachable_metrics": _metrics(reachable, ranks),
+        "exact_copy_pairs_removed": exact_copy_pairs,
+        # Possible near-duplicate measurements: identical labels do not prove
+        # independent acquisition, so very high same-structure scores are flagged.
+        "reachable_best_same_structure_cosine_ge_0_99": sum(
+            score >= NEAR_IDENTICAL_COSINE for score in best_same_structure.values()
+        ),
+        "reachable_best_same_structure_cosine_quantiles": (
+            {f"{q:g}": float(value) for q, value in zip(
+                COSINE_QUANTILES, np.quantile(list(best_same_structure.values()), COSINE_QUANTILES)
+            )}
+            if best_same_structure else None
+        ),
         "predicted_query_count": len(predictions),
         **{key: value for key, value in _metrics(list(solutions), ranks).items() if key != "count"},
+        # Grouped by the manifest's designated reference source. Under the
+        # library policy a hit can come from another source: see hit counts.
         "by_reference_source": {
             source: _metrics(ids, ranks) for source, ids in sorted(by_source.items())
         },
+        "correct_hit_reference_source_counts": dict(sorted(hit_sources.items())),
         "parameters": {
             "precursor_tolerance_ppm": precursor_tolerance_ppm,
             "fragment_tolerance_da": fragment_tolerance_da,
             "max_peaks": max_peaks,
             "max_rank": max_rank,
+            "class1_references": class1_references,
         },
         "runtime_seconds": round(perf_counter() - started, 3),
         "scope": "Class-1 single-spectrum retrieval only; holdout aliases excluded, no class-2/3 estimate.",
@@ -345,12 +410,17 @@ def main() -> None:
     parser.add_argument("--fragment-tolerance-da", type=float, default=0.02)
     parser.add_argument("--max-peaks", type=int, default=100)
     parser.add_argument("--max-rank", type=int, default=25)
+    parser.add_argument(
+        "--class1-references", choices=CLASS1_POLICIES, default="designated",
+        help="designated: the manifest's single reference row; library: all non-query-source rows",
+    )
     args = parser.parse_args()
     summary = run(
         args.train, args.manifest, args.output,
         precursor_tolerance_ppm=args.precursor_tolerance_ppm,
         fragment_tolerance_da=args.fragment_tolerance_da,
         max_peaks=args.max_peaks, max_rank=args.max_rank,
+        class1_references=args.class1_references,
     )
     print(json.dumps(summary, sort_keys=True))
 
