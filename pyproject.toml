@@ -1,0 +1,18 @@
+[project]
+name = "enveda-casmi-2026-research"
+version = "0.1.0"
+description = "Reproducible data audit and validation for Enveda CASMI 2026"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "numpy>=1.26,<2",
+    "pyarrow>=20,<26",
+    "rdkit==2026.3.3",
+]
+
+[dependency-groups]
+dev = [
+    "pandas>=2.2,<4",
+    "pyarrow-stubs>=20,<26",
+    "pytest>=8,<10",
+    "ty==0.0.84",
+]

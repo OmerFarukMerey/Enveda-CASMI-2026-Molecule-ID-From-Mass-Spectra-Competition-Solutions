@@ -74,9 +74,9 @@ Experiments are ordered by **what can improve MRR@25** while respecting the offl
 - **Team workstreams:** validation/data audit; spectral retrieval; chemistry/candidate catalogs; ranking and Kaggle packaging. Workstreams share the **same folds and metric**. Owners and compute allocation should be agreed by the team; this document assigns neither people nor unmeasured performance targets.
 - **Schedule:** establish valid validation and a simple working offline Notebook first; use subsequent cycles for candidate coverage and ranking; leave time before 7 December for team/entry administration and before 14 December for a fully reproducible final Notebook run. Recheck the live competition timeline before submitting.
 
-### Next session: concrete deliverable
+### Stage A outcome and next experiment
 
-Perform the detailed EDA in stage A and produce (1) a source-by-source data-quality/overlap report, (2) fixed novelty-proxy splits with leakage checks and limitations, and (3) the exact local scoring specification. **Do not start a heavyweight model or claim a hidden-test score before those exist.**
+The [Stage A audit and validation report](STAGE_A_REPORT.md) records the full source inventory, identity normalization findings, fixed cross-source and structure-disjoint proxies, their leakage/novelty limitations and parity checks against the official scoring Notebook. Run Stage B's simplest mass-/adduct-gated spectral retrieval on these fixed folds first; report candidate recall@25 and MRR@25 by source before adding a catalog or learned ranker. The structure holdout is **not** certified class 2 or class 3 without external catalog/provenance checks. No model or hidden-test score exists yet.
 
 ### Sources
 

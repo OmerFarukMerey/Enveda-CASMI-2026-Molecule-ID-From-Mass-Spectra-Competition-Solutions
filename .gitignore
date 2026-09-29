@@ -1,2 +1,5 @@
 # Competition data is licensed for non-commercial use and must not be committed.
 data/
+.venv/
+__pycache__/
+.pytest_cache/
