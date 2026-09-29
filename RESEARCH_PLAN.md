@@ -78,6 +78,10 @@ Experiments are ordered by **what can improve MRR@25** while respecting the offl
 
 The [Stage A audit and validation report](STAGE_A_REPORT.md) records the full source inventory, identity normalization findings, fixed cross-source and structure-disjoint proxies, their leakage/novelty limitations and parity checks against the official scoring Notebook. Run Stage B's simplest mass-/adduct-gated spectral retrieval on these fixed folds first; report candidate recall@25 and MRR@25 by source before adding a catalog or learned ranker. The structure holdout is **not** certified class 2 or class 3 without external catalog/provenance checks. No model or hidden-test score exists yet.
 
+### Stage B baseline outcome
+
+The [first retrieval baseline](STAGE_B_REPORT.md) (exact adduct, 20 ppm precursor gate, √intensity cosine) scores **MRR@25 0.296, recall@25 0.404, top-1 0.248** on the 250 class-1 queries. Only 107 designated references pass the gate; within those, recall@25 is 94%. Next: measure class-1 against the full public library of each structure (not one designated spectrum), and compare a neutral-mass gate across compatible adducts with exact adduct matching, on the same folds.
+
 ### Sources
 
 - [Competition overview, evaluation, submission and timeline](https://www.kaggle.com/competitions/enveda-CASMI26-molecule-id-mass-spectra/overview)
