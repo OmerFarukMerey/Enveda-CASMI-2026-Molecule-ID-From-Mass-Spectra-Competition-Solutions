@@ -5,7 +5,7 @@ CFG = dict(
     VERSION='ours-v1-baseline',
     # --- v1 engine + ranker (base lists)
     TOPN=60,                      # base list depth handed to re-scoring
-    FP_BANK='full1',              # 'full1' = casmi26-fpnet-full1 (v4m); 'A' = fpnet_0.pt of casmi26-v4b-models
+    FP_BANK='full1',              # 'full1' = casmi26-fpnet-full1 (v4m); 'A' = fpnet_0.pt of casmi26-v4b-models; 'ens' = both
     # --- library gate + PubChem merge
     LIB_TAU=0.9,                  # lib_max >= LIB_TAU -> library hit, list left untouched
     REL_TH=600.0,                 # PubChem top f.z minus best pool f.z above this -> aggressive slots

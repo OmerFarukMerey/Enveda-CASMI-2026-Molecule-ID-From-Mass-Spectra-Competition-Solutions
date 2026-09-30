@@ -19,8 +19,14 @@ dev = 'cuda' if torch.cuda.is_available() else 'cpu'
 L = Library('work'); P = Pool('work')
 tfp = np.load('work/train_fp_sel.npy')
 _FULL = glob.glob('/kaggle/input/**/casmi26-fpnet-full1/**/fpnet_full1.pt', recursive=True)
-_fp = _FULL[0] if (CFG['FP_BANK'] == 'full1' and _FULL) else os.path.join(V4MOD, 'fpnet_0.pt')
-bank = fpnet.ModelBank([_fp], device=dev)
+_A = os.path.join(V4MOD, 'fpnet_0.pt')
+if CFG['FP_BANK'] == 'ens' and _FULL:        # average fpnet_full1 (v4m) and FPNet A (v4b) logits in one ModelBank
+    _fp = [_FULL[0], _A]
+elif CFG['FP_BANK'] == 'full1' and _FULL:
+    _fp = [_FULL[0]]
+else:
+    _fp = [_A]
+bank = fpnet.ModelBank(_fp, device=dev)
 log('engine FP bank:', _fp)
 E = Engine(L, P, tfp, EngineCfg(generate=True), bank)
 V = v1engine.V1FE(E, [os.path.join(V4MOD, m['file']) for m in MAN['fe_models']], MAN['families'], device=dev)
