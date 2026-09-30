@@ -82,6 +82,10 @@ The [Stage A audit and validation report](STAGE_A_REPORT.md) records the full so
 
 The [retrieval baseline](STAGE_B_REPORT.md) (exact adduct, 20 ppm precursor gate, √intensity cosine, no tuning) was measured on the 250 class-1 queries under two library rules. With only the manifest's single designated reference per structure: **MRR@25 0.296**. With every other-source spectrum of the structure: **MRR@25 0.890, recall@25 0.964, top-1 0.836**. No exact query copies were found, and no best same-structure cosine reached 0.99, but independent acquisition is not proven. At most 8 queries remain unreachable, so a neutral-mass gate has a small ceiling here. The larger unmeasured loss is classes 2 and 3, where library search scores zero. **Next: Stage C**: a frozen, license-compatible structure catalog and its coverage on the structure holdout, before cosine variants or learned ranking.
 
+### Stage C catalog outcome
+
+The [catalog study](STAGE_C_REPORT.md) indexed PubChem 2026-09-27: 112.8 million single-component structures, annotated with COCONUT membership and PubMed link counts. On the 5,200-query structure holdout, 81.5% of answers are in PubChem and **73.8% fall inside a ±10 ppm neutral-mass window**. A window holds a median of 5,510 distinct structures, and ranking without spectra (COCONUT first, then literature count) reaches **MRR@25 0.157, recall@25 0.353**. Per the diagnostic rule (reachable but poorly ranked), **next is Stage D**: spectrum-based reranking of catalog candidates, preceded by a license/offline audit of fragmentation and spectrum-to-fingerprint options. 956 GNPS answers are absent from every PubChem record and serve as a class-3-like subset for Stage E.
+
 ### Sources
 
 - [Competition overview, evaluation, submission and timeline](https://www.kaggle.com/competitions/enveda-CASMI26-molecule-id-mass-spectra/overview)
