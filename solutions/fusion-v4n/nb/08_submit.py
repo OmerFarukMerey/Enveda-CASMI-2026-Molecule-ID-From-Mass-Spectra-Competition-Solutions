@@ -13,7 +13,8 @@ if CFG['POP_MU'] > 0:
         print('POPULARITY PRIOR UNAVAILABLE -> off:', repr(e))
 sub, FSTATS = fusion_core.build_submission(
     BASE, PC, ENG, ICE_SCORES, GL_SCORES, CFG, MOL_ORDER, list(samp.molecule_id),
-    ice_fuse=ice_fuse, gl_fuse=gl_fuse, score_key=chem.score_key, formula=formula_of, log=print, pool_pop=POOL_POP)
+    ice_fuse=ice_fuse, gl_fuse=gl_fuse, score_key=chem.score_key, formula=formula_of, log=print, pool_pop=POOL_POP,
+    frag_scores=FRAG)
 fusion_core.validate(sub, list(samp.molecule_id))
 sub.to_csv(os.path.join(WORK, 'submission.csv'), index=False)
 json.dump(dict(version=CFG['VERSION'], secs=round(time.time() - T0), stats=FSTATS, n_errors=n_err, families=MAN['families'],

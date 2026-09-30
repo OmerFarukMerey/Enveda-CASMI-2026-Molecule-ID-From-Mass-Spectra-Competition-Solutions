@@ -65,5 +65,23 @@ if CFG['USE_GL'] and items:
     except Exception as e:
         GL_SCORES = {}
         print('GL FAILED -> ICE only:', repr(e))
-log('ICE molecules', len(ICE_SCORES), '| GL molecules', len(GL_SCORES))
-dump('ice', ICE_SCORES); dump('gl', GL_SCORES); dump('pc', PC)   # pc again: now carries pc_form
+FRAG = {}                                   # MetFrag-parsimony term (frag_rescore.py), CPU, ~1 ms per candidate
+if CFG['FRAG_LAM'] > 0:
+    try:
+        import frag_rescore
+        _t0 = time.time()
+        for mid, _sub in te.groupby('molecule_id', sort=False):
+            if mid not in BASE:
+                continue
+            _spec = [dict(mz=np.asarray(r.ms2_mzs, np.float64), it=np.asarray(r.ms2_normalized_intensities, np.float64),
+                          adduct=r.adduct, prec=float(r.precursor_mz), mode=1 if r.ionization_mode == 'positive' else -1)
+                     for r in _sub.itertuples()][:16]
+            _c = list(dict.fromkeys(list(BASE[mid][0]) + list((ENG.get(str(mid)) or {}).get('smiles', [])) +
+                                    list((PC.get(mid) or {}).get('pc', []))))
+            FRAG[mid] = dict(zip(_c, frag_rescore.score_molecule(_spec, _c)))
+        log('frag scores', len(FRAG), 'molecules', f'{time.time()-_t0:.0f}s')
+    except Exception as e:
+        FRAG = {}
+        print('FRAG FAILED -> off:', repr(e))
+log('ICE molecules', len(ICE_SCORES), '| GL molecules', len(GL_SCORES), '| FRAG molecules', len(FRAG))
+dump('ice', ICE_SCORES); dump('gl', GL_SCORES); dump('frag', FRAG); dump('pc', PC)   # pc again: now carries pc_form
