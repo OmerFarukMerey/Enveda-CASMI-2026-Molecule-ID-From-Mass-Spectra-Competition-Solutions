@@ -54,7 +54,8 @@ def load_modules():
         except Exception:
             return s
     print('ice_fuse', bool(ice_fuse), '| gl_fuse', bool(gl_fuse), '| score_key', score_key.__module__)
-    return ice_fuse, gl_fuse, score_key, formula
+    import functools                        # grids call these on the same SMILES thousands of times
+    return ice_fuse, gl_fuse, functools.lru_cache(maxsize=None)(score_key), functools.lru_cache(maxsize=None)(formula)
 
 
 def load_run(run_dir):

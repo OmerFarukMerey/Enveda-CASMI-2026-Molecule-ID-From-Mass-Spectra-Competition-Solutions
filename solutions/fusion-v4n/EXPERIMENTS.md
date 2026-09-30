@@ -11,3 +11,19 @@ LB rows are also appended to `../../docs/experiments.md`.
 
 Queue of next experiments: [../../docs/plan/roadmap.md](../../docs/plan/roadmap.md) (P1–P4).
 | 1 | 2026-09-30 | v2-pop015-fraggap05 | POP_MU=0.15, FRAG_LAM=0.5, FRAG_MODE=gap (Kaggle v4). Commit run: all stages OK in 1023 s, popularity applied 12/12, frag re-rank used 2×. Chosen before the held-out validation finished (user asked for a pre-reset submission); frag gains measured only on a same-formula isomer panel (+0.056 ± 0.015, optimistic) | 0.958 (12 visible) | pending | submitted 23:16 |
+
+## Validation run val1 (2026-10-01): leaked, do not tune on it
+
+`VALIDATION=True` held out the 250 enveda-np-examples structures and purged their spectra from the library (Kaggle
+`casmi26-ours-val`, 2 h 42 min, default fusion MRR 0.626). Per-channel truth recall shows that the v1 engine still
+**knows** these molecules: its truth is top-1 in 93.6% of cases and always in the list. Its FPNet, ranker and v2 pool were
+all built from the full train.parquet, and its spectra were in training. Engine-2 builds its pool at runtime from the
+purged train, so it has the truth in only 7.6% of lists. Consequences:
+- every knob that trusts v1 more "wins": FUSE_ALPHA 0.3 / KRR 1 → 0.876 (+0.25), LambdaRank stacking → 0.985 (top feature
+  b_rank). This contradicts the public LB sweep, where α=0.6 was best. **Channel-balance knobs cannot be tuned here.**
+- re-scoring knobs are confounded the same way (a lower ICE/GL weight keeps v1's memorised top-1).
+  ICE 1.0 / GL 0.5 +0.012 ± 0.006, POST_GL 0.5 +0.007 ± 0.006, FUSE_ENG_K 25 +0.003 ± 0.002, TOPN 80 +0.001: treat as not evidence.
+- FILL_25 changes nothing here (lists are full).
+Lesson: public artefacts trained on all of train.parquet leak into any train-derived holdout. Only untrained components
+(frag_rescore, isomer-panel test) and the LB give trustworthy signal for this pipeline.
+

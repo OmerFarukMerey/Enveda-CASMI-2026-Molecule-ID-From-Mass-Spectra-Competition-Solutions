@@ -28,3 +28,8 @@ Before adding any external artefact, write its provenance (data it was trained o
 8. Train has exact-duplicate spectra with conflicting labels ([744446](https://www.kaggle.com/competitions/enveda-CASMI26-molecule-id-mass-spectra/discussion/744446)), and a possible
    one-electron m/z offset in positive mode is under discussion ([743395](https://www.kaggle.com/competitions/enveda-CASMI26-molecule-id-mass-spectra/discussion/743395)).
 9. Filler guesses that fail to parse consume a rank but do not zero the score (metric v13).
+10. **Train-derived holdouts are leaked for pipelines built on public artefacts.** The public FPNets, rankers and candidate
+    pools (casmi26-v2-pool, v3/v4b models, fpnet-full1) were trained on all of train.parquet. Holding structures out and
+    purging their spectra still leaves the v1 engine ranking the truth top-1 93.6% of the time on enveda-np-examples
+    (see solutions/fusion-v4n/EXPERIMENTS.md, val1). Tune channel weights on the LB, not on such a holdout.
+
