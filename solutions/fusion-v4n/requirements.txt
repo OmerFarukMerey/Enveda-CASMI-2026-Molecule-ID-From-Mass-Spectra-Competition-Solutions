@@ -1,0 +1,13 @@
+# local dev env (Kaggle image provides the rest; rdkit comes from the metric's wheel dataset there)
+rdkit==2026.3.3
+kaggle>=2.0
+numpy
+pandas
+pyarrow
+polars
+lightgbm
+scikit-learn
+numba
+torch
+faiss-cpu
+tqdm

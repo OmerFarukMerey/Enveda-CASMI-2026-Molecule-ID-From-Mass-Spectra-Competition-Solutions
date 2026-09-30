@@ -1,0 +1,33 @@
+# --- competition data / artefacts: never commit
+data/*
+!data/README.md
+runs/
+**/runs/
+scratch/
+**/stage_cache/
+*.parquet
+*.npy
+*.npz
+*.pt
+*.pth
+*.ckpt
+*.pkl
+*.whl
+*.zip
+submission.csv
+
+# --- generated notebooks (build with solutions/<name>/tools/build_notebook.py)
+solutions/*/kaggle/*.ipynb
+
+# --- secrets
+kaggle.json
+.env
+
+# --- python / tooling
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ipynb_checkpoints/
+.DS_Store
+Thumbs.db

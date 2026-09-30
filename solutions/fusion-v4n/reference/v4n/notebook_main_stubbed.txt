@@ -1,0 +1,400 @@
+
+# CASMI26 v4n = v4i + ICE_LAM = GL_LAM = 1.0 (v4l, LB 0.380) + engine FP bank fpnet_full1 (v4m, LB 0.378)
+# CASMI26 v4i = v4h + PubChem-only channel pass-1 depth N1 1000 -> 5000 (recall; gate/slots unchanged)
+# CASMI26 v4h = v4g + GLACIER third re-scoring term: z(ranker) + 0.5 z(ICEBERG) + 0.5 z(GLACIER) (casmi26-glacier)
+# CASMI26 v4f = v4b (FPNet A engine bank, LB 0.354) + ICEBERG post-ranker isomer re-scoring = the v3.6 model (v1 engine + FPNet A + moderate generation + gated PubChem channel, LB 0.358)
+# + fe_v4 feature families computed on the SAME v1 engine run (derivation evidence / class-3 priors, fragmentation 2.0,
+# analog-structure relations, DreamsFP views) + a ranker retrained on the v1-engine simulation sim1x with them.
+# Built by work/analysis/fe_v4/build_v4v1.py -- edit there.
+import os, sys, glob, re, subprocess, time, json, hashlib, pickle
+T0 = time.time()
+LIB_TAU, REL_TH = 0.9, 600.0
+TOPN, ICE_LAM, ICE_BUDGET, ICE_PC = 60, 1.0, 5400, True
+SLOTS_AGG, SLOTS_GENTLE = [2, 4, 6, 8, 10], [4, 8, 12, 16, 20]
+os.makedirs('/kaggle/working/numba_cache', exist_ok=True)
+os.environ['NUMBA_CACHE_DIR'] = '/kaggle/working/numba_cache'
+def find(pattern):
+    hits = sorted(glob.glob(f'/kaggle/input/**/{pattern}', recursive=True), key=len)
+    if not hits:
+        raise FileNotFoundError(pattern)
+    return hits[0]
+def sha256(path, n=1 << 22):
+    h = hashlib.sha256()
+    with open(path, 'rb') as f:
+        for b in iter(lambda: f.read(n), b''):
+            h.update(b)
+    return h.hexdigest()
+tag = f'cp{sys.version_info.major}{sys.version_info.minor}'
+whl = [w for w in glob.glob('/kaggle/input/**/rdkit-*.whl', recursive=True) if tag in w]
+print('rdkit wheel:', whl)
+r = subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', '--no-index', '--no-deps', whl[0]], capture_output=True, text=True)
+print(r.stdout[-500:], r.stderr[-500:])
+import rdkit; print('rdkit', rdkit.__version__)
+V4CODE = os.path.dirname(os.path.dirname(find('casmi26-v4b-models/**/casmi/engine.py')))
+V4MOD = os.path.dirname(find('casmi26-v4b-models/**/MANIFEST.json'))
+V3CODE = os.path.dirname(os.path.dirname(find('casmi26-v3-models/**/casmi/engine.py')))
+V3MOD = os.path.dirname(find('casmi26-v3-models/**/ranker_0.pkl'))
+POOL_DIR = os.path.dirname(find('pool_meta.parquet'))
+PC_DIR = os.path.dirname(find('pc_smiles.npy'))
+COMP = os.path.dirname(find('test.parquet'))
+MAN = json.load(open(os.path.join(V4MOD, 'MANIFEST.json')))
+bad = []
+for rel, h in sorted(MAN['files'].items()):
+    p = os.path.join(V4CODE, rel[len('code/'):]) if rel.startswith('code/') else os.path.join(V4MOD, rel)
+    if not os.path.exists(p) or sha256(p) != h:
+        bad.append(rel)
+assert not bad, f'dataset files differ from MANIFEST.json: {bad}'
+print('V4CODE', V4CODE, '\nV4MOD', V4MOD, '\nV3CODE', V3CODE, '\nPOOL', POOL_DIR, '\nPC', PC_DIR, '\nCOMP', COMP)
+print(f"{len(MAN['files'])} files match MANIFEST.json; families {MAN['families']}", f'{time.time()-T0:.0f}s')
+
+# ======== CELL ========
+
+# SMOKE switch: commits (dummy test) run 12 molecules; the scoring rerun (hidden test) runs everything.
+import pandas as pd, hashlib
+_te = pd.read_parquet(os.path.join(COMP, 'test.parquet'), columns=['molecule_id', 'spectrum_id'])
+_sig = hashlib.md5(','.join(sorted(_te.spectrum_id.astype(str))).encode()).hexdigest()
+IS_RERUN = bool(os.getenv('KAGGLE_IS_COMPETITION_RERUN')) or _sig != '654e030e4173780e945252b4a5adf70b'
+SMOKE_N = 12
+if not IS_RERUN:
+    SM = '/kaggle/working/smoke_comp'; os.makedirs(SM, exist_ok=True)
+    _full = pd.read_parquet(os.path.join(COMP, 'test.parquet'))
+    _keep = sorted(_full.molecule_id.unique())[:SMOKE_N]
+    _full[_full.molecule_id.isin(_keep)].to_parquet(os.path.join(SM, 'test.parquet'))
+    for _f in ['train.parquet', 'sample_submission.csv']:
+        if not os.path.exists(os.path.join(SM, _f)):
+            os.symlink(os.path.join(COMP, _f), os.path.join(SM, _f))
+    COMP = SM
+    ICE_BUDGET = 300
+print('RERUN', IS_RERUN, '| sig', _sig, '| COMP', COMP, '| ICE_BUDGET', ICE_BUDGET)
+
+# ======== CELL ========
+
+# Our engine (two-ranker + BIO + AFIX) in a subprocess, then weighted reciprocal-rank fusion with the v4g lists.
+ENG_DIR = '/kaggle/working/eng'; os.makedirs(ENG_DIR, exist_ok=True)
+ENG_FILES = {'pv.py': '"""prvsiyan analog-propagation pipeline components (public notebook, version of 2026-09-16), copi  # <<EMBEDDED, see ref/>>
+for _n, _src in ENG_FILES.items():
+    open(os.path.join(ENG_DIR, _n), 'w').write(_src)
+open(os.path.join(ENG_DIR, 'eng_runner.py'), 'w').write('"""Our engine (two-ranker, BIO + AFIX) -> {molecule_id: {smiles  # <<EMBEDDED, see ref/>>
+ENG = {}
+try:
+    _t0 = time.time()
+    rr = subprocess.run([sys.executable, os.path.join(ENG_DIR, 'eng_runner.py'), os.path.join(COMP, 'test.parquet'),
+                         os.path.join(COMP, 'train.parquet'), os.path.join(COMP, 'sample_submission.csv'),
+                         '/kaggle/working/eng_lists.json'], capture_output=True, text=True, timeout=4 * 3600, cwd=ENG_DIR)
+    print(rr.stdout[-3000:]); print(rr.stderr[-3000:])
+    ENG = json.load(open('/kaggle/working/eng_lists.json'))
+    print('engine lists', len(ENG), f'{time.time()-_t0:.0f}s')
+except Exception as e:
+    print('ENGINE FAILED -> v4g lists kept:', repr(e))
+
+# ======== CELL ========
+
+# PubChem-only channel in its own process (S1 code snapshot + FPNet A+B of casmi26-v3-models) -- identical to v3.6
+CORE = '"""P_pubchem probe core (lever 3). Embedded verbatim into the Kaggle notebook (written to /kaggle/working and im  # <<EMBEDDED, see ref/>>
+RUNNER = '"""PubChem-only channel for the final submission (runs in its own process so its casmi package\n(S1 snapshot,   # <<EMBEDDED, see ref/>>
+open('/kaggle/working/probe_core2.py', 'w').write(CORE)
+open('/kaggle/working/pc_runner.py', 'w').write(RUNNER)
+PC = {}
+try:
+    rr = subprocess.run([sys.executable, '/kaggle/working/pc_runner.py', V3CODE, V3MOD, POOL_DIR, PC_DIR,
+                         os.path.join(COMP, 'test.parquet'), '/kaggle/working/pc_lists.json', '4'],
+                        capture_output=True, text=True, timeout=4 * 3600)
+    print(rr.stdout[-3000:]); print(rr.stderr[-3000:])
+    PC = json.load(open('/kaggle/working/pc_lists.json'))
+except Exception as e:
+    print('PUBCHEM CHANNEL FAILED -> base lists only:', repr(e))
+print('pubchem lists', len(PC), f'{time.time()-T0:.0f}s')
+
+# ======== CELL ========
+
+# v1 engine code (the 0.358 model's engine) + fe_v4; pool symlinks; spectrum cache from train.parquet
+sys.path.insert(0, V4CODE)
+os.makedirs('work', exist_ok=True)
+for f in ['pool_meta.parquet', 'pool_fp.npy', 'pool_frag_off.npy', 'pool_frag_mass.npy', 'fp_bits.npy', 'train_structs.parquet', 'train_fp_sel.npy']:
+    src = os.path.join(POOL_DIR, f)
+    dst = f'work/{f}'
+    if not os.path.exists(dst):
+        os.symlink(src, dst)
+from casmi.build import build_spec_cache
+build_spec_cache(os.path.join(COMP, 'train.parquet'), 'work')
+import casmi; print('casmi from', casmi.__file__)
+sys.path.insert(1, os.path.join(V4CODE, 'fe_v4'))
+print(f'cache built {time.time()-T0:.0f}s')
+
+# ======== CELL ========
+
+# v1 engine exactly as in v3.6 (FPNet A, EngineCfg(generate=True)) wrapped by V1FE (recording hooks + families)
+import numpy as np, pandas as pd, torch, lightgbm as lgb
+from casmi.library import Library
+from casmi.pool import Pool
+from casmi.engine import Engine, EngineCfg, FEATURES
+from casmi import fpnet, chem
+import v1engine
+dev = 'cuda' if torch.cuda.is_available() else 'cpu'
+L = Library('work'); P = Pool('work')
+tfp = np.load('work/train_fp_sel.npy')
+_FULL = glob.glob('/kaggle/input/**/casmi26-fpnet-full1/**/fpnet_full1.pt', recursive=True)   # v4m
+bank = fpnet.ModelBank([_FULL[0] if _FULL else os.path.join(V4MOD, 'fpnet_0.pt')], device=dev)
+print('engine FP bank:', _FULL[0] if _FULL else 'fpnet_0 (A) FALLBACK', flush=True)
+E = Engine(L, P, tfp, EngineCfg(generate=True), bank)
+V = v1engine.V1FE(E, [os.path.join(V4MOD, m['file']) for m in MAN['fe_models']], MAN['families'], device=dev)
+if 'derivation' in MAN['families']:
+    n_bad = V.mods['derivation'].self_test()
+    print('derivation prior self-test mismatches:', n_bad)
+    assert n_bad == 0, 'RDKit build differs from the one the derivation priors were built with'
+RK = pickle.load(open(os.path.join(V4MOD, MAN['ranker']['file']), 'rb'))
+RK_FEATS = list(RK['features']); RK_B = [lgb.Booster(model_str=s) for s in RK['boosters']]
+def rank_score(X, names):
+    pos = {n: i for i, n in enumerate(names)}
+    miss = [f for f in RK_FEATS if f not in pos]
+    assert not miss, f'ranker features not produced (would be zero-filled): {miss}'
+    Xs = np.ascontiguousarray(X[:, [pos[f] for f in RK_FEATS]], dtype=np.float32)
+    return np.mean([b.predict(Xs, num_threads=4) for b in RK_B], axis=0)
+print('engine ready; ranker features', len(RK_FEATS), 'boosters', len(RK_B), f'{time.time()-T0:.0f}s')
+
+# ======== CELL ========
+
+# all molecules -> base lists (v3.6 spectra construction and ordering)
+te = pd.read_parquet(os.path.join(COMP, 'test.parquet'))
+te['nm'] = chem.neutral_mass(te.precursor_mz.values.astype(np.float64), te.adduct.values)
+mols = list(te.groupby('molecule_id', sort=False))
+BASE, n_err = {}, 0
+for gi, (mid, sub) in enumerate(mols):
+    nms = sub.nm.values[np.isfinite(sub.nm.values)]
+    smis, keys, lib_max, scs, forms = [], [], 0.0, [], []
+    if len(nms):
+        target = float(np.median(nms))
+        spectra = []
+        for r in sub.itertuples():
+            ce = r.collision_energy_ev
+            ce_arr = np.atleast_1d(np.asarray(ce, dtype=float)) if ce is not None else np.zeros(0)
+            spectra.append(dict(mz=np.asarray(r.ms2_mzs, np.float64), it=np.asarray(r.ms2_normalized_intensities, np.float64),
+                                mode=1 if r.ionization_mode == 'positive' else -1, adduct=r.adduct,
+                                prec=float(r.precursor_mz), ce=float(ce_arr.mean()) if len(ce_arr) else np.nan,
+                                ce_n=int(len(ce_arr)) if len(ce_arr) else 1))
+        try:
+            C, X, F, names, info = V.run(spectra, target)
+            lib_max = float(info.get('lib_max', 0.0))
+            if len(C.pid):
+                score = rank_score(np.concatenate([X, F], 1), list(FEATURES) + list(names))
+                order = np.argsort(-score, kind='stable')
+                seen = set()
+                for i in order:
+                    k = C.key[i]
+                    if k in seen: continue
+                    seen.add(k); smis.append(C.smiles[i]); keys.append(k); scs.append(float(score[i])); forms.append(C.formula[i])
+                    if len(smis) >= TOPN: break
+        except Exception as e:
+            print('ERROR', mid, repr(e)); n_err += 1
+    BASE[mid] = (smis, keys, lib_max, scs, forms)
+    if (gi + 1) % 25 == 0 or gi == len(mols) - 1:
+        print(f'  {gi+1}/{len(mols)} molecules {time.time()-T0:.0f}s', flush=True)
+print('errors', n_err)
+
+# ======== CELL ========
+
+# ICEBERG post-ranker isomer re-scoring (casmi26-iceberg). Optional: any failure keeps the ranker order.
+import gc
+ICE_SCORES, ice_stats = {}, dict(molecules=0, changed_top25=0, changed_top1=0)
+try:
+    ICE_PKG = os.path.dirname(find('casmi26-iceberg/**/ice_runner.py'))
+    sys.path.append(ICE_PKG)
+    import fuse as ice_fuse
+    del V, E, bank; gc.collect(); torch.cuda.empty_cache()
+    # priority: molecules without a library-level match first (class 1 rarely changes), then the rest
+    mids = sorted(BASE, key=lambda m: BASE[m][2])
+    cands = {m: ice_fuse.ice_candidates(BASE[m][0], BASE[m][4], TOPN) for m in mids}
+    if ENG:                              # ADDED (ICE_UNION): also score our engine's candidates (same-formula groups
+        from rdkit.Chem.rdMolDescriptors import CalcMolFormula as _CMF   # formed over the v4g top-N + engine top-40)
+        from rdkit import Chem as _Ch
+        def _f2(s):
+            try:
+                return _CMF(_Ch.MolFromSmiles(s))
+            except Exception:
+                return s
+        n_add = 0
+        for m in mids:
+            e = ENG.get(str(m))
+            if not e or not e.get('smiles'):
+                continue
+            bs, bk, bf = list(BASE[m][0][:TOPN]), set(BASE[m][1][:TOPN]), list(BASE[m][4][:TOPN])
+            es = [s for s, k in zip(e['smiles'][:40], e['keys'][:40]) if k not in bk]
+            ef = [_f2(s) for s in es]
+            extra = ice_fuse.ice_candidates(bs + es, bf + ef, len(bs) + len(es))
+            before = len(cands.get(m, []))
+            cands[m] = list(dict.fromkeys(list(cands.get(m, [])) + extra))
+            n_add += len(cands[m]) - before
+        print('ICE_UNION: engine candidates added to ICE input:', n_add, flush=True)
+    if ICE_PC:                          # also the PubChem-only list of molecules the v3.6 gate may use (lib_max < LIB_TAU)
+        from rdkit.Chem.rdMolDescriptors import CalcMolFormula
+        from rdkit import Chem as _Chem
+        def _form(s):
+            try:
+                return CalcMolFormula(_Chem.MolFromSmiles(s))
+            except Exception:
+                return s
+        for m in mids:
+            p = PC.get(m) if isinstance(PC, dict) else None
+            if p and p.get('pc') and BASE[m][2] < LIB_TAU:
+                p['pc_form'] = [_form(x) for x in p['pc']]
+                extra = ice_fuse.ice_candidates(p['pc'], p['pc_form'], 25)
+                cands[m] = list(dict.fromkeys(list(cands.get(m, [])) + extra))
+    cands = {m: c for m, c in cands.items() if c}
+    items = ice_fuse.build_ice_input(te, cands)
+    print('ICE input molecules', len(items), 'candidates', sum(len(it['cands']) for it in items), f'{time.time()-T0:.0f}s', flush=True)
+    ICE_SCORES = ice_fuse.run_ice(ICE_PKG, items, workdir='/kaggle/working/ice_work', device='cuda', budget_s=ICE_BUDGET,
+                                  site='/kaggle/working/ice_site')
+    meta_f = '/kaggle/working/ice_work/ice_out.json.meta.json'
+    if os.path.exists(meta_f):
+        print('ICE meta', open(meta_f).read()[:1500])
+except Exception as e:
+    print('ICE FAILED -> ranker order kept:', repr(e))
+# v4h: GLACIER third re-scoring term (casmi26-glacier) on the SAME runner input; any GLACIER failure -> v4g (ICE only)
+GL_SCORES, gl_stats, GL_LAM, GL_BUDGET = {}, dict(molecules=0, changed_vs_ice_top25=0, changed_vs_ice_top1=0), 1.0, 4000
+try:
+    GL_PKG = os.path.dirname(find('casmi26-glacier/**/gl_runner.py'))
+    sys.path.append(GL_PKG)
+    import gl_fuse
+    gc.collect(); torch.cuda.empty_cache()   # ICE ran in its own (finished) process; free the notebook's cached GPU memory
+    GL_SCORES = gl_fuse.run_gl(GL_PKG, items, workdir='/kaggle/working/gl_work', device='cuda', budget_s=GL_BUDGET,
+                               site='/kaggle/working/ice_site', wheels=os.path.join(ICE_PKG, 'wheels'))
+    meta_f = '/kaggle/working/gl_work/gl_out.json.meta.json'
+    print('GL meta', open(meta_f).read()[:1500] if os.path.exists(meta_f) else 'missing')
+except Exception as e:
+    GL_SCORES = {}
+    print('GL FAILED -> v4g behaviour (ICE only):', repr(e))
+def gl_of(m):
+    g = GL_SCORES.get(str(m), {}) if isinstance(GL_SCORES, dict) else {}
+    return g if isinstance(g, dict) and any(v is not None for v in g.values()) else {}
+def gl_rerank(order0, smis, keys, scs, forms, ice, gl, top_n, tag=''):
+    # z(scs) + ICE_LAM z(ice) + GL_LAM z(gl) in the same slots; no GL scores / any failure -> order0 (= v4g order)
+    if not gl:
+        return order0
+    try:
+        o = gl_fuse.rerank_multi(smis, keys, scs, forms, [ice, gl], [ICE_LAM, GL_LAM], top_n=top_n)
+    except Exception as e:
+        print('gl rerank failed', tag, repr(e)); return order0
+    for k, v in (('molecules', 1), ('changed_vs_ice_top25', int(o[:25] != order0[:25])), ('changed_vs_ice_top1', int(o[:1] != order0[:1]))):
+        gl_stats[tag + k] = gl_stats.get(tag + k, 0) + v
+    return o
+for m in list(BASE):
+    smis, keys, lib_max, scs, forms = BASE[m]
+    ice = ICE_SCORES.get(str(m), {}) if ICE_SCORES else {}
+    gl = gl_of(m)
+    if ice and any(v is not None for v in ice.values()):
+        try:
+            order = ice_fuse.rerank(smis, keys, scs, forms, ice, lam=ICE_LAM, top_n=TOPN)
+            order = gl_rerank(order, smis, keys, scs, forms, ice, gl, TOPN)
+            s2 = [smis[i] for i in order]; k2 = [keys[i] for i in order]
+            ice_stats['molecules'] += 1
+            ice_stats['changed_top25'] += int(s2[:25] != smis[:25]); ice_stats['changed_top1'] += int(bool(s2) and s2[0] != smis[0])
+            smis, keys = s2, k2
+        except Exception as e:
+            print('rerank failed', m, repr(e))
+    BASE[m] = (smis[:25], keys[:25], lib_max)
+    p = PC.get(m) if (ICE_PC and isinstance(PC, dict)) else None
+    if p and p.get('pc_form') and ice:
+        try:                             # re-order the PubChem list by z(f.z) + lam z(ice) inside same-formula groups;
+            o = ice_fuse.rerank(p['pc'], p['pc_keys'], p['pc_fz'], p['pc_form'], ice, lam=ICE_LAM, top_n=25)
+            o = gl_rerank(o, p['pc'], p['pc_keys'], p['pc_fz'], p['pc_form'], ice, gl, 25, 'pc_')
+            fz0 = p['pc_fz'][0]          # the gate keeps using the ORIGINAL top f.z (rel), so gate decisions are unchanged
+            p['pc'] = [p['pc'][i] for i in o]; p['pc_keys'] = [p['pc_keys'][i] for i in o]
+            p['pc_fz'] = [fz0] + [p['pc_fz'][i] for i in o][1:]
+            ice_stats['pc_changed'] = ice_stats.get('pc_changed', 0) + int(o[:1] != [0])
+        except Exception as e:
+            print('pc rerank failed', m, repr(e))
+print('ICE rerank stats', ice_stats, f'{time.time()-T0:.0f}s')
+print('GL rerank stats', gl_stats, f'{time.time()-T0:.0f}s')
+
+# ======== CELL ========
+
+# gated PubChem merge (v3.6, unchanged) -> submission.csv
+def merge(base, base_keys, pc, pc_keys, slots, n=25):
+    bk = set(base_keys)
+    pcs = [s for s, k in zip(pc, pc_keys) if k not in bk]
+    out, bi, pj = [], 0, 0
+    for pos in range(1, n + 1):
+        if pos in slots and pj < len(pcs):
+            out.append(pcs[pj]); pj += 1
+        elif bi < len(base):
+            out.append(base[bi]); bi += 1
+        elif pj < len(pcs):
+            out.append(pcs[pj]); pj += 1
+    return out
+rows, stats = [], dict(untouched=0, gentle=0, aggressive=0, no_pc=0)
+for mid in te.molecule_id.unique():
+    smis, keys, lib_max = BASE.get(mid, ([], [], 0.0))
+    p = PC.get(mid)
+    if p is None or not p['pc']:
+        stats['no_pc'] += 1; final = smis
+    elif lib_max >= LIB_TAU:
+        stats['untouched'] += 1; final = smis
+    else:
+        rel = p['pc_fz'][0] - p['best_pool_fz'] if np.isfinite(p['best_pool_fz']) else 1e9
+        slots = SLOTS_AGG if rel > REL_TH else SLOTS_GENTLE
+        stats['aggressive' if rel > REL_TH else 'gentle'] += 1
+        final = merge(smis, keys, p['pc'], p['pc_keys'], slots)
+    if not final: final = ['CCO']
+    rows.append((mid, ';'.join(final[:25])))
+print('merge stats', stats)
+sub = pd.DataFrame(rows, columns=['molecule_id', 'smiles'])
+samp = pd.read_csv(os.path.join(COMP, 'sample_submission.csv'))
+sub = samp[['molecule_id']].merge(sub, on='molecule_id', how='left')
+sub['smiles'] = sub['smiles'].fillna('CCO')
+assert len(sub) == len(samp) and sub.molecule_id.is_unique and sub.smiles.notna().all()
+assert sub.smiles.map(lambda s: len(s.split(';'))).max() <= 25
+sub.to_csv('submission.csv', index=False)
+json.dump(dict(secs=round(time.time() - T0), merge=stats, n_errors=n_err, families=MAN['families'],
+               gpu=torch.cuda.get_device_name(0) if dev == 'cuda' else None), open('run_manifest.json', 'w'), indent=1)
+print('done', sub.shape, f'{time.time()-T0:.0f}s')
+sub.head()
+
+# ======== CELL ========
+
+ALPHA, KRR = 0.6, 3.0
+from rdkit.Chem.rdMolDescriptors import CalcMolFormula as _CMF2
+from rdkit import Chem as _Ch2
+def _form2(s):
+    try:
+        return _CMF2(_Ch2.MolFromSmiles(s))
+    except Exception:
+        return s
+def fuse2(v_smis, e_smis, e_keys, n=40):
+    sc, smi_of = {}, {}
+    for r, s in enumerate(v_smis, 1):
+        k = chem.score_key(s) or s
+        sc[k] = sc.get(k, 0.0) + 1.0 / (KRR + r); smi_of.setdefault(k, s)
+    for r, (s, k) in enumerate(zip(e_smis, e_keys), 1):
+        if not k:
+            continue
+        sc[k] = sc.get(k, 0.0) + ALPHA / (KRR + r); smi_of.setdefault(k, s)
+    order = sorted(sc, key=lambda k: -sc[k])[:n]
+    return [smi_of[k] for k in order], order, [sc[k] for k in order]
+
+if ENG:
+    v4 = pd.read_csv('submission.csv')
+    changed = n_ice = 0; out = []
+    for mid, s in zip(v4.molecule_id, v4.smiles):
+        vs = [x for x in s.split(';') if x and x != 'CCO']
+        e = ENG.get(str(mid))
+        if e and e['smiles']:
+            fsm, fk, fsc = fuse2(vs, e['smiles'], e['keys'])
+            ice = ICE_SCORES.get(str(mid), {}) if isinstance(ICE_SCORES, dict) else {}
+            if ice:
+                try:
+                    o = ice_fuse.rerank(fsm, fk, fsc, [_form2(x) for x in fsm], ice, lam=ICE_LAM, top_n=len(fsm))
+                    _g = gl_of(mid)
+                    if _g:
+                        o = gl_fuse.rerank_multi(fsm, fk, fsc, [_form2(x) for x in fsm], [ice, _g], [ICE_LAM, GL_LAM], top_n=len(fsm))
+                    n_ice += int(o[:25] != list(range(min(25, len(o)))))
+                    fsm = [fsm[i] for i in o]
+                except Exception as ex:
+                    print('fused ICE rerank failed', mid, repr(ex))
+            changed += int(bool(vs) and fsm[:1] != vs[:1])
+            vs = fsm[:25]
+        out.append((mid, ';'.join(vs[:25]) if vs else 'CCO'))
+    fs = pd.DataFrame(out, columns=['molecule_id', 'smiles'])
+    assert len(fs) == len(v4) and fs.molecule_id.is_unique and fs.smiles.notna().all()
+    assert fs.smiles.map(lambda s: len(s.split(';'))).max() <= 25
+    fs.to_csv('submission.csv', index=False)
+    print('fused (+ICE) submission written; top-1 changed in', changed, '| ICE reordered', n_ice, f'{time.time()-T0:.0f}s')

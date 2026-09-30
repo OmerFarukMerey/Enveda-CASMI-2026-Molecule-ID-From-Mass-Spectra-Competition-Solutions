@@ -1,0 +1,53 @@
+{
+  "name": "fusion-v4n",
+  "owner": "Hemre",
+  "status": "built-offline-not-yet-run-on-kaggle",
+  "summary": "Public 0.399 pipeline (v1 engine + prvsiyan engine-2 + gated PubChem channel + ICEBERG/GLACIER isomer re-scoring + RRF fusion), config-driven with stage dumps and a tested fusion core.",
+  "based_on": {
+    "notebook": "https://www.kaggle.com/code/seyitkaangunes/casmi26-v4n-engine-fusion-union-lb-0-399",
+    "version": 1,
+    "public_lb": 0.399,
+    "license": "Apache-2.0",
+    "snapshot": "reference/v4n/"
+  },
+  "entrypoints": {
+    "config": "nb/00_config.py",
+    "cells": "nb/[0-9][0-9]_*.py",
+    "runtime_modules": "nb/embed/",
+    "fusion": "nb/embed/fusion_core.py",
+    "build": "python solutions/fusion-v4n/tools/build_notebook.py [--slug S] [--set KEY=JSON ...]",
+    "push": "kaggle kernels push -p solutions/fusion-v4n/kaggle",
+    "download": "python solutions/fusion-v4n/tools/download_data.py [--all | owner/slug ... | --run user/kernel --name N]",
+    "refuse": "python solutions/fusion-v4n/tools/refuse.py solutions/fusion-v4n/runs/<name> [--set K=V] [--grid K=v1,v2]",
+    "metric": "python solutions/fusion-v4n/tools/metric.py <solution.csv> <submission.csv>",
+    "test": "python solutions/fusion-v4n/tests/test_fusion_equivalence.py"
+  },
+  "kaggle": {
+    "kernel_slug": "casmi26-ours",
+    "competition": "enveda-CASMI26-molecule-id-mass-spectra",
+    "accelerator": "NvidiaTeslaT4",
+    "internet": false,
+    "datasets": [
+      "prvsiyan/casmi26-fp-models-v2",
+      "prvsiyan/casmi26-ranker-features",
+      "megayak/casmi26-simulated-ranker-rows",
+      "ahmedberatozer/casmi26-fpnet-full1",
+      "ahmedberatozer/casmi26-glacier",
+      "ahmedberatozer/casmi26-iceberg",
+      "ahmedberatozer/casmi26-pubchem-tier",
+      "ahmedberatozer/casmi26-v2-pool",
+      "ahmedberatozer/casmi26-v3-models",
+      "ahmedberatozer/casmi26-v4b-models",
+      "prvsiyan/chebi-lipidmaps-casmi26",
+      "prvsiyan/coconut-casmi26-candidates",
+      "metric/rdkit-2026-3-3-wheel"
+    ]
+  },
+  "stage_cache": ["cfg", "eng", "pc", "base", "ice", "gl", "meta"],
+  "best_lb": null,
+  "provenance": [
+    "ICEBERG 2.1 and GLACIER: ms-pred MassSpecGym checkpoints (MIT), packaged by ahmedberatozer",
+    "FPNet, rankers, candidate pools: public Kaggle datasets trained on train.parquet (allowed per host, discussion 742265)",
+    "No NIST-derived artefact known"
+  ]
+}

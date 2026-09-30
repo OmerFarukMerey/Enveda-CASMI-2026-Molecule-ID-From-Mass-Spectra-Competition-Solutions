@@ -1,0 +1,21 @@
+<!-- index: dated public leaderboard snapshots -->
+# Public leaderboard snapshots
+
+Public LB ≈ 33% of the hidden test; the final uses the other 67%.
+
+## 2026-09-30 (~1,890 teams)
+| # | Team | Score |
+|---|---|---|
+| 1 | pikachu | 0.464 |
+| 2 | Randy | 0.435 |
+| 3 | Ozymandias31415 | 0.425 |
+| 4 | chopper | 0.421 |
+| 5 | Udam Liyanage | 0.414 |
+| 6 | Shehab Alshehabi | 0.411 |
+| 7 | Komil Parmar | 0.409 |
+| 8–9 | Naoism, Bertan Sezgin | 0.403 |
+| 10 | Nicolas Krusche | 0.402 |
+| 13–15 | Andy1713, Seyit kaan Gunes, VyasG1 | 0.399 |
+
+The best public notebook is 0.399. A cluster of teams sits at 0.399–0.40, so the 0.40–0.46 range is private work.
+İlker's research branch scored 0.193 (median team ≈ 0.312).
