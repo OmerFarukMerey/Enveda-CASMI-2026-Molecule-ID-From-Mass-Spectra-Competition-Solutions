@@ -12,4 +12,6 @@ json.dump(dict(version=CFG['VERSION'], secs=round(time.time() - T0), stats=FSTAT
           open(os.path.join(WORK, 'run_manifest.json'), 'w'), indent=1)
 log('fusion stats', FSTATS)
 log('done', sub.shape)
+# the ICE/GLACIER wheel site holds thousands of files: drop it so the version's output stays small to list/download
+import shutil; shutil.rmtree(os.path.join(WORK, 'ice_site'), ignore_errors=True)
 sub.head()

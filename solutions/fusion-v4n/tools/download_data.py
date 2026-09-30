@@ -53,7 +53,8 @@ def get_run(a, kernel, name):
     d = os.path.join(RUNS, name or kernel.split('/')[-1])
     os.makedirs(d, exist_ok=True)
     print('downloading output of', kernel, '->', d, flush=True)
-    a.kernels_output(kernel, path=d)
+    # page_size 200 (max): a run can leave thousands of output files and the default 20 hits the API rate limit
+    a.kernels_output(kernel, path=d, page_size=200)
 
 
 if __name__ == '__main__':
