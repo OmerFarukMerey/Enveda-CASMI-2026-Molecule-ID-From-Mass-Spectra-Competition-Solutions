@@ -1,7 +1,7 @@
 {
   "name": "fusion-v4n",
   "owner": "Hemre",
-  "status": "built-offline-not-yet-run-on-kaggle",
+  "status": "baseline-reproduced",
   "summary": "Public 0.399 pipeline (v1 engine + prvsiyan engine-2 + gated PubChem channel + ICEBERG/GLACIER isomer re-scoring + RRF fusion), config-driven with stage dumps and a tested fusion core.",
   "based_on": {
     "notebook": "https://www.kaggle.com/code/seyitkaangunes/casmi26-v4n-engine-fusion-union-lb-0-399",
@@ -54,7 +54,12 @@
     "gl",
     "meta"
   ],
-  "best_lb": null,
+  "best_lb": {
+    "public": 0.399,
+    "date": "2026-09-30",
+    "kaggle": "huseyinemreaksoy/notebook095c91ef58 v3",
+    "submission_id": 56711243
+  },
   "provenance": [
     "ICEBERG 2.1 and GLACIER: ms-pred MassSpecGym checkpoints (MIT), packaged by ahmedberatozer",
     "FPNet, rankers, candidate pools: public Kaggle datasets trained on train.parquet (allowed per host, discussion 742265)",

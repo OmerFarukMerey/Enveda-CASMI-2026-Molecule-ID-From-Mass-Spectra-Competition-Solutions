@@ -18,4 +18,4 @@ Public LB ≈ 33% of the hidden test; the final uses the other 67%.
 | 13–15 | Andy1713, Seyit kaan Gunes, VyasG1 | 0.399 |
 
 The best public notebook is 0.399. A cluster of teams sits at 0.399–0.40, so the 0.40–0.46 range is private work.
-İlker's research branch scored 0.193 (median team ≈ 0.312).
+Our team: fusion-v4n **0.399** (reproduced baseline); İlker's research branch best 0.260 (median team ≈ 0.312).

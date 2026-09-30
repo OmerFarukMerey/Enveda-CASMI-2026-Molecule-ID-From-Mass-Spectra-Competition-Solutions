@@ -1,7 +1,7 @@
 <!-- index: fusion-v4n: pipeline stages, what is the same as and different from the 0.399 reference, how to run -->
 # fusion-v4n: public 0.399 pipeline, restructured for iteration
 
-Owner: Hemre · Status: built and tested offline, **not yet run on Kaggle** · Baseline:
+Owner: Hemre · Status: **public LB 0.399 (2026-09-30), identical to the reference** · Baseline:
 [CASMI26 | v4n + Engine Fusion + Union [LB 0.399]](https://www.kaggle.com/code/seyitkaangunes/casmi26-v4n-engine-fusion-union-lb-0-399)
 
 The default `CFG` reproduces the reference step for step. Every improvement goes in as a config knob or a flagged stage, so
@@ -40,8 +40,7 @@ engine-2`); the stage order; smoke / rerun detection (same test signature); the 
 | `assert rdkit == 2026.03.3` in setup (reference only prints) | fail fast instead of silently mismatched keys |
 | `run_manifest.json` records version, CFG and stage stats | trace every LB row back to its config |
 
-**Not verified yet:** cells 01–07 are the reference cells rearranged, but the whole notebook has not run on Kaggle.
-P0 in [../../docs/plan/roadmap.md](../../docs/plan/roadmap.md) does that.
+**Verified on Kaggle:** commit runs pass every stage (12-molecule smoke: 0.958 local, all exact library hits), and the hidden-test submission scored **0.399**, the same as the reference.
 
 ## Run
 

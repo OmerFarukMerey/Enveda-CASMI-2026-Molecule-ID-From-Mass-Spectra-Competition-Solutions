@@ -21,7 +21,7 @@ so any holdout drawn from train is leaked for the pipeline as a whole. Pipeline-
 component changes on leak-free panels.
 
 ## Phases
-### P0: prove the trigger (today)
+### P0: prove the trigger: DONE 2026-09-30, LB 0.399 (identical to the reference)
 1. Accept the rules, `kaggle auth login`, download data (`tools/download_data.py`).
 2. `build_notebook.py` → `kaggle kernels push` → the commit run passes (12 molecules).
 3. Submit → expect ≈0.399 ± 0.01. Log it in [../experiments.md](../experiments.md).
