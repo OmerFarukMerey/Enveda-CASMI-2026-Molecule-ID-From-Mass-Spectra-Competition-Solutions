@@ -86,6 +86,10 @@ The [retrieval baseline](STAGE_B_REPORT.md) (exact adduct, 20 ppm precursor gate
 
 The [catalog study](STAGE_C_REPORT.md) indexed PubChem 2026-09-27: 112.8 million single-component structures, annotated with COCONUT membership and PubMed link counts. On the 5,200-query structure holdout, 81.5% of answers are in PubChem and **73.8% fall inside a ±10 ppm neutral-mass window**. A window holds a median of 5,510 distinct structures, and ranking without spectra (COCONUT first, then literature count) reaches **MRR@25 0.157, recall@25 0.353**. Per the diagnostic rule (reachable but poorly ranked), **next is Stage D**: spectrum-based reranking of catalog candidates, preceded by a license/offline audit of fragmentation and spectrum-to-fingerprint options. 956 GNPS answers are absent from every PubChem record and serve as a class-3-like subset for Stage E.
 
+### Early Stage F: first submission
+
+The [first submission](STAGE_F_REPORT.md) runs the Stage B library search and the Stage C catalog as one offline Notebook. The Kaggle image has no RDKit, so inference identifies structures by standard InChIKey. It scored **0.193 on the public leaderboard**; the same-day median team was 0.312 and the top 0.464. On our proxies the same pipeline gives MRR@25 0.911 (class 1) and 0.145 (structure holdout). **Next:** explain the gap before Stage D reranking. Measure library cosines on test-like timsTOF spectra and the effect of the 0.7 fusion threshold; test training structures as a candidate source; identify the approach behind the ~0.31 leaderboard cluster from public notebooks, respecting their licenses.
+
 ### Sources
 
 - [Competition overview, evaluation, submission and timeline](https://www.kaggle.com/competitions/enveda-CASMI26-molecule-id-mass-spectra/overview)

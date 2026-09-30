@@ -12,14 +12,11 @@ query spectrum, which is closer to the library available at inference.
 from __future__ import annotations
 
 import argparse
-from bisect import bisect_left, bisect_right
 from collections import defaultdict
 import json
-from math import isfinite, nextafter
 from pathlib import Path
 import sys
 from time import perf_counter
-from typing import Iterator
 
 import numpy as np
 import pyarrow.parquet as pq
@@ -32,70 +29,20 @@ from scripts.build_validation import (
     check_manifest, class1_library_filter, peak_fingerprint, reference_filter,
 )
 from src.metric import canonicalize_smiles_to_ik14, evaluate
+from src.library_search import (
+    BATCH_SIZE, METADATA_COLUMNS, SPECTRUM_COLUMNS, gate_references, positive_float, selected_rows,
+)
 from src.spectral_search import PreparedSpectrum, prepare_spectrum, spectral_cosine
 
 
-METADATA_COLUMNS = ["ingest_lib", "inchikey14", "adduct", "precursor_mz"]
-SPECTRUM_COLUMNS = ["normalized_smiles", "ms2_mzs", "ms2_normalized_intensities"]
-BATCH_SIZE = 8192
-PEAK_BATCH_SIZE = 128
 CLASS1_POLICIES = ("designated", "library")
 NEAR_IDENTICAL_COSINE = 0.99
 COSINE_QUANTILES = (0.1, 0.25, 0.5, 0.75, 0.9)
 
 
-def _positive_float(value: object) -> float | None:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        return None
-    try:
-        number = float(value)
-    except OverflowError:
-        return None
-    return number if isfinite(number) and number > 0 else None
-
-
 def _positive_int(value: int, label: str) -> None:
     if isinstance(value, bool) or not isinstance(value, int) or value < 1:
         raise ValueError(f"{label} must be a positive integer")
-
-
-def _selected_rows(
-    parquet: pq.ParquetFile, indices: set[int], *, smiles_only: bool = False
-) -> Iterator[tuple[int, str | None, list[float] | None, list[float] | None]]:
-    """Yield only selected rows, respecting row-group-relative batch offsets.
-
-    Arrow buffers contain at most one small batch. Only a selected row is
-    converted to Python; unselected peaks and SMILES are never retained.
-    """
-    wanted = sorted(indices)
-    position = 0
-    base = 0
-    for group in range(parquet.num_row_groups):
-        end = base + parquet.metadata.row_group(group).num_rows
-        if position == len(wanted) or wanted[position] >= end:
-            base = end
-            continue
-        offset = base
-        for batch in parquet.iter_batches(
-            row_groups=[group],
-            columns=SPECTRUM_COLUMNS[:1] if smiles_only else SPECTRUM_COLUMNS,
-            batch_size=PEAK_BATCH_SIZE, use_threads=False,
-        ):
-            batch_end = offset + batch.num_rows
-            while position < len(wanted) and wanted[position] < batch_end:
-                relative = wanted[position] - offset
-                if smiles_only:
-                    yield wanted[position], batch.column(0)[relative].as_py(), None, None
-                else:
-                    yield (wanted[position], batch.column(0)[relative].as_py(),
-                           batch.column(1)[relative].as_py(), batch.column(2)[relative].as_py())
-                position += 1
-            offset = batch_end
-            if position == len(wanted) or wanted[position] >= end:
-                break
-        base = end
-    if position != len(wanted):
-        raise ValueError("Selected row index outside parquet bounds")
 
 
 def _passes_gate(
@@ -135,9 +82,9 @@ def run(
 ) -> dict:
     """Score every adduct/precursor-gated reference against each class-1 query."""
     started = perf_counter()
-    if _positive_float(precursor_tolerance_ppm) is None:
+    if positive_float(precursor_tolerance_ppm) is None:
         raise ValueError("precursor_tolerance_ppm must be finite and positive")
-    if _positive_float(fragment_tolerance_da) is None:
+    if positive_float(fragment_tolerance_da) is None:
         raise ValueError("fragment_tolerance_da must be finite and positive")
     _positive_int(max_peaks, "max_peaks")
     _positive_int(max_rank, "max_rank")
@@ -199,7 +146,7 @@ def run(
                 raise ValueError(f"Manifest row {index} source or identity differs from training parquet")
             label = adduct[local].as_py()
             metadata = (label if isinstance(label, str) and label else None,
-                        _positive_float(mz[local].as_py()))
+                        positive_float(mz[local].as_py()))
             if index in query_rows:
                 query_metadata[index] = metadata
             if index in reference_rows:
@@ -209,13 +156,6 @@ def run(
         raise ValueError("Manifest rows missing from training parquet")
 
     fraction = precursor_tolerance_ppm / 1_000_000
-    by_adduct: dict[str, list[tuple[float, int]]] = defaultdict(list)
-    for index, (adduct, mz) in query_metadata.items():
-        if adduct is not None and mz is not None:
-            by_adduct[adduct].append((mz, index))
-    for queries in by_adduct.values():
-        queries.sort()
-    query_masses = {adduct: [mz for mz, _ in queries] for adduct, queries in by_adduct.items()}
     explicit_gated = sum(
         _passes_gate(
             query_metadata[pair["query"]["row_index"]],
@@ -225,52 +165,27 @@ def run(
         for pair in pairs
     )
 
-    # Second metadata pass retains only the row indices, sources and ppm errors
-    # of gated references. No candidate is truncated before scoring.
-    gated: dict[int, tuple[float, str | None, list[tuple[int, float]]]] = {}
-    eligible_count = excluded_holdout = gated_pairs = 0
+    # Second metadata pass (shared core) retains only the row indices, sources
+    # and ppm errors of gated references. No candidate is truncated before scoring.
     excluded_aliases = {
         alias for entry in manifest["structure_holdout"] for alias in entry["identity_aliases"]
     }
-    offset = 0
-    for batch in parquet.iter_batches(columns=METADATA_COLUMNS, batch_size=BATCH_SIZE, use_threads=False):
-        sources, supplied, adducts, masses = (batch.column(i) for i in range(4))
-        for local in range(batch.num_rows):
-            index = offset + local
-            supplied_key = supplied[local].as_py()
-            if supplied_key in excluded_aliases:
-                excluded_holdout += 1
-            if not allowed(index, supplied_key, sources[local].as_py()):
-                continue
-            eligible_count += 1
-            label = adducts[local].as_py()
-            queries = by_adduct.get(label) if isinstance(label, str) else None
-            mz = _positive_float(masses[local].as_py())
-            if not queries or mz is None:
-                continue
-            query_values = query_masses[label]
-            first = bisect_left(query_values, nextafter(mz / (1 + fraction), -float("inf")))
-            last = (
-                bisect_right(query_values, nextafter(mz / (1 - fraction), float("inf")))
-                if fraction < 1 else len(queries)
-            )
-            matches = [
-                (query_index, abs(mz - query_mz) / query_mz * 1_000_000)
-                for query_mz, query_index in queries[first:last]
-                if abs(mz - query_mz) <= fraction * query_mz
-            ]
-            if matches:
-                gated[index] = mz, sources[local].as_py(), matches
-                gated_pairs += len(matches)
-        offset += batch.num_rows
-    if offset != info["rows"]:
-        raise ValueError("Training parquet changed during evaluation")
+    excluded_holdout = 0
+
+    def counted(index: int, supplied: str | None, source: str | None) -> bool:
+        nonlocal excluded_holdout
+        if supplied in excluded_aliases:
+            excluded_holdout += 1
+        return allowed(index, supplied, source)
+
+    gated, eligible_count = gate_references(parquet, query_metadata, counted, precursor_tolerance_ppm)
+    gated_pairs = sum(len(reference.matches) for reference in gated.values())
 
     # Verify every manifest identity against official chemistry, including
     # holdout queries and references that never pass the precursor gate. Their
     # SMILES are selected without loading any unneeded peak column.
     unchecked = set(expected_rows) - set(query_rows) - set(gated)
-    for index, smiles, _, _ in _selected_rows(parquet, unchecked, smiles_only=True):
+    for index, (smiles,) in selected_rows(parquet, unchecked, SPECTRUM_COLUMNS[:1]):
         key = canonicalize_smiles_to_ik14(smiles) if isinstance(smiles, str) else None
         if key != expected_rows[index]["canonical_inchikey14"]:
             raise ValueError(f"Manifest row {index} canonical identity differs from parquet")
@@ -280,7 +195,7 @@ def run(
     query_spectra: dict[int, PreparedSpectrum] = {}
     query_fingerprints: dict[int, bytes | None] = {}
     solutions: dict[str, str] = {}
-    for index, smiles, mzs, intensities in _selected_rows(parquet, set(query_rows)):
+    for index, (smiles, mzs, intensities) in selected_rows(parquet, set(query_rows), SPECTRUM_COLUMNS):
         if not isinstance(smiles, str) or canonicalize_smiles_to_ik14(smiles) != query_rows[index]["query"]["canonical_inchikey14"]:
             raise ValueError(f"Manifest query row {index} canonical identity differs from parquet")
         solutions[str(index)] = smiles
@@ -296,13 +211,13 @@ def run(
     best: dict[int, dict[str, tuple[tuple[float, float, int, str], str]]] = defaultdict(dict)
     best_same_structure: dict[int, float] = {}
     exact_copy_pairs = 0
-    for index, smiles, mzs, intensities in _selected_rows(parquet, set(gated)):
+    for index, (smiles, mzs, intensities) in selected_rows(parquet, set(gated), SPECTRUM_COLUMNS):
         key = canonicalize_smiles_to_ik14(smiles) if isinstance(smiles, str) else None
         if index in reference_rows and key != reference_rows[index]["reference"]["canonical_inchikey14"]:
             raise ValueError(f"Manifest reference row {index} canonical identity differs from parquet")
         if key is None or not isinstance(smiles, str) or mzs is None or intensities is None:
             continue
-        precursor, _, matched_queries = gated[index]
+        precursor, matched_queries = gated[index].precursor_mz, gated[index].matches
         reference_spectrum = prepare_spectrum(precursor, mzs, intensities, max_peaks=max_peaks)
         reference_fingerprint: bytes | None = None
         for query_index, ppm_error in matched_queries:
@@ -341,14 +256,14 @@ def run(
     for source in ("gnps", "riken", "massbank"):
         by_source[source]
     gated_query_count = len({
-        query_index for _, _, matches in gated.values() for query_index, _ in matches
+        query_index for reference in gated.values() for query_index, _ in reference.matches
     })
     reachable = [str(index) for index in best_same_structure]
     hit_sources: dict[str, int] = defaultdict(int)
     for index, candidates in best.items():
         answer = candidates.get(query_rows[index]["query"]["canonical_inchikey14"])
         if answer is not None and ranks.get(str(index), 0.0) > 0:
-            hit_sources[str(gated[answer[0][2]][1])] += 1
+            hit_sources[str(gated[answer[0][2]].source)] += 1
     summary = {
         "class1_count": len(pairs),
         "class1_reference_policy": class1_references,

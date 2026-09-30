@@ -23,55 +23,20 @@ import sys
 from time import perf_counter
 
 import numpy as np
-import pyarrow as pa
-import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.build_catalog import ARRAYS, read_tsv
 from scripts.build_validation import check_manifest
 from src.adducts import neutral_mass
+from src.catalog import PRIORS, fetch_smiles, load_catalog, rank_candidates, window
 from src.metric import evaluate
 
-PRIORS = ("cid", "pmid", "coconut_pmid")
 REPORT_TOLERANCES_PPM = (5.0, 10.0, 20.0)
 LABEL_CONSISTENT_PPM = 20.0
 MEMBERSHIP_CHUNK = 5_000_000
 QUERY_COLUMNS = ["ingest_lib", "inchikey14", "adduct", "precursor_mz", "precursor_error_ppm", "normalized_smiles"]
-
-
-def load_catalog(directory: Path) -> dict[str, np.ndarray]:
-    manifest = json.loads((directory / "manifest.json").read_text())
-    if manifest.get("sorted_by") != "mass" or manifest.get("arrays") != list(ARRAYS):
-        raise ValueError("Catalog manifest does not describe a mass-sorted catalog")
-    arrays = {name: np.load(directory / f"{name}.npy", mmap_mode="r") for name in ARRAYS}
-    if len({array.shape[0] for array in arrays.values()}) != 1:
-        raise ValueError("Catalog arrays have different lengths")
-    return arrays
-
-
-def rank_candidates(
-    keys: np.ndarray, cid: np.ndarray, pmid: np.ndarray, coconut: np.ndarray,
-    prior: str, limit: int,
-) -> np.ndarray:
-    """Row positions of the best row per distinct key, in prior order, at most limit.
-
-    cid: smallest CID first. pmid: most PubMed links first, then smallest CID.
-    coconut_pmid: COCONUT natural products first, then as pmid. A key's rank is
-    its best row's rank under the same ordering.
-    """
-    if prior == "cid":
-        order = np.argsort(cid, kind="stable")
-    elif prior == "pmid":
-        order = np.lexsort((cid, -pmid.astype(np.int64)))
-    elif prior == "coconut_pmid":
-        order = np.lexsort((cid, -pmid.astype(np.int64), ~coconut.astype(bool)))
-    else:
-        raise ValueError(f"Unknown prior {prior!r}; expected one of {PRIORS}")
-    _, first = np.unique(keys[order], return_index=True)
-    return order[np.sort(first)][:limit]
 
 
 def _metrics(ids: list[str], ranks: dict[str, float]) -> dict[str, float | int]:
@@ -164,32 +129,21 @@ def run(
             continue
         if answer_masses.get(row_index):
             min_answer_ppm[row_index] = min(abs(m - neutral) / neutral * 1e6 for m in answer_masses[row_index])
-        delta = neutral * tolerance_ppm / 1e6
-        low, high = np.searchsorted(mass, neutral - delta, "left"), np.searchsorted(mass, neutral + delta, "right")
+        low, high = window(mass, neutral, tolerance_ppm)
         if high <= low:
             counts["empty_window"] += 1
             window_sizes.append(0)
             continue
-        window = {name: np.asarray(catalog[name][low:high]) for name in ("key14", "cid", "pmid_count", "coconut")}
-        window_sizes.append(int(np.unique(window["key14"]).size))
+        rows = {name: np.asarray(catalog[name][low:high]) for name in ("key14", "cid", "pmid_count", "coconut")}
+        window_sizes.append(int(np.unique(rows["key14"]).size))
         for prior in PRIORS:
-            chosen = rank_candidates(window["key14"], window["cid"], window["pmid_count"], window["coconut"], prior, max_rank)
-            top_rows[prior][row_index] = window["cid"][chosen]
+            chosen = rank_candidates(rows["key14"], rows["cid"], rows["pmid_count"], rows["coconut"], prior, max_rank)
+            top_rows[prior][row_index] = rows["cid"][chosen]
 
     # Fetch SMILES only for chosen CIDs, then score every prior in one call so
     # the official canonicalization cache is shared.
-    wanted = np.unique(np.concatenate([cids for per_prior in top_rows.values() for cids in per_prior.values()]
-                                      or [np.zeros(0, np.uint32)])).astype(np.uint32)
-    smiles_of: dict[int, str] = {}
-    if wanted.size:
-        value_set = pa.array(wanted, type=pa.uint32())
-        for batch in read_tsv(smiles_path, ["cid", "smiles"], ["cid", "smiles"],
-                              {"cid": pa.uint32(), "smiles": pa.string()}, [0]):
-            selected = pc.is_in(batch.column(0), value_set=value_set)
-            for cid_value, smiles in zip(batch.column(0).filter(selected).to_pylist(),
-                                         batch.column(1).filter(selected).to_pylist()):
-                if cid_value is not None and smiles is not None:
-                    smiles_of[cid_value] = smiles
+    smiles_of = fetch_smiles(smiles_path, (int(c) for per_prior in top_rows.values()
+                                           for cids in per_prior.values() for c in cids))
     solutions: dict[str, str] = {}
     predictions: dict[str, list[str]] = {}
     for prior in PRIORS:

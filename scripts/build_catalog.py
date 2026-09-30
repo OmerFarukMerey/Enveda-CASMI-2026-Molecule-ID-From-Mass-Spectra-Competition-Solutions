@@ -23,8 +23,9 @@ import hashlib
 import io
 import json
 from pathlib import Path
+import sys
 from time import perf_counter
-from typing import Iterator, Literal, cast
+from typing import cast
 import zipfile
 
 import numpy as np
@@ -32,14 +33,17 @@ import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.csv as pv
 
-BLOCK_SIZE = 64 << 20
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from src.catalog import ARRAYS, read_tsv
+
 PUBCHEM_FILES = {
     "mass": ("CID-Mass.gz", ["cid", "formula", "monoisotopic_mass", "exact_mass"]),
     "inchikey": ("CID-InChI-Key.gz", ["cid", "inchi", "inchikey"]),
     "smiles": ("CID-SMILES.gz", ["cid", "smiles"]),
     "pmid": ("CID-PMID.gz", ["cid", "pmid", "type"]),
 }
-ARRAYS = ("mass", "key14", "cid", "pmid_count", "coconut")
 COCONUT_KEY_COLUMNS = {"standard_inchi_key", "standard_inchikey", "inchikey", "inchi_key"}
 
 
@@ -49,26 +53,6 @@ def _md5(path: Path) -> str:
         for block in iter(lambda: handle.read(1 << 24), b""):
             digest.update(block)
     return digest.hexdigest()
-
-
-def read_tsv(
-    path: Path, names: list[str], columns: list[str], types: dict[str, pa.DataType],
-    skipped: list[int],
-) -> Iterator[pa.RecordBatch]:
-    """Stream a headerless, tab-separated PubChem file (optionally gzipped) in batches."""
-
-    def skip(_row: pv.InvalidRow) -> Literal["skip"]:
-        skipped[0] += 1
-        return "skip"
-
-    # open_csv decompresses by file extension (.gz).
-    reader = pv.open_csv(
-        str(path),
-        read_options=pv.ReadOptions(column_names=names, block_size=BLOCK_SIZE),
-        parse_options=pv.ParseOptions(delimiter="\t", quote_char=False, invalid_row_handler=skip),
-        convert_options=pv.ConvertOptions(column_types=types, include_columns=columns),
-    )
-    yield from reader
 
 
 def key14_array(keys: pa.Array) -> tuple[np.ndarray, np.ndarray]:
