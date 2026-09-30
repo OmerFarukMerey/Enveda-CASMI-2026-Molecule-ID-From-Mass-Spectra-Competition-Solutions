@@ -19,7 +19,12 @@ CFG = dict(
     USE_GL=True, GL_LAM=1.0, GL_BUDGET=4000,
     # --- engine-2 (prvsiyan two-ranker, BIO + AFIX) and its fusion
     USE_ENG=True, ENG_W_PV=0.88, ENG_W_A=[0.35, 0.55], ENG_SEEDS=[0, 1], ENG_N_ANALOG=200, ENG_ORDER_K=80, ENG_TOPK=40,
-    FUSE_ALPHA=0.6, FUSE_KRR=3.0, FUSE_N=40,
+    FUSE_ALPHA=0.6, FUSE_KRR=3.0, FUSE_N=40, FUSE_ENG_K=40,   # FUSE_ENG_K: engine-2 depth used in the fusion
+    # --- PubChem popularity prior on pool candidates (bobthebot369 v10, LB 0.401 used 0.15); 0 = off
+    POP_MU=0.0,
+    # --- validation mode (commit runs only; the scoring rerun ignores it): hold out VAL_LIB structures, drop ALL
+    #     their spectra from the library, score them as the test set -> stage_cache/val_labels.csv
+    VALIDATION=False, VAL_LIB='enveda-np-examples', VAL_N=250, VAL_SEED=0, VAL_MAX_SPEC=16,
     # --- run control
     SMOKE_N=12,                   # commit run on the visible test: only this many molecules ...
     SMOKE_ICE_BUDGET=300,

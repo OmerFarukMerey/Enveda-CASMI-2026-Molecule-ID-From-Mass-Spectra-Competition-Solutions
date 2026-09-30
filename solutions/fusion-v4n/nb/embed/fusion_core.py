@@ -18,7 +18,20 @@ import numpy as np
 import pandas as pd
 
 DEFAULTS = dict(LIB_TAU=0.9, REL_TH=600.0, SLOTS_AGG=[2, 4, 6, 8, 10], SLOTS_GENTLE=[4, 8, 12, 16, 20], TOPN=60,
-                ICE_LAM=1.0, GL_LAM=1.0, ICE_PC=True, FUSE_ALPHA=0.6, FUSE_KRR=3.0, FUSE_N=40, FALLBACK='CCO')
+                ICE_LAM=1.0, GL_LAM=1.0, ICE_PC=True, FUSE_ALPHA=0.6, FUSE_KRR=3.0, FUSE_N=40, FALLBACK='CCO',
+                POP_MU=0.0, FUSE_ENG_K=40)
+
+
+def popularity_reorder(smis, keys, scs, forms, pids, pool_pop, mu):
+    """bobthebot369 v10 prior: f = z(ranker) + mu * pop[pid] for pool candidates; they are re-sorted among the pool
+    slots, generated candidates (pid < 0) keep their slots and get a '|gen' formula tag (own same-formula group)."""
+    s = np.asarray(scs, np.float64); z = (s - s.mean()) / (s.std() + 1e-9)
+    pid = np.asarray(pids); isg = pid < 0
+    f = z + mu * np.where(isg, 0.0, pool_pop[np.maximum(pid, 0)])
+    pool_i = np.where(~isg)[0]; o = np.empty(len(pid), np.int64)
+    o[isg] = np.where(isg)[0]; o[~isg] = pool_i[np.argsort(-f[pool_i], kind='stable')]
+    return ([smis[i] for i in o], [keys[i] for i in o], [float(f[i]) for i in o],
+            [forms[i] + ('|gen' if isg[i] else '') for i in o], [int(pid[i]) for i in o])
 
 
 def merge(base, base_keys, pc, pc_keys, slots, n=25):
@@ -51,7 +64,7 @@ def fuse_rrf(v_smis, e_smis, e_keys, score_key, alpha, krr, n):
 
 
 def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sample_ids,
-                     ice_fuse=None, gl_fuse=None, score_key=None, formula=None, log=print):
+                     ice_fuse=None, gl_fuse=None, score_key=None, formula=None, log=print, pool_pop=None):
     """Returns (submission DataFrame in sample order, stats dict). Inputs are not mutated."""
     c = dict(DEFAULTS); c.update({k: v for k, v in cfg.items() if k in DEFAULTS})
     base = copy.deepcopy(base); pc = copy.deepcopy(pc) if isinstance(pc, dict) else {}
@@ -79,7 +92,15 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
 
     # ---- stage A: ICE (+GL) re-rank of the base lists and of the PubChem lists of gated molecules
     for m in list(base):
-        smis, keys, lib_max, scs, forms = base[m]
+        v = base[m]
+        smis, keys, lib_max, scs, forms = list(v[0][:TOPN]), list(v[1][:TOPN]), v[2], list(v[3][:TOPN]), list(v[4][:TOPN])
+        pids = list(v[5][:TOPN]) if len(v) > 5 else None
+        if c['POP_MU'] > 0 and pool_pop is not None and pids is not None and len(scs) > 1:
+            try:
+                smis, keys, scs, forms, pids = popularity_reorder(smis, keys, scs, forms, pids, pool_pop, c['POP_MU'])
+                stats.setdefault('pop', {'molecules': 0})['molecules'] += 1
+            except Exception as e:
+                log('popularity prior failed', m, repr(e))
         ice = ice_scores.get(str(m), {}) if ice_scores else {}
         gl = gl_of(m)
         if ice_fuse is not None and ice and any(v is not None for v in ice.values()):
@@ -136,7 +157,8 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
         vs = [x for x in s.split(';') if x and x != c['FALLBACK']]
         e = eng.get(str(mid))
         if e and e.get('smiles'):
-            fsm, fk, fsc = fuse_rrf(vs, e['smiles'], e['keys'], score_key, c['FUSE_ALPHA'], c['FUSE_KRR'], c['FUSE_N'])
+            K = int(c['FUSE_ENG_K'])
+            fsm, fk, fsc = fuse_rrf(vs, e['smiles'][:K], e['keys'][:K], score_key, c['FUSE_ALPHA'], c['FUSE_KRR'], c['FUSE_N'])
             ice = ice_scores.get(str(mid), {}) if isinstance(ice_scores, dict) else {}
             if ice and ice_fuse is not None:
                 try:

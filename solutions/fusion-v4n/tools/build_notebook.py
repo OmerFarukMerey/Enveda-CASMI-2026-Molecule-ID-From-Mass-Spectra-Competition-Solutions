@@ -19,6 +19,7 @@ DATASETS = [   # the reference notebook's inputs, in its order
     'ahmedberatozer/casmi26-pubchem-tier', 'ahmedberatozer/casmi26-v2-pool', 'ahmedberatozer/casmi26-v3-models',
     'ahmedberatozer/casmi26-v4b-models', 'prvsiyan/chebi-lipidmaps-casmi26', 'prvsiyan/coconut-casmi26-candidates',
     'metric/rdkit-2026-3-3-wheel',
+    'dmitriigluzdov/casmi26-pubchem-popularity-prior',   # POP_MU (off by default)
 ]
 # the reference notebook's pinned environment (Python 3.12: the ICEBERG/GLACIER wheels are cp312)
 DOCKER_IMAGE = ('gcr.io/kaggle-private-byod/python@sha256:'

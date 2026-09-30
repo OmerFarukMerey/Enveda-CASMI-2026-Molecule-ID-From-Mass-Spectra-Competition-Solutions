@@ -1,14 +1,16 @@
-"""Re-run only the final fusion (fusion_core) locally on a notebook run's stage_cache, with CFG overrides, and score
-it when labels exist. This is the fast iteration loop: the heavy stages run once on Kaggle (FULL_ON_COMMIT=True),
-then fusion knobs are re-fused here in seconds.
-CAVEAT: the only local labels are the visible placeholder test (drawn from train, all in the library). Use this to check
-the plumbing and to see which molecules a knob moves; judge real gains on the leaderboard.
+"""Re-run only the final fusion (fusion_core) locally on a notebook run's stage_cache, with CFG overrides, and score it.
+The heavy stages run once on Kaggle; fusion knobs (ICE_LAM, GL_LAM, FUSE_*, TOPN depth, POP_MU, gates) are then
+re-fused here in seconds and compared PAIRED on the same molecules against the run's own config.
+Labels: <run>/**/stage_cache/val_labels.csv (VALIDATION runs: held-out molecules, library purged) if present, else
+--labels (the visible placeholder test: plumbing check only, all library hits).
 
 usage:
-  python tools/refuse.py runs/<name> [--labels data/visible_labels.csv] [--set ICE_LAM=0.8 ...]
-  python tools/refuse.py runs/<name> --grid FUSE_ALPHA=0.4,0.6,0.8 --grid FUSE_KRR=1,3,10
+  python tools/refuse.py runs/<name> [--set ICE_LAM=0.8 ...]
+  python tools/refuse.py runs/<name> --grid FUSE_ALPHA=0.4,0.6,0.8 --grid FUSE_KRR=1,3,10 [--results out.json]
 """
 import argparse, glob, itertools, json, os, sys
+
+import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from paths import SOLUTION, DATA, INPUT
@@ -59,7 +61,17 @@ def load_run(run_dir):
     sc = next((d for d in glob.glob(os.path.join(run_dir, '**', 'stage_cache'), recursive=True)), None)
     assert sc, f'no stage_cache/ under {run_dir}'
     ld = lambda n: json.load(open(os.path.join(sc, f'{n}.json'))) if os.path.exists(os.path.join(sc, f'{n}.json')) else {}
-    return {n: ld(n) for n in ['base', 'pc', 'eng', 'ice', 'gl', 'meta']}
+    S = {n: ld(n) for n in ['base', 'pc', 'eng', 'ice', 'gl', 'meta']}
+    S['val_labels'] = os.path.join(sc, 'val_labels.csv') if os.path.exists(os.path.join(sc, 'val_labels.csv')) else None
+    return S
+
+
+def load_pool_pop():
+    """log1p(PubChem SIDs) + log1p(PubMed ids) per v2-pool row, from casmi26-pubchem-popularity-prior (if downloaded)."""
+    d = _pkg_dir('pool_lsid.npy')
+    if not d:
+        return None
+    return np.load(os.path.join(d, 'pool_lsid.npy')).astype(np.float64) + np.load(os.path.join(d, 'pool_lpmid.npy')).astype(np.float64)
 
 
 def parse_val(v):
@@ -69,40 +81,58 @@ def parse_val(v):
         return v
 
 
-def run_one(S, mods, cfg, labels):
+def run_one(S, mods, cfg, labels, pool_pop=None):
     ice_fuse, gl_fuse, score_key, formula = mods
     sub, st = fusion_core.build_submission(S['base'], S['pc'], S['eng'], S['ice'], S['gl'], cfg,
                                            S['meta']['mol_order'], S['meta']['sample_ids'], ice_fuse=ice_fuse,
-                                           gl_fuse=gl_fuse, score_key=score_key, formula=formula, log=lambda *a: None)
+                                           gl_fuse=gl_fuse, score_key=score_key, formula=formula, log=lambda *a: None,
+                                           pool_pop=pool_pop)
     fusion_core.validate(sub, S['meta']['sample_ids'])
-    s = metric.score(labels, sub) if labels is not None else None
-    return sub, st, s
+    rr = metric.per_molecule_rr(labels, sub) if labels is not None else None
+    return sub, st, rr
 
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
     ap.add_argument('run'); ap.add_argument('--labels', default=os.path.join(DATA, 'visible_labels.csv'))
     ap.add_argument('--set', action='append', default=[]); ap.add_argument('--grid', action='append', default=[])
-    ap.add_argument('--out')
+    ap.add_argument('--out'); ap.add_argument('--results')
     a = ap.parse_args()
     S = load_run(a.run)
     base_cfg = dict(S['meta'].get('cfg', {}))
     for kv in a.set:
         k, v = kv.split('=', 1); base_cfg[k] = parse_val(v)
-    labels = pd.read_csv(a.labels) if os.path.exists(a.labels) else None
+    lab_path = S['val_labels'] or a.labels
+    labels = pd.read_csv(lab_path) if os.path.exists(lab_path) else None
     if labels is not None:
         labels = labels[labels.molecule_id.isin(S['meta']['mol_order'])]
-    print(f"run {a.run}: {len(S['base'])} molecules | labels: {0 if labels is None else len(labels)}")
+    print(f"run {a.run}: {len(S['base'])} molecules | labels: {0 if labels is None else len(labels)} from {lab_path}")
     mods = load_modules()
+    pool_pop = load_pool_pop()
+    print('pool popularity prior:', None if pool_pop is None else pool_pop.shape)
+    _, _, rr0 = run_one(S, mods, base_cfg, labels, pool_pop)
+    if rr0 is not None:
+        print(f"run config: MRR@25={rr0.mean():.4f} top1={np.mean(rr0 == 1):.3f} hit25={np.mean(rr0 > 0):.3f}")
     grid = [(kv.split('=', 1)[0], [parse_val(x) for x in kv.split('=', 1)[1].split(',')]) for kv in a.grid]
     rows = []
     for combo in itertools.product(*[vals for _, vals in grid]) if grid else [()]:
         cfg = dict(base_cfg); cfg.update({k: v for (k, _), v in zip(grid, combo)})
-        sub, st, s = run_one(S, mods, cfg, labels)
+        sub, st, rr = run_one(S, mods, cfg, labels, pool_pop)
         tag = ' '.join(f'{k}={v}' for (k, _), v in zip(grid, combo)) or 'cfg'
-        rows.append(dict(setting=tag, mrr=s, **{k: v for (k, _), v in zip(grid, combo)}))
-        print(f"{tag:40s} MRR@25={s if s is None else round(s, 4)}  merge={st['merge']}  fuse={st['fuse']}")
+        row = dict(setting=tag, **{k: v for (k, _), v in zip(grid, combo)})
+        if rr is not None:
+            d = (rr - rr0).values
+            row.update(mrr=round(float(rr.mean()), 4), delta=round(float(d.mean()), 4),
+                       se=round(float(d.std(ddof=1) / np.sqrt(len(d))) if len(d) > 1 else 0.0, 4),
+                       wins=int((d > 0).sum()), losses=int((d < 0).sum()), top1=round(float(np.mean(rr == 1)), 3))
+        rows.append(row)
+        print(f"{tag:45s} " + (f"MRR={row['mrr']:.4f} d={row['delta']:+.4f}±{row['se']:.4f} W/L={row['wins']}/{row['losses']}"
+                               if rr is not None else f"merge={st['merge']}"))
     if a.out:
         sub.to_csv(a.out, index=False); print('wrote', a.out)
     if grid and labels is not None:
-        print(pd.DataFrame(rows).sort_values('mrr', ascending=False).head(10).to_string(index=False))
+        df = pd.DataFrame(rows).sort_values('mrr', ascending=False)
+        print(df.head(15).to_string(index=False))
+        if a.results:
+            os.makedirs(os.path.dirname(os.path.abspath(a.results)), exist_ok=True)
+            df.to_json(a.results, orient='records', indent=1); print('wrote', a.results)

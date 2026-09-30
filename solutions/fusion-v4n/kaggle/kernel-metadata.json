@@ -22,7 +22,8 @@
   "ahmedberatozer/casmi26-v4b-models",
   "prvsiyan/chebi-lipidmaps-casmi26",
   "prvsiyan/coconut-casmi26-candidates",
-  "metric/rdkit-2026-3-3-wheel"
+  "metric/rdkit-2026-3-3-wheel",
+  "dmitriigluzdov/casmi26-pubchem-popularity-prior"
  ],
  "competition_sources": [
   "enveda-CASMI26-molecule-id-mass-spectra"
