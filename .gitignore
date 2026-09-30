@@ -1,0 +1,32 @@
+# --- competition data / artefacts: never commit
+data/*
+!data/README.md
+runs/
+**/runs/
+scratch/
+**/stage_cache/
+*.parquet
+*.npy
+*.npz
+*.pt
+*.pth
+*.ckpt
+*.pkl
+*.whl
+*.zip
+submission.csv
+
+# generated notebooks under solutions/*/kaggle/ ARE committed (importable into Kaggle by URL); rebuild before committing
+
+# --- secrets
+kaggle.json
+.env
+
+# --- python / tooling
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ipynb_checkpoints/
+.DS_Store
+Thumbs.db

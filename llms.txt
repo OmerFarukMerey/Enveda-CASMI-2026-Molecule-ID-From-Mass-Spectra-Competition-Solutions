@@ -1,0 +1,22 @@
+# Enveda CASMI 2026 team solutions
+
+> Kaggle code competition: rank up to 25 SMILES per unknown molecule from MS/MS spectra (MRR@25, InChIKey14). Offline notebook, 9 h, T4.
+
+## Start here
+- [AGENTS.md](AGENTS.md): rules and navigation for AI agents
+- [INDEX.md](INDEX.md): every file with a one-line purpose (generated)
+
+## Competition
+- [docs/competition/overview.md](docs/competition/overview.md): task, metric, submission format, timeline
+- [docs/competition/data.md](docs/competition/data.md): files, columns, source libraries, test novelty classes
+- [docs/competition/rules-and-pitfalls.md](docs/competition/rules-and-pitfalls.md): allowed data and known traps
+
+## Solutions
+- [solutions/README.md](solutions/README.md): the list of solutions and their layout contract
+- [solutions/fusion-v4n/AGENTS.md](solutions/fusion-v4n/AGENTS.md): public-0.399 reproduction with tunable fusion
+
+## Plan and results
+- [docs/plan/roadmap.md](docs/plan/roadmap.md)
+- [docs/experiments.md](docs/experiments.md)
+- [docs/landscape/public-notebooks.md](docs/landscape/public-notebooks.md)
+- [docs/landscape/discussion-insights.md](docs/landscape/discussion-insights.md)
