@@ -19,7 +19,7 @@ import pandas as pd
 
 DEFAULTS = dict(LIB_TAU=0.9, REL_TH=600.0, SLOTS_AGG=[2, 4, 6, 8, 10], SLOTS_GENTLE=[4, 8, 12, 16, 20], TOPN=60,
                 ICE_LAM=1.0, GL_LAM=1.0, ICE_PC=True, FUSE_ALPHA=0.6, FUSE_KRR=3.0, FUSE_N=40, FALLBACK='CCO',
-                POP_MU=0.0, FUSE_ENG_K=40)
+                POP_MU=0.0, FUSE_ENG_K=40, FRAG_LAM=0.0, FRAG_MODE='all')
 
 
 def popularity_reorder(smis, keys, scs, forms, pids, pool_pop, mu):
@@ -64,7 +64,8 @@ def fuse_rrf(v_smis, e_smis, e_keys, score_key, alpha, krr, n):
 
 
 def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sample_ids,
-                     ice_fuse=None, gl_fuse=None, score_key=None, formula=None, log=print, pool_pop=None):
+                     ice_fuse=None, gl_fuse=None, score_key=None, formula=None, log=print, pool_pop=None,
+                     frag_scores=None):
     """Returns (submission DataFrame in sample order, stats dict). Inputs are not mutated."""
     c = dict(DEFAULTS); c.update({k: v for k, v in cfg.items() if k in DEFAULTS})
     base = copy.deepcopy(base); pc = copy.deepcopy(pc) if isinstance(pc, dict) else {}
@@ -90,6 +91,25 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
             g[tag + k] = g.get(tag + k, 0) + v
         return o
 
+    def covered(d):
+        return bool(d) and any(v is not None for v in d.values())
+
+    def frag_rerank(m, smis, keys, scs, forms, ice, gl, top_n):
+        """MetFrag-parsimony term (frag_rescore.py). 'all': one joint z-sum with ICE/GL; 'gap': only molecules ICE
+        does not cover (e.g. negative-mode or [M+NH4]+ only). None -> leave the current order."""
+        fr = (frag_scores or {}).get(str(m), {})
+        if c['FRAG_LAM'] <= 0 or not covered(fr) or gl_fuse is None:
+            return None
+        if c['FRAG_MODE'] == 'gap':
+            if covered(ice):
+                return None
+            terms, lams = [fr], [c['FRAG_LAM']]
+        else:
+            terms = [d for d in (ice, gl) if covered(d)] + [fr]
+            lams = [l for d, l in ((ice, ICE_LAM), (gl, GL_LAM)) if covered(d)] + [c['FRAG_LAM']]
+        stats.setdefault('frag', {'molecules': 0})['molecules'] += 1
+        return gl_fuse.rerank_multi(smis, keys, scs, forms, terms, lams, top_n=top_n)
+
     # ---- stage A: ICE (+GL) re-rank of the base lists and of the PubChem lists of gated molecules
     for m in list(base):
         v = base[m]
@@ -103,6 +123,7 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
                 log('popularity prior failed', m, repr(e))
         ice = ice_scores.get(str(m), {}) if ice_scores else {}
         gl = gl_of(m)
+        smis0, keys0, scs0, forms0 = smis, keys, scs, forms
         if ice_fuse is not None and ice and any(v is not None for v in ice.values()):
             try:
                 order = ice_fuse.rerank(smis, keys, scs, forms, ice, lam=ICE_LAM, top_n=TOPN)
@@ -113,6 +134,12 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
                 smis, keys = s2, k2
             except Exception as e:
                 log('rerank failed', m, repr(e))
+        try:
+            o = frag_rerank(m, smis0, keys0, scs0, forms0, ice, gl, TOPN)
+            if o is not None:
+                smis, keys = [smis0[i] for i in o], [keys0[i] for i in o]
+        except Exception as e:
+            log('frag rerank failed', m, repr(e))
         base[m] = (smis[:25], keys[:25], lib_max)
         p = pc.get(m) if c['ICE_PC'] else None
         if ice_fuse is not None and p and p.get('pc') and lib_max < LIB_TAU and ice:
@@ -160,6 +187,7 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
             K = int(c['FUSE_ENG_K'])
             fsm, fk, fsc = fuse_rrf(vs, e['smiles'][:K], e['keys'][:K], score_key, c['FUSE_ALPHA'], c['FUSE_KRR'], c['FUSE_N'])
             ice = ice_scores.get(str(mid), {}) if isinstance(ice_scores, dict) else {}
+            fsm0, fk0, fsc0 = fsm, fk, fsc
             if ice and ice_fuse is not None:
                 try:
                     forms = [formula(x) for x in fsm]
@@ -171,6 +199,13 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
                     fsm = [fsm[i] for i in o]
                 except Exception as ex:
                     log('fused ICE rerank failed', mid, repr(ex))
+            if c['FRAG_LAM'] > 0:
+                try:
+                    o = frag_rerank(mid, fsm0, fk0, fsc0, [formula(x) for x in fsm0], ice, gl_of(mid), len(fsm0))
+                    if o is not None:
+                        fsm = [fsm0[i] for i in o]
+                except Exception as ex:
+                    log('fused frag rerank failed', mid, repr(ex))
             stats['fuse']['top1_changed'] += int(bool(vs) and fsm[:1] != vs[:1])
             vs = fsm[:25]
         out.append((mid, ';'.join(vs[:25]) if vs else c['FALLBACK']))

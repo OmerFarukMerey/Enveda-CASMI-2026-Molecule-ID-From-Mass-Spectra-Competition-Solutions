@@ -61,7 +61,7 @@ def load_run(run_dir):
     sc = next((d for d in glob.glob(os.path.join(run_dir, '**', 'stage_cache'), recursive=True)), None)
     assert sc, f'no stage_cache/ under {run_dir}'
     ld = lambda n: json.load(open(os.path.join(sc, f'{n}.json'))) if os.path.exists(os.path.join(sc, f'{n}.json')) else {}
-    S = {n: ld(n) for n in ['base', 'pc', 'eng', 'ice', 'gl', 'meta']}
+    S = {n: ld(n) for n in ['base', 'pc', 'eng', 'ice', 'gl', 'meta', 'frag']}
     S['val_labels'] = os.path.join(sc, 'val_labels.csv') if os.path.exists(os.path.join(sc, 'val_labels.csv')) else None
     return S
 
@@ -86,7 +86,7 @@ def run_one(S, mods, cfg, labels, pool_pop=None):
     sub, st = fusion_core.build_submission(S['base'], S['pc'], S['eng'], S['ice'], S['gl'], cfg,
                                            S['meta']['mol_order'], S['meta']['sample_ids'], ice_fuse=ice_fuse,
                                            gl_fuse=gl_fuse, score_key=score_key, formula=formula, log=lambda *a: None,
-                                           pool_pop=pool_pop)
+                                           pool_pop=pool_pop, frag_scores=S['frag'] or None)
     fusion_core.validate(sub, S['meta']['sample_ids'])
     rr = metric.per_molecule_rr(labels, sub) if labels is not None else None
     return sub, st, rr
@@ -109,7 +109,7 @@ if __name__ == '__main__':
     print(f"run {a.run}: {len(S['base'])} molecules | labels: {0 if labels is None else len(labels)} from {lab_path}")
     mods = load_modules()
     pool_pop = load_pool_pop()
-    print('pool popularity prior:', None if pool_pop is None else pool_pop.shape)
+    print('pool popularity prior:', None if pool_pop is None else pool_pop.shape, '| frag scores:', len(S['frag']), 'molecules')
     _, _, rr0 = run_one(S, mods, base_cfg, labels, pool_pop)
     if rr0 is not None:
         print(f"run config: MRR@25={rr0.mean():.4f} top1={np.mean(rr0 == 1):.3f} hit25={np.mean(rr0 > 0):.3f}")
