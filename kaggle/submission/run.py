@@ -1,6 +1,6 @@
 """Kaggle submission entry point (internet disabled).
 
-Locates the competition files, the private catalog dataset and the code
+Locates the competition files, the private candidate-pool dataset and the code
 dataset under /kaggle/input, unpacks the code and runs scripts/predict.py to
 write /kaggle/working/submission.csv. Kaggle replaces test.parquet with the
 hidden test set when the notebook is rerun for scoring.
@@ -24,8 +24,7 @@ def find(pattern: str) -> Path:
 
 test = find("**/enveda-CASMI26-molecule-id-mass-spectra/test.parquet")
 train = test.with_name("train.parquet")
-catalog = find("**/mass.npy").parent
-smiles = find("**/CID-SMILES*")
+pool = find("**/pool.parquet")
 
 archives = sorted(INPUT.glob("**/casmi_code.zip"))
 if archives:
@@ -35,10 +34,9 @@ if archives:
 else:  # Kaggle may unpack uploaded archives into a directory
     predict = find("**/scripts/predict.py")
 
-print({"test": str(test), "train": str(train), "catalog": str(catalog), "smiles": str(smiles),
-       "predict": str(predict)}, flush=True)
+print({"test": str(test), "train": str(train), "pool": str(pool), "predict": str(predict)}, flush=True)
 subprocess.run(
-    [sys.executable, str(predict), "--test", str(test), "--train", str(train), "--catalog", str(catalog),
-     "--smiles", str(smiles), "--output", str(WORK / "submission.csv")],
+    [sys.executable, str(predict), "--test", str(test), "--train", str(train), "--pool", str(pool),
+     "--output", str(WORK / "submission.csv")],
     check=True,
 )

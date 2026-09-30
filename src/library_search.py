@@ -8,7 +8,7 @@ the Kaggle image, which does not ship it.
 from __future__ import annotations
 
 from bisect import bisect_left, bisect_right
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from math import isfinite, nextafter
 from typing import Any, Callable, Iterator, Mapping
@@ -80,13 +80,16 @@ def gate_references(
     queries: Mapping[int, tuple[str | None, float | None]],
     allowed: Callable[[int, str | None, str | None], bool],
     tolerance_ppm: float,
+    key_counts: Counter[str] | None = None,
 ) -> tuple[dict[int, GatedReference], int]:
     """Find library rows with the same adduct label and precursor within tolerance.
 
     ``queries`` maps a query id to its (adduct, precursor m/z). ``allowed`` is
     called with (row index, supplied inchikey14, source) and decides library
     eligibility. The ppm error is relative to the query precursor, and the
-    boundary is inclusive. Returns the gated rows and the number of eligible rows.
+    boundary is inclusive. If ``key_counts`` is given, it is incremented once
+    per eligible row with a supplied key. Returns the gated rows and the number
+    of eligible rows.
     """
     fraction = tolerance_ppm / 1_000_000
     by_adduct: dict[str, list[tuple[float, int]]] = defaultdict(list)
@@ -109,6 +112,8 @@ def gate_references(
             if not allowed(index, supplied_key, source):
                 continue
             eligible += 1
+            if key_counts is not None and supplied_key:
+                key_counts[supplied_key] += 1
             label = adducts[local].as_py()
             items = by_adduct.get(label) if isinstance(label, str) else None
             mz = positive_float(precursors[local].as_py())

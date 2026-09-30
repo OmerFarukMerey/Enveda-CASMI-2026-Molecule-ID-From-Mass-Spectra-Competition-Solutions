@@ -3,7 +3,7 @@
 Each class-1 query and structure-holdout query is treated as a one-spectrum
 molecule. The library follows the class-1 "library" rule (every other-source
 spectrum of a class-1 structure; all structure-holdout aliases and invalid
-labels excluded), so holdout answers can only come from the catalog. Answers
+labels excluded), so holdout answers can only come from the pool's COCONUT part. Answers
 are scored with the official metric. Output holds aggregates only and belongs
 under ignored data/.
 """
@@ -26,6 +26,7 @@ from scripts.build_validation import check_manifest, class1_library_filter
 from src.library_search import selected_rows
 from src.metric import evaluate
 from src.pipeline import QuerySpectrum, Settings, predict
+from src.pool import load_pool
 
 COLUMNS = ["ingest_lib", "inchikey14", "adduct", "precursor_mz", "ms2_mzs",
            "ms2_normalized_intensities", "normalized_smiles"]
@@ -41,7 +42,7 @@ def _metrics(ids: list[str], ranks: dict[str, float]) -> dict[str, float | int]:
     }
 
 
-def run(train: Path, manifest_path: Path, catalog: Path, smiles: Path, output: Path) -> dict:
+def run(train: Path, manifest_path: Path, pool_path: Path, output: Path) -> dict:
     started = perf_counter()
     if "data" not in output.resolve().parts:
         raise ValueError("Private evaluation output must be placed under data/")
@@ -71,11 +72,19 @@ def run(train: Path, manifest_path: Path, catalog: Path, smiles: Path, output: P
         subsets[proxy].append(molecule)
         subsets[f"{proxy}_source_{source}"].append(molecule)
 
-    predictions, stats = predict(queries, train, catalog, smiles, allowed=class1_library_filter(manifest))
+    predictions, stats = predict(queries, train, pool_path, allowed=class1_library_filter(manifest))
     ranks = evaluate(solutions, predictions).reciprocal_ranks
+    # Held-out answers can enter the pool only through COCONUT (their training
+    # rows are excluded), so COCONUT membership bounds their reachability.
+    pool = load_pool(pool_path)
+    coconut_keys = set(pool.canonical14[pool.coconut].tolist()) | set(pool.key14[pool.coconut].tolist())
+    holdout_in_coconut = sum(
+        any(alias in coconut_keys for alias in entry["identity_aliases"]) for entry in manifest["structure_holdout"]
+    )
     summary = {
         "results": {name: _metrics(ids, ranks) for name, ids in sorted(subsets.items())},
         "pipeline_stats": stats,
+        "holdout_answers_in_pool_coconut": holdout_in_coconut,
         "settings": Settings().__repr__(),
         "library_rule": "class1_library_filter (holdout aliases and invalid labels excluded)",
         "runtime_seconds": round(perf_counter() - started, 1),
@@ -90,11 +99,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--train", type=Path, default=Path("data/raw/train.parquet"))
     parser.add_argument("--manifest", type=Path, default=Path("data/analysis/validation.json"))
-    parser.add_argument("--catalog", type=Path, default=Path("data/catalog/pubchem-2026-09-27"))
-    parser.add_argument("--smiles", type=Path, default=Path("data/external/pubchem-2026-09-27/CID-SMILES.gz"))
+    parser.add_argument("--pool", type=Path, default=Path("data/pool/train-coconut-2026-09/pool.parquet"))
     parser.add_argument("--output", type=Path, default=Path("data/analysis/pipeline_proxy.json"))
     args = parser.parse_args()
-    print(json.dumps(run(args.train, args.manifest, args.catalog, args.smiles, args.output), sort_keys=True))
+    print(json.dumps(run(args.train, args.manifest, args.pool, args.output), sort_keys=True))
 
 
 if __name__ == "__main__":

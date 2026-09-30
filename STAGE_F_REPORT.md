@@ -56,6 +56,18 @@ The proxies predict roughly 0.9 for class 1 and 0.15 for unseen structures. A le
 - **Spectrum-free catalog ranking is weak** (Stage C), and it is the only mechanism for classes 2 and 3.
 - **Other teams use a stronger common baseline.** The leaderboard median of about 0.31 suggests this [INFERENCE]. Public notebooks were not inspected.
 
+## Second submission: training structures ∪ COCONUT pool (negative)
+
+Following [discussion 743254](https://www.kaggle.com/competitions/enveda-CASMI26-molecule-id-mass-spectra/discussion/743254), where one team reported that expanding its pool to full PubChem dropped its leaderboard score from 0.335 to 0.205, the PubChem catalog was replaced by a pool of training-label structures ∪ COCONUT September 2026 (`scripts/build_pool.py`). The pool has 725,618 single-component structures (275,810 training, 475,948 COCONUT, 26,140 in both) with RDKit monoisotopic masses and precomputed **official** keys, so the Kaggle run deduplicates by the metric key without RDKit. Pool candidates rank by the number of the molecule's spectra they explain, then by the number of eligible library spectra of the structure. The COCONUT/PubMed prior was dropped because the discussion reported it hurt on the leaderboard.
+
+| | Submission 1 (PubChem) | Submission 2 (pool) |
+| --- | ---: | ---: |
+| **Public leaderboard** | **0.193** | **0.163** |
+| Class-1 proxy MRR@25 | 0.911 | 0.927 |
+| Structure-holdout proxy MRR@25 | 0.145 | 0.036 |
+
+The pool run was validated strictly (all guesses parseable, no duplicate official keys), and the Kaggle output was byte-identical to the local run. The leaderboard fell by 0.030, about twice the difference noise the discussion estimates for about 130 public molecules; there was certainly no gain. The structure-holdout proxy predicted the drop: held-out answers reach this pool only through COCONUT (2,130 of 5,200). Within the window, the library-count rule also ranks every training structure ahead of COCONUT-only structures. The discussion's pool result was obtained **together with** a same-formula isomer ranker, and its author states that a larger pool only pays with such a step. Without one, neither candidate source gets beyond about 0.16–0.19. Submission 1 remains the best entry.
+
 ## Reproduce
 
 ```bash
@@ -69,10 +81,4 @@ uvx --from kaggle kaggle competitions submit enveda-CASMI26-molecule-id-mass-spe
 
 ## Next decision
 
-Before Stage D spectral reranking of catalog candidates, find out why the leaderboard is far below the proxies. Three cheap checks come first:
-
-1. **Library behavior on test-like spectra.** Measure the library cosine distribution for test-like timsTOF queries and whether dropping hits below 0.7 loses answers.
-2. **Candidate source.** Evaluate the 275k training structures as a mass-window candidate source next to PubChem. Test molecules may be closer to the training chemistry than to PubChem as a whole.
-3. **The ~0.31 baseline.** Read the highest-voted public notebooks to identify the approach behind the cluster around 0.31. Its ideas count as external methods: check the license, and cite it before reusing anything.
-
-Each change is scored on the same proxies before it spends a submission.
+Both submissions show that candidate *ranking*, not candidate *source*, limits the score. **Stage D** adds structure-dependent evidence, in-silico fragmentation, to rank same-formula candidates. Candidate source (PubChem, pool or both) is then re-chosen on the fixed proxies together with that ranker, not on the leaderboard.

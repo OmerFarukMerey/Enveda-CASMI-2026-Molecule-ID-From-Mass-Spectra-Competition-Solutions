@@ -1,17 +1,14 @@
-"""Submission pipeline: library/catalog fusion, multi-spectrum support and format."""
+"""Submission pipeline: library/pool fusion, eligibility, support and format."""
 
 from __future__ import annotations
 
 import csv
-import gzip
 from pathlib import Path
-import zipfile
 
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
-from scripts.build_catalog import build
 from scripts.predict import check_format, load_test, write_submission
 from src.adducts import ELECTRON_MASS, ELEMENT_MASSES
 from src.pipeline import FILLER_SMILES, QuerySpectrum, Settings, predict
@@ -19,48 +16,42 @@ from src.pipeline import FILLER_SMILES, QuerySpectrum, Settings, predict
 PROTON = ELEMENT_MASSES["H"] - ELECTRON_MASS
 POTASSIUM = ELEMENT_MASSES["K"] - ELECTRON_MASS
 M1 = 100.0 - PROTON  # neutral mass of molecule m1, observed as [M+H]+ at m/z 100
-STRONG, WEAK, CATALOG_ONLY = "LIBSTRONGAAAAA", "LIBWEAKAAAAAAA", "CATALOGONLYAAA"
-SHARED, SINGLE = "SHAREDBYBOTHAA", "ONESPECTRUMAAA"
+
+# (key14, canonical14, smiles, mass, in_train, coconut)
+POOL = [
+    ("LIBSTRONGAAAAA", "CANSTRONGAAAAA", "L1", M1, True, False),
+    ("LIBWEAKAAAAAAA", "CANWEAKAAAAAAA", "P2", M1, True, False),
+    ("COCONUTONLYAAA", "CANCOCONUTAAAA", "K1", M1, False, True),
+    ("TAUTOMERAAAAAA", "CANSTRONGAAAAA", "L1-tautomer", M1, False, True),  # same official key as L1
+    ("TRAINNOSPECTRA", "CANNOSPECTRAAA", "X", M1, True, False),            # no eligible spectrum
+    ("SHAREDBYBOTHAA", "CANSHAREDAAAAA", "SY", 45.05790, False, True),     # in both m2 windows
+    ("ONESPECTRUMAAA", "CANONEAAAAAAAA", "SX", 45.05740, True, False),     # in one window, 3 spectra
+    ("LIBONLYWEAKAAA", "CANLIBONLYAAAA", "PW", 500.0, True, False),        # far from m1 in the pool
+]
 
 
-def _gz(path: Path, lines: list[str]) -> None:
-    with gzip.open(path, "wt") as handle:
-        handle.write("".join(f"{line}\n" for line in lines))
-
-
-def _catalog(tmp_path: Path) -> tuple[Path, Path]:
-    pubchem = tmp_path / "data" / "pubchem"
-    pubchem.mkdir(parents=True)
-    rows = {  # cid: (key, smiles, mass, pubmed links)
-        1: (CATALOG_ONLY, "K1", M1, 0),
-        2: (WEAK, "K2", M1, 0),
-        3: (SINGLE, "SX", 45.05740, 9),   # in spectrum A's window only, better prior
-        4: (SHARED, "SY", 45.05790, 0),   # in both spectra's windows
-    }
-    _gz(pubchem / "CID-Mass.gz", [f"{c}\tX\t{m}\t{m}" for c, (_, _, m, _) in rows.items()])
-    _gz(pubchem / "CID-InChI-Key.gz", [f"{c}\tInChI=1S/x\t{k}-UHFFFAOYSA-N" for c, (k, _, _, _) in rows.items()])
-    _gz(pubchem / "CID-SMILES.gz", [f"{c}\t{s}" for c, (_, s, _, _) in rows.items()])
-    _gz(pubchem / "CID-PMID.gz", [f"{c}\t{i}\t1" for c, (_, _, _, n) in rows.items() for i in range(n)])
-    coconut = tmp_path / "data" / "coconut.zip"
-    with zipfile.ZipFile(coconut, "w") as archive:
-        archive.writestr("c.csv", f"identifier,standard_inchi_key\nC1,{CATALOG_ONLY}-UHFFFAOYSA-N\n")
-    catalog = tmp_path / "data" / "catalog"
-    build(pubchem, coconut, catalog)
-    return catalog, pubchem / "CID-SMILES.gz"
+def _pool(tmp_path: Path) -> Path:
+    rows = sorted(POOL, key=lambda row: row[3])
+    names = ("key14", "canonical14", "smiles", "mass", "in_train", "coconut")
+    path = tmp_path / "pool.parquet"
+    pq.write_table(pa.table({name: [row[i] for row in rows] for i, name in enumerate(names)}), path)
+    return path
 
 
 def _train(tmp_path: Path) -> Path:
-    def row(key: str | None, smiles: str, peaks: tuple[float, ...]) -> dict:
+    def row(key: str | None, smiles: str, mz: float, peaks: tuple[float, ...]) -> dict:
         return {"ingest_lib": "gnps", "inchikey14": key, "normalized_smiles": smiles, "adduct": "[M+H]+",
-                "precursor_mz": 100.0, "ms2_mzs": list(peaks), "ms2_normalized_intensities": [1.0] * len(peaks)}
+                "precursor_mz": mz, "ms2_mzs": list(peaks), "ms2_normalized_intensities": [1.0] * len(peaks)}
 
-    path = tmp_path / "train.parquet"
     rows = [
-        row(STRONG, "L1", (50.0, 60.0)),            # cosine 1 with the m1 query
-        row(WEAK, "L2", (50.0, 70.0, 80.0)),        # cosine 1/sqrt(6)
-        row(None, "UNLABELED", (50.0, 60.0)),       # no key: never a reference
-        row(STRONG, "L1-other", (50.0, 90.0)),      # same structure, worse score
+        row("LIBSTRONGAAAAA", "L1", 100.0, (50.0, 60.0)),        # cosine 1 with the m1 query
+        row("LIBWEAKAAAAAAA", "L2", 100.0, (50.0, 70.0, 80.0)),  # cosine 1/sqrt(6)
+        row(None, "UNLABELED", 100.0, (50.0, 60.0)),             # no key: never a reference
+        row("LIBSTRONGAAAAA", "L1-other", 100.0, (50.0, 90.0)),  # same structure, worse score
+        *[row("ONESPECTRUMAAA", "SX", 46.0651, (30.0,)) for _ in range(3)],
+        row("LIBONLYWEAKAAA", "LW", 100.0, (50.0, 71.0, 81.0)),  # weak hit, not in m1's pool window
     ]
+    path = tmp_path / "train.parquet"
     pq.write_table(pa.Table.from_pylist(rows), path, row_group_size=2)
     return path
 
@@ -74,31 +65,34 @@ def _queries() -> list[QuerySpectrum]:
     ]
 
 
-def test_fusion_order_dedup_support_and_filler(tmp_path: Path) -> None:
-    catalog, smiles = _catalog(tmp_path)
-    predictions, stats = predict(_queries(), _train(tmp_path), catalog, smiles)
-    # Strong library hit first; catalog next (COCONUT member first); the weak
-    # library structure appears once, at its catalog position.
-    assert predictions["m1"] == ["L1", "K1", "K2"]
-    # Two-spectrum support outranks a better single-spectrum prior.
+def test_fusion_order_official_dedup_eligibility_support_and_filler(tmp_path: Path) -> None:
+    predictions, stats = predict(_queries(), _train(tmp_path), _pool(tmp_path))
+    # Strong library hit; then pool by library spectrum count (the tautomer of L1
+    # and the training structure without eligible spectra never appear); then the
+    # weak library-only structure. The weak hit on LIBWEAK appears once, from the pool.
+    assert predictions["m1"] == ["L1", "P2", "K1", "LW"]
+    # Two-spectrum support outranks more library spectra.
     assert predictions["m2"] == ["SY", "SX"]
     assert predictions["m3"] == [FILLER_SMILES]
     assert stats == {
         "molecules": 3, "spectra": 4, "spectra_without_neutral_mass": 1,
+        "pool_rows": 8, "pool_rows_eligible": 7,
         "molecules_with_strong_library_hit": 1, "molecules_with_library_hit": 1,
-        "molecules_with_catalog_candidates": 2, "molecules_with_filler_only": 1,
+        "molecules_with_pool_candidates": 2, "molecules_with_filler_only": 1,
     }
-    capped, _ = predict(_queries(), _train(tmp_path), catalog, smiles, settings=Settings(max_rank=2))
-    assert capped["m1"] == ["L1", "K1"]
+    capped, _ = predict(_queries(), _train(tmp_path), _pool(tmp_path), settings=Settings(max_rank=2))
+    assert capped["m1"] == ["L1", "P2"]
 
 
-def test_weak_library_hits_fill_after_catalog(tmp_path: Path) -> None:
-    catalog, smiles = _catalog(tmp_path)
+def test_library_eligibility_rule_controls_pool_membership(tmp_path: Path) -> None:
     queries = [QuerySpectrum("m1", "[M+H]+", 100.0, [50.0, 60.0], [1.0, 1.0])]
-    # With a threshold above every cosine, even the perfect match waits for the catalog.
-    predictions, stats = predict(queries, _train(tmp_path), catalog, smiles,
-                                 settings=Settings(min_library_cosine=1.01))
-    assert predictions["m1"] == ["K1", "K2", "L1"]
+    # Excluding the strong structure's rows removes it from the library and from
+    # the training side of the pool; its COCONUT tautomer remains reachable.
+    predictions, stats = predict(
+        queries, _train(tmp_path), _pool(tmp_path),
+        allowed=lambda _row, supplied, _source: bool(supplied) and supplied != "LIBSTRONGAAAAA",
+    )
+    assert predictions["m1"] == ["P2", "K1", "L1-tautomer", "LW"]
     assert stats["molecules_with_strong_library_hit"] == 0
 
 
