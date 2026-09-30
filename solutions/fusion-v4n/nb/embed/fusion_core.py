@@ -19,7 +19,9 @@ import pandas as pd
 
 DEFAULTS = dict(LIB_TAU=0.9, REL_TH=600.0, SLOTS_AGG=[2, 4, 6, 8, 10], SLOTS_GENTLE=[4, 8, 12, 16, 20], TOPN=60,
                 ICE_LAM=1.0, GL_LAM=1.0, ICE_PC=True, FUSE_ALPHA=0.6, FUSE_KRR=3.0, FUSE_N=40, FALLBACK='CCO',
-                POP_MU=0.0, FUSE_ENG_K=40, FRAG_LAM=0.0, FRAG_MODE='all')
+                POP_MU=0.0, FUSE_ENG_K=40, FRAG_LAM=0.0, FRAG_MODE='all',
+                POST_ICE_LAM=None, POST_GL_LAM=None,   # stage-C re-rank weights; None = ICE_LAM / GL_LAM
+                FUSE_SKIP_LIB=None)                    # skip engine-2 fusion when lib_max >= this; None = never
 
 
 def popularity_reorder(smis, keys, scs, forms, pids, pool_pop, mu):
@@ -175,6 +177,9 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
             final = [c['FALLBACK']]
         rows[mid] = ';'.join(final[:25])
     v4 = [(mid, rows.get(mid, c['FALLBACK'])) for mid in sample_ids]
+    lib_of = {m: v[2] for m, v in base.items()}
+    P_ICE = ICE_LAM if c['POST_ICE_LAM'] is None else c['POST_ICE_LAM']
+    P_GL = GL_LAM if c['POST_GL_LAM'] is None else c['POST_GL_LAM']
 
     # ---- stage C: engine-2 fusion (+ ICE/GL on the fused list)
     if not eng:
@@ -183,6 +188,9 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
     for mid, s in v4:
         vs = [x for x in s.split(';') if x and x != c['FALLBACK']]
         e = eng.get(str(mid))
+        if c['FUSE_SKIP_LIB'] is not None and lib_of.get(mid, 0.0) >= c['FUSE_SKIP_LIB']:
+            e = None
+            stats['fuse']['skipped_lib'] = stats['fuse'].get('skipped_lib', 0) + 1
         if e and e.get('smiles'):
             K = int(c['FUSE_ENG_K'])
             fsm, fk, fsc = fuse_rrf(vs, e['smiles'][:K], e['keys'][:K], score_key, c['FUSE_ALPHA'], c['FUSE_KRR'], c['FUSE_N'])
@@ -191,10 +199,10 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
             if ice and ice_fuse is not None:
                 try:
                     forms = [formula(x) for x in fsm]
-                    o = ice_fuse.rerank(fsm, fk, fsc, forms, ice, lam=ICE_LAM, top_n=len(fsm))
+                    o = ice_fuse.rerank(fsm, fk, fsc, forms, ice, lam=P_ICE, top_n=len(fsm))
                     g = gl_of(mid)
                     if g and gl_fuse is not None:
-                        o = gl_fuse.rerank_multi(fsm, fk, fsc, forms, [ice, g], [ICE_LAM, GL_LAM], top_n=len(fsm))
+                        o = gl_fuse.rerank_multi(fsm, fk, fsc, forms, [ice, g], [P_ICE, P_GL], top_n=len(fsm))
                     stats['fuse']['ice_reordered'] += int(o[:25] != list(range(min(25, len(o)))))
                     fsm = [fsm[i] for i in o]
                 except Exception as ex:
