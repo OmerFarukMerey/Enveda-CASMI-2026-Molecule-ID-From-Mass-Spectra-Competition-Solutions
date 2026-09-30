@@ -41,9 +41,19 @@
       "prvsiyan/chebi-lipidmaps-casmi26",
       "prvsiyan/coconut-casmi26-candidates",
       "metric/rdkit-2026-3-3-wheel"
-    ]
+    ],
+    "docker_image": "pinned to the reference notebook image (build_notebook.DOCKER_IMAGE, Python 3.12 for the cp312 ICEBERG/GLACIER wheels); --no-pin for latest",
+    "user_kernel": "huseyinemreaksoy/notebook095c91ef58 (push: build_notebook.py --slug notebook095c91ef58 --title notebook095c91ef58 --out scratch/push_user; kaggle kernels push -p scratch/push_user)"
   },
-  "stage_cache": ["cfg", "eng", "pc", "base", "ice", "gl", "meta"],
+  "stage_cache": [
+    "cfg",
+    "eng",
+    "pc",
+    "base",
+    "ice",
+    "gl",
+    "meta"
+  ],
   "best_lb": null,
   "provenance": [
     "ICEBERG 2.1 and GLACIER: ms-pred MassSpecGym checkpoints (MIT), packaged by ahmedberatozer",

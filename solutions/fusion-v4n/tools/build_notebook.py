@@ -1,6 +1,9 @@
 """Assemble nb/*.py (+ nb/embed/**) into kaggle/casmi26-ours.ipynb and kaggle/kernel-metadata.json.
 
-usage: python tools/build_notebook.py [--user KAGGLE_USERNAME] [--slug casmi26-ours] [--set KEY=VALUE ...]
+usage: python tools/build_notebook.py [--user KAGGLE_USERNAME] [--slug casmi26-ours] [--title T] [--out DIR]
+                                      [--no-pin] [--set KEY=VALUE ...]
+  --out writes the notebook + kernel-metadata.json elsewhere (e.g. a git-ignored scratch dir for a one-off push)
+  --no-pin uses Kaggle's latest image instead of the reference notebook's pinned docker image
   --set overrides CFG defaults in the built notebook only (values parsed as JSON, e.g. --set ICE_LAM=0.8 --set USE_GL=false)
 The Kaggle username defaults to $KAGGLE_USERNAME, then to the "username" field of ~/.kaggle/kaggle.json.
 """
@@ -17,6 +20,9 @@ DATASETS = [   # the reference notebook's inputs, in its order
     'ahmedberatozer/casmi26-v4b-models', 'prvsiyan/chebi-lipidmaps-casmi26', 'prvsiyan/coconut-casmi26-candidates',
     'metric/rdkit-2026-3-3-wheel',
 ]
+# the reference notebook's pinned environment (Python 3.12: the ICEBERG/GLACIER wheels are cp312)
+DOCKER_IMAGE = ('gcr.io/kaggle-private-byod/python@sha256:'
+                '37c64f7dd9c54116ecd1bcc88817c5469b88387388fade02bfa8bf3fc647d461')
 
 
 def kaggle_user():
@@ -38,6 +44,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--user'); ap.add_argument('--slug', default='casmi26-ours'); ap.add_argument('--title')
     ap.add_argument('--set', action='append', default=[])
+    ap.add_argument('--out', default=OUT); ap.add_argument('--no-pin', action='store_true')
     a = ap.parse_args()
 
     embed = {}
@@ -56,18 +63,21 @@ def main():
         cells.append(code_cell(src))
     nb = dict(cells=cells, metadata=dict(kernelspec=dict(display_name='Python 3', language='python', name='python3'),
                                          language_info=dict(name='python')), nbformat=4, nbformat_minor=5)
-    os.makedirs(OUT, exist_ok=True)
+    out = a.out
+    os.makedirs(out, exist_ok=True)
     code_file = f'{a.slug}.ipynb'
-    json.dump(nb, open(os.path.join(OUT, code_file), 'w', encoding='utf-8'), indent=1)
+    json.dump(nb, open(os.path.join(out, code_file), 'w', encoding='utf-8'), indent=1)
 
     user = a.user or kaggle_user()
     meta = dict(id=f'{user or "YOUR_KAGGLE_USERNAME"}/{a.slug}', title=a.title or a.slug, code_file=code_file,
                 language='python', kernel_type='notebook', is_private=True, enable_gpu=True, enable_tpu=False,
                 enable_internet=False, machine_shape='NvidiaTeslaT4', dataset_sources=DATASETS,
                 competition_sources=[COMPETITION], kernel_sources=[], model_sources=[])
-    json.dump(meta, open(os.path.join(OUT, 'kernel-metadata.json'), 'w'), indent=1)
+    if not a.no_pin:
+        meta['docker_image'] = DOCKER_IMAGE
+    json.dump(meta, open(os.path.join(out, 'kernel-metadata.json'), 'w'), indent=1)
     n = sum(len(c['source']) for c in cells)
-    print(f'wrote kaggle/{code_file} ({len(cells)} cells, {n} lines, {len(embed)} embedded files) + kernel-metadata.json '
+    print(f'wrote {os.path.relpath(os.path.join(out, code_file))} ({len(cells)} cells, {n} lines, {len(embed)} embedded files) + kernel-metadata.json '
           f'(id {meta["id"]})')
     if not user:
         print('WARNING: Kaggle username unknown -> set KAGGLE_USERNAME or pass --user before `kaggle kernels push`')
