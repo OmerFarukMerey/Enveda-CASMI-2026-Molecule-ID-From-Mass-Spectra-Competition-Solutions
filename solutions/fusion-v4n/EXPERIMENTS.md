@@ -121,3 +121,17 @@ same public dataset) sits below v4n. Working hypothesis: the PubChem-channel pri
 GLACIER [M+H]+ alone is untested by us. Lesson: a code replica without the same data is not a replica; say so before submitting.
 Best remains v4b at 0.409.
 
+
+## NP-tuned FPNet in engine-2 (2026-10-02, ext-val v2, Kaggle T4)
+
+Kaggle commit runs `casmi26-extv2-v5c` (v5c) and `casmi26-extv2-v6a` (v5c + `ENG_FP_EXTRA=['casmi26-fp-npx4-soup']`, the
+goooman NP fine-tune averaged into engine-2's single models). The model loaded (listed in `engine fp models`).
+
+| Part | n | v5c | + npx4 | Δ ± SE | 95% CI | W/L |
+|---|---|---|---|---|---|---|
+| all | 316 | 0.7181 | 0.7211 | +0.0030 ± 0.0024 | [−0.001, +0.008] | 10/8 |
+| known | 150 | 0.7939 | 0.7990 | +0.0050 ± 0.0036 | [0.000, +0.013] | 6/4 |
+| novel | 166 | 0.6495 | 0.6507 | +0.0011 ± 0.0034 | [−0.004, +0.008] | 4/4 |
+
+Engine-2 lists changed for 279/315 molecules, but its standalone MRR@25 moved 0.6348 → 0.6354. No usable gain; preset
+np1 (v4b + npx4) not proposed for submission. Calibration note: ext-val puts v5c (LB 0.405) above v4b (LB 0.409).
