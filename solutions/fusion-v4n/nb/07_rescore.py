@@ -57,7 +57,12 @@ if CFG['USE_GL'] and items:
         sys.path.append(GL_PKG)
         import gl_fuse
         gc.collect(); torch.cuda.empty_cache()
-        GL_SCORES = gl_fuse.run_gl(GL_PKG, items, workdir=os.path.join(WORK, 'gl_work'), device='cuda',
+        gl_items = items
+        if CFG['GL_MH_ONLY']:                 # GLACIER on [M+H]+ spectra only (wangpenghua v29: +0.006 on the LB)
+            gl_items = [dict(it, spectra=[s for s in it['spectra'] if s.get('adduct') == '[M+H]+']) for it in items]
+            gl_items = [it for it in gl_items if it['spectra']]
+            log('GLACIER [M+H]+ only: molecules', len(gl_items), 'of', len(items))
+        GL_SCORES = gl_fuse.run_gl(GL_PKG, gl_items, workdir=os.path.join(WORK, 'gl_work'), device='cuda',
                                    budget_s=CFG['GL_BUDGET'], site=os.path.join(WORK, 'ice_site'),
                                    wheels=os.path.join(ICE_PKG, 'wheels'))
         meta_f = os.path.join(WORK, 'gl_work', 'gl_out.json.meta.json')

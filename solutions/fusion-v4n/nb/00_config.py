@@ -13,10 +13,12 @@ CFG = dict(
     SLOTS_GENTLE=[4, 8, 12, 16, 20],
     # --- PubChem-only channel
     USE_PC=True, PC_N1=5000, PC_WORKERS=4,
+    PC_POP_LAM=0.0, PC_POP_UNION=200,   # popularity prior inside the PubChem channel (wangpenghua v29 used 0.25 / 200); 0 = off
     # --- ICEBERG / GLACIER re-scoring
     USE_ICE=True, ICE_LAM=1.0, ICE_BUDGET=5400, ICE_PC=True,
     ICE_UNION=True, ICE_UNION_K=40,   # also score engine-2 candidates
     USE_GL=True, GL_LAM=1.0, GL_BUDGET=4000,
+    GL_MH_ONLY=False,             # GLACIER scores [M+H]+ spectra only (wangpenghua v29)
     # --- engine-2 (prvsiyan two-ranker, BIO + AFIX) and its fusion
     USE_ENG=True, ENG_W_PV=0.88, ENG_W_A=[0.35, 0.55], ENG_SEEDS=[0, 1], ENG_N_ANALOG=200, ENG_ORDER_K=80, ENG_TOPK=40,
     FUSE_ALPHA=0.6, FUSE_KRR=3.0, FUSE_N=40, FUSE_ENG_K=40,   # FUSE_ENG_K: engine-2 depth used in the fusion

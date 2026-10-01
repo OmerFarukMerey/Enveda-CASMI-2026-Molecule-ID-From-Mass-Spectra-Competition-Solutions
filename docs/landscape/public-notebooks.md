@@ -33,3 +33,12 @@ prvsiyan: `casmi26-fp-models-v2`, `casmi26-ranker-features`, `coconut-casmi26-ca
 ahmedberatozer: `casmi26-v2-pool`, `casmi26-v3-models`, `casmi26-v4b-models`, `casmi26-fpnet-full1`,
 `casmi26-iceberg`, `casmi26-glacier`, `casmi26-pubchem-tier`. megayak: `casmi26-simulated-ranker-rows`.
 metric: `rdkit-2026-3-3-wheel`. Total ≈ 15.7 GB with the competition data.
+
+## Update 2026-10-01
+| Notebook | LB | Adds (diffed against the 0.399 reference) |
+|---|---|---|
+| [bobthebot369 v10 apex fusion](https://www.kaggle.com/code/bobthebot369/enveda-casmi-2026-v10-apex-fusion-sota) | 0.401 | pool popularity prior μ=0.15 on the base list only (its PubChem-channel env vars are never read) |
+| [wangpenghua v29 fusion pop glmh](https://www.kaggle.com/code/wangpenghua/casmi26-v29-fusion-pop-glmh) | 0.415 (reported by a teammate from the page) | pool popularity μ=0.15 + **popularity inside the PubChem channel** (z(f.z) + 0.25·pop, top-200 popular rows added to pass 1, gate on the raw `fz_top`) + **GLACIER on [M+H]+ spectra only** (author's note: +0.006). No frag term, no library gate. Its author also notes forward-model weight 2.0 → 0.352 ("destroys confident library matches"). |
+
+Both additions are in our tree behind `PC_POP_LAM` / `PC_POP_UNION` and `GL_MH_ONLY` (presets v5a = replica, v5b = + frag gap + soft library gate).
+

@@ -189,7 +189,8 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
             ms['untouched'] += 1; final = smis
         else:
             bp = p.get('best_pool_fz')
-            rel = p['pc_fz'][0] - bp if bp is not None and np.isfinite(bp) else 1e9
+            top = p['fz_top'] if p.get('fz_top') is not None else p['pc_fz'][0]   # fz_top: raw f.z when the list is popularity-sorted
+            rel = top - bp if bp is not None and np.isfinite(bp) else 1e9
             aggressive = rel > c['REL_TH']
             ms['aggressive' if aggressive else 'gentle'] += 1
             final = merge(smis, keys, p['pc'], p['pc_keys'], c['SLOTS_AGG'] if aggressive else c['SLOTS_GENTLE'])

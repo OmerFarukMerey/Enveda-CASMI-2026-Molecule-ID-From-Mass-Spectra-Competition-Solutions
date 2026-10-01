@@ -73,7 +73,7 @@ if __name__ == '__main__':
     with ctx.Pool(NW, initializer=pc.init_worker, initargs=(PC_DIR, os.path.join(POOL_DIR, 'fp_bits.npy'),
                                                             os.path.join(POOL_DIR, 'pool_meta.parquet'), V3CODE)) as P:
         for k, (mid, smis, fzs, keys, d) in enumerate(P.imap_unordered(pc.probe_one, tasks, chunksize=1)):
-            res[mid] = dict(pc=smis, pc_fz=fzs, pc_keys=keys, **extra[mid])
+            res[mid] = dict(pc=smis, pc_fz=fzs, pc_keys=keys, fz_top=(d or {}).get('fz_top'), **extra[mid])   # ours: fz_top
             if (k + 1) % 25 == 0 or k + 1 == len(tasks):
                 print(f'  pubchem {k+1}/{len(tasks)} {time.time()-T0:.0f}s', flush=True)
     json.dump(res, open(OUT, 'w'))

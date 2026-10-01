@@ -1,0 +1,12 @@
+{
+  "VERSION": "v5b-v29-fraggap-softgate08",
+  "POP_MU": 0.15,
+  "PC_POP_LAM": 0.25,
+  "PC_POP_UNION": 200,
+  "GL_MH_ONLY": true,
+  "FRAG_LAM": 0.5,
+  "FRAG_MODE": "gap",
+  "ICE_LAM_LIB": 0.5,
+  "GL_LAM_LIB": 0.5,
+  "GATE_TAU": 0.8
+}
