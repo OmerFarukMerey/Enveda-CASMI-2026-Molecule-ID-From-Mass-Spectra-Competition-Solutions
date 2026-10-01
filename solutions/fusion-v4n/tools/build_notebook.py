@@ -1,9 +1,11 @@
 """Assemble nb/*.py (+ nb/embed/**) into kaggle/casmi26-ours.ipynb and kaggle/kernel-metadata.json.
 
-usage: python tools/build_notebook.py [--user KAGGLE_USERNAME] [--slug casmi26-ours] [--title T] [--out DIR]
+usage: python tools/build_notebook.py [--config configs/v2-0.404.json] [--user KAGGLE_USERNAME] [--slug casmi26-ours]
+                                      [--title T] [--out DIR]
                                       [--no-pin] [--set KEY=VALUE ...]
   --out writes the notebook + kernel-metadata.json elsewhere (e.g. a git-ignored scratch dir for a one-off push)
   --no-pin uses Kaggle's latest image instead of the reference notebook's pinned docker image
+  --config applies a named CFG preset (JSON) from configs/; --set (applied after it) overrides single keys
   --set overrides CFG defaults in the built notebook only (values parsed as JSON, e.g. --set ICE_LAM=0.8 --set USE_GL=false)
 The Kaggle username defaults to $KAGGLE_USERNAME, then to the "username" field of ~/.kaggle/kaggle.json.
 """
@@ -44,7 +46,7 @@ def code_cell(src, cid):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--user'); ap.add_argument('--slug', default='casmi26-ours'); ap.add_argument('--title')
-    ap.add_argument('--set', action='append', default=[])
+    ap.add_argument('--set', action='append', default=[]); ap.add_argument('--config')
     ap.add_argument('--out', default=OUT); ap.add_argument('--no-pin', action='store_true')
     a = ap.parse_args()
 
@@ -55,8 +57,8 @@ def main():
                        + repr(embed), 'embed')]
     for p in sorted(glob.glob(os.path.join(NB, '[0-9][0-9]_*.py'))):
         src = open(p, encoding='utf-8').read()
-        if os.path.basename(p).startswith('00_') and a.set:
-            over = {}
+        if os.path.basename(p).startswith('00_') and (a.set or a.config):
+            over = json.load(open(a.config, encoding='utf-8')) if a.config else {}
             for kv in a.set:
                 k, v = kv.split('=', 1)
                 over[k] = json.loads(v)

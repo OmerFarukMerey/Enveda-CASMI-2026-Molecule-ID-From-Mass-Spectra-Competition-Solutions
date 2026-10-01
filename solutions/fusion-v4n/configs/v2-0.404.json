@@ -1,0 +1,6 @@
+{
+  "VERSION": "v2-pop015-fraggap05",
+  "POP_MU": 0.15,
+  "FRAG_LAM": 0.5,
+  "FRAG_MODE": "gap"
+}
