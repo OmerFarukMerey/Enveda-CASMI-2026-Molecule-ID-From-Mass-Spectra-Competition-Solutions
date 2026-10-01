@@ -69,10 +69,10 @@ Gate = ICE_LAM_LIB / GL_LAM_LIB for molecules with lib_max ≥ 0.9. Paired vs v2
 
 | Config | Library regime (400) | Class-2 sim (250, 6 seeds) | Smoke (12) | LB |
 |---|---|---|---|---|
-| v4a hard gate 0/0 | +0.0255 ± 0.0060, 18/0 | −0.0031 ± 0.0014, 1/7 (analog hits) | 1.000 | submitted, pending |
+| v4a hard gate 0/0 | +0.0255 ± 0.0060, 18/0 | −0.0031 ± 0.0014, 1/7 (analog hits) | 1.000 | **0.404** (= v2: the gate at 0.9 is neutral on the LB) |
 | v4c soft gate 0.5/0.5 | +0.0196 ± 0.0050, 16/0 | +0.0001 ± 0.0004, 3/4 | 0.958 | not submitted |
 | gate 0.25/0.25 | +0.0238 ± 0.0056, 18/0 | −0.0004 ± 0.0004, 2/5 | – | – |
-| v4b hard gate + POP_MU 0.25 | +0.0255 | +0.0193 ± 0.0037 (popularity-biased) | 1.000 | submitted, pending |
+| v4b hard gate + POP_MU 0.25 | +0.0255 | +0.0193 ± 0.0037 (popularity-biased) | 1.000 | **0.409** (+0.005 vs v4a: popularity 0.25 > 0.15) |
 
 Predictions made before scoring: v4a 0.404–0.410, v4b 0.400–0.414. v4a vs v2 isolates the gate; v4b vs v4a isolates
 popularity 0.25. Soft vs hard is too small for the LB to resolve; decide it on the class-1 validation (valc1).
