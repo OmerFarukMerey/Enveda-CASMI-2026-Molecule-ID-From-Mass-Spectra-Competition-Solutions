@@ -1,0 +1,8 @@
+{
+  "VERSION": "v6b-v4b-pop040",
+  "POP_MU": 0.4,
+  "FRAG_LAM": 0.5,
+  "FRAG_MODE": "gap",
+  "ICE_LAM_LIB": 0.0,
+  "GL_LAM_LIB": 0.0
+}
