@@ -77,3 +77,27 @@ Gate = ICE_LAM_LIB / GL_LAM_LIB for molecules with lib_max ≥ 0.9. Paired vs v2
 Predictions made before scoring: v4a 0.404–0.410, v4b 0.400–0.414. v4a vs v2 isolates the gate; v4b vs v4a isolates
 popularity 0.25. Soft vs hard is too small for the LB to resolve; decide it on the class-1 validation (valc1).
 
+## Class-1 validation valc1 and the gate threshold (2026-10-01)
+
+`VAL_PURGE='lib'` (Kaggle `casmi26-ours-valc1`): same 250 molecules, only their timsTOF rows purged, 55.6k spectra from
+other libraries kept. Default fusion MRR 0.876; lib_max ≥ 0.9 in only 26% of molecules (≥ 0.8: 78%, median 0.86).
+Paired vs v2 (class-2 sim = val1 isomer shuffle, 6 seeds; exact hits = vis):
+
+| Config | Class-2 sim | Class-1 (valc1) | Exact hits (vis) |
+|---|---|---|---|
+| v1 | −0.044 | −0.026 ± 0.009 (8/22) | −0.004 |
+| v3b frag all (LB 0.390) | +0.001 | +0.008 ± 0.005 (10/6) | +0.001 |
+| S3 ICE/GL 1.5 | +0.011 | **−0.028 ± 0.008 (1/23)** | **−0.018** |
+| S4 POP_MU 0.25 | +0.024 (biased) | +0.011 ± 0.004 (9/2) | +0.001 |
+| v4a hard gate, τ 0.9 (submitted) | −0.003 | +0.012 ± 0.006 (6/0) | +0.026 (18/0) |
+| v4b hard gate + POP 0.25 (submitted) | +0.019 (biased) | +0.023 ± 0.007 (14/1) | +0.026 |
+| hard gate τ 0.8 (via LIB_TAU) | −0.017 ± 0.006 | +0.028 (17/5) | – |
+| v4c soft gate 0.5, τ 0.9 | +0.000 | +0.006 (5/0) | +0.020 (16/0) |
+| **v4d soft gate 0.5, GATE_TAU 0.8** | **+0.002 ± 0.004 (15/17)** | **+0.024 ± 0.007 (14/0)** | **+0.020 (16/0)** |
+| soft gate, GATE_TAU 0.7 | −0.004 ± 0.005 (23/40) | +0.041 (22/0) | +0.020 |
+| v4d + POP 0.25 | +0.026 (biased) | +0.029 ± 0.008 (19/1) | +0.020 |
+
+GATE_TAU separates the re-score gate from LIB_TAU (which also steers the PubChem merge). None of the three regimes shows
+v3b's LB drop, so these are "does no harm / helps here" checks, not LB predictions. All three still carry the v1 ranker's
+memorisation, which favours trusting the ranker; the LB results of v4a/v4b test whether the gate transfers.
+

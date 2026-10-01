@@ -24,7 +24,8 @@ DEFAULTS = dict(LIB_TAU=0.9, REL_TH=600.0, SLOTS_AGG=[2, 4, 6, 8, 10], SLOTS_GEN
                 FUSE_SKIP_LIB=None,                    # skip engine-2 fusion when lib_max >= this; None = never
                 ICE_LAM_LIB=None, GL_LAM_LIB=None,     # ICE/GL weights for library hits (lib_max >= LIB_TAU); None = same
                 FILL_25=False,                         # top up lists shorter than 25 from the other channels
-                POP_LIB_OFF=False, FRAG_LIB_OFF=False) # no popularity / frag term for library hits (lib_max >= LIB_TAU)
+                POP_LIB_OFF=False, FRAG_LIB_OFF=False, # no popularity / frag term for library hits
+                GATE_TAU=None)                         # lib_max threshold of the *_LIB gates; None = LIB_TAU
 
 
 def popularity_reorder(smis, keys, scs, forms, pids, pool_pop, mu):
@@ -105,7 +106,7 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
         fr = (frag_scores or {}).get(str(m), {})
         if c['FRAG_LAM'] <= 0 or not covered(fr) or gl_fuse is None:
             return None
-        if c['FRAG_LIB_OFF'] and lib_of_m.get(m, lib_of_m.get(str(m), 0.0)) >= LIB_TAU:
+        if c['FRAG_LIB_OFF'] and lib_of_m.get(m, lib_of_m.get(str(m), 0.0)) >= GATE_TAU:
             return None
         if c['FRAG_MODE'] == 'gap':
             if covered(ice):
@@ -117,8 +118,10 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
         stats.setdefault('frag', {'molecules': 0})['molecules'] += 1
         return gl_fuse.rerank_multi(smis, keys, scs, forms, terms, lams, top_n=top_n)
 
+    GATE_TAU = LIB_TAU if c['GATE_TAU'] is None else c['GATE_TAU']   # LIB_TAU itself keeps steering the PubChem merge
+
     def lam_pair(lib_max):
-        lib = lib_max >= LIB_TAU
+        lib = lib_max >= GATE_TAU
         il = c['ICE_LAM_LIB'] if (lib and c['ICE_LAM_LIB'] is not None) else c['ICE_LAM']
         gll = c['GL_LAM_LIB'] if (lib and c['GL_LAM_LIB'] is not None) else c['GL_LAM']
         return il, gll
@@ -132,7 +135,7 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
         smis, keys, lib_max, scs, forms = list(v[0][:TOPN]), list(v[1][:TOPN]), v[2], list(v[3][:TOPN]), list(v[4][:TOPN])
         pids = list(v[5][:TOPN]) if len(v) > 5 else None
         ICE_LAM, GL_LAM = lam_pair(lib_max)       # closures (gl_rerank, frag_rerank) read these per molecule
-        pop_on = c['POP_MU'] > 0 and not (c['POP_LIB_OFF'] and lib_max >= LIB_TAU)
+        pop_on = c['POP_MU'] > 0 and not (c['POP_LIB_OFF'] and lib_max >= GATE_TAU)
         if pop_on and pool_pop is not None and pids is not None and len(scs) > 1:
             try:
                 smis, keys, scs, forms, pids = popularity_reorder(smis, keys, scs, forms, pids, pool_pop, c['POP_MU'])
