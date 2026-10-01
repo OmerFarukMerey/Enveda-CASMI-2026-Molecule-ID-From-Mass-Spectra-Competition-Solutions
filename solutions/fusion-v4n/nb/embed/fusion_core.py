@@ -23,7 +23,8 @@ DEFAULTS = dict(LIB_TAU=0.9, REL_TH=600.0, SLOTS_AGG=[2, 4, 6, 8, 10], SLOTS_GEN
                 POST_ICE_LAM=None, POST_GL_LAM=None,   # stage-C re-rank weights; None = ICE_LAM / GL_LAM
                 FUSE_SKIP_LIB=None,                    # skip engine-2 fusion when lib_max >= this; None = never
                 ICE_LAM_LIB=None, GL_LAM_LIB=None,     # ICE/GL weights for library hits (lib_max >= LIB_TAU); None = same
-                FILL_25=False)                         # top up lists shorter than 25 from the other channels
+                FILL_25=False,                         # top up lists shorter than 25 from the other channels
+                POP_LIB_OFF=False, FRAG_LIB_OFF=False) # no popularity / frag term for library hits (lib_max >= LIB_TAU)
 
 
 def popularity_reorder(smis, keys, scs, forms, pids, pool_pop, mu):
@@ -104,6 +105,8 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
         fr = (frag_scores or {}).get(str(m), {})
         if c['FRAG_LAM'] <= 0 or not covered(fr) or gl_fuse is None:
             return None
+        if c['FRAG_LIB_OFF'] and lib_of_m.get(m, lib_of_m.get(str(m), 0.0)) >= LIB_TAU:
+            return None
         if c['FRAG_MODE'] == 'gap':
             if covered(ice):
                 return None
@@ -121,6 +124,7 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
         return il, gll
 
     extra = {}                                   # FILL_25: re-ranked base candidates beyond position 25
+    lib_of_m = {m: v[2] for m, v in base.items()}
 
     # ---- stage A: ICE (+GL) re-rank of the base lists and of the PubChem lists of gated molecules
     for m in list(base):
@@ -128,7 +132,8 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
         smis, keys, lib_max, scs, forms = list(v[0][:TOPN]), list(v[1][:TOPN]), v[2], list(v[3][:TOPN]), list(v[4][:TOPN])
         pids = list(v[5][:TOPN]) if len(v) > 5 else None
         ICE_LAM, GL_LAM = lam_pair(lib_max)       # closures (gl_rerank, frag_rerank) read these per molecule
-        if c['POP_MU'] > 0 and pool_pop is not None and pids is not None and len(scs) > 1:
+        pop_on = c['POP_MU'] > 0 and not (c['POP_LIB_OFF'] and lib_max >= LIB_TAU)
+        if pop_on and pool_pop is not None and pids is not None and len(scs) > 1:
             try:
                 smis, keys, scs, forms, pids = popularity_reorder(smis, keys, scs, forms, pids, pool_pop, c['POP_MU'])
                 stats.setdefault('pop', {'molecules': 0})['molecules'] += 1
