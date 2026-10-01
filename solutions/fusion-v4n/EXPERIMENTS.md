@@ -101,3 +101,15 @@ GATE_TAU separates the re-score gate from LIB_TAU (which also steers the PubChem
 v3b's LB drop, so these are "does no harm / helps here" checks, not LB predictions. All three still carry the v1 ranker's
 memorisation, which favours trusting the ranker; the LB results of v4a/v4b test whether the gate transfers.
 
+## v5: PubChem-channel popularity + GLACIER [M+H]+ only (2026-10-01)
+
+From wangpenghua's public v29 notebook (reported LB 0.415). Commit runs clean; the popularity variant of the probe was
+active (fz_top present for 12/12 molecules, arrays row-aligned with the tier) and GLACIER scored 11 of 12 molecules.
+Predictions before scoring: v5a 0.408–0.418, v5c 0.410–0.425.
+
+| Preset | Content | Smoke (12) | LB |
+|---|---|---|---|
+| v5a-v29replica | POP_MU 0.15, PC_POP_LAM 0.25, PC_POP_UNION 200, GL_MH_ONLY | 0.958 | submitted, pending |
+| v5b-v29-fraggap-softgate08 | v5a + frag gap + soft gate at 0.8 | 0.958 | not submitted (superseded by v5c) |
+| v5c-v4b-pcpop-glmh | v4b (POP_MU 0.25, frag gap, hard gate) + PC popularity + GL_MH_ONLY | 1.000 | submitted, pending |
+
