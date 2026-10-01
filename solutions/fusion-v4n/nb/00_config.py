@@ -22,6 +22,13 @@ CFG = dict(
     FUSE_ALPHA=0.6, FUSE_KRR=3.0, FUSE_N=40, FUSE_ENG_K=40,   # FUSE_ENG_K: engine-2 depth used in the fusion
     # --- PubChem popularity prior on pool candidates (bobthebot369 v10, LB 0.401 used 0.15); 0 = off
     POP_MU=0.0,
+    # --- MetFrag-parsimony re-score (nb/embed/frag_rescore.py); 0 = off. 'gap' = only molecules ICE cannot score
+    FRAG_LAM=0.0, FRAG_MODE='all',
+    # --- more fusion knobs (fusion_core.DEFAULTS); None = same as the base weight / off
+    POST_ICE_LAM=None, POST_GL_LAM=None,   # stage-C (post-fusion) re-rank weights
+    ICE_LAM_LIB=None, GL_LAM_LIB=None,     # weights for library hits (lib_max >= LIB_TAU)
+    FUSE_SKIP_LIB=None,                    # skip the engine-2 fusion when lib_max >= this
+    FILL_25=False,                         # top up lists shorter than 25 from the other channels
     # --- validation mode (commit runs only; the scoring rerun ignores it): hold out VAL_LIB structures, drop ALL
     #     their spectra from the library, score them as the test set -> stage_cache/val_labels.csv
     VALIDATION=False, VAL_LIB='enveda-np-examples', VAL_N=250, VAL_SEED=0, VAL_MAX_SPEC=16,
