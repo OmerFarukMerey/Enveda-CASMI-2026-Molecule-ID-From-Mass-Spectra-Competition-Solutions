@@ -1,0 +1,6 @@
+{
+  "VERSION": "v3d-pop025",
+  "POP_MU": 0.25,
+  "FRAG_LAM": 0.5,
+  "FRAG_MODE": "gap"
+}

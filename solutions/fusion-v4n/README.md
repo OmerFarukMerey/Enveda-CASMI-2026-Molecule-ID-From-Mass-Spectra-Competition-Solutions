@@ -1,7 +1,7 @@
 <!-- index: fusion-v4n: pipeline stages, what is the same as and different from the 0.399 reference, how to run -->
 # fusion-v4n: public 0.399 pipeline, restructured for iteration
 
-Owner: Hemre · Status: built and tested offline, **not yet run on Kaggle** · Baseline:
+Owner: Hemre · Status: **public LB 0.399 (2026-09-30), identical to the reference** · Baseline:
 [CASMI26 | v4n + Engine Fusion + Union [LB 0.399]](https://www.kaggle.com/code/seyitkaangunes/casmi26-v4n-engine-fusion-union-lb-0-399)
 
 The default `CFG` reproduces the reference step for step. Every improvement goes in as a config knob or a flagged stage, so
@@ -40,8 +40,22 @@ engine-2`); the stage order; smoke / rerun detection (same test signature); the 
 | `assert rdkit == 2026.03.3` in setup (reference only prints) | fail fast instead of silently mismatched keys |
 | `run_manifest.json` records version, CFG and stage stats | trace every LB row back to its config |
 
-**Not verified yet:** cells 01–07 are the reference cells rearranged, but the whole notebook has not run on Kaggle.
-P0 in [../../docs/plan/roadmap.md](../../docs/plan/roadmap.md) does that.
+**Verified on Kaggle:** commit runs pass every stage (12-molecule smoke: 0.958 local, all exact library hits), and the hidden-test submission scored **0.399**, the same as the reference.
+
+## Best submission: public LB 0.404 (v2)
+
+| Version | Config | Public LB | Exact notebook |
+|---|---|---|---|
+| v1 | [configs/v1-0.399.json](configs/v1-0.399.json) (reference defaults) | 0.399 | |
+| **v2** | [configs/v2-0.404.json](configs/v2-0.404.json): pool popularity prior μ=0.15 + MetFrag-parsimony re-score in `gap` mode (λ=0.5, only molecules ICEBERG/GLACIER cannot score) | **0.404** | [kaggle/submitted/v2-0.404.ipynb](kaggle/submitted/v2-0.404.ipynb) |
+
+Reproduce v2: either upload `kaggle/submitted/v2-0.404.ipynb` (File → Import Notebook) and attach the 14 inputs listed in
+`solution.json`, or build and push it:
+```bash
+python solutions/fusion-v4n/tools/build_notebook.py --config solutions/fusion-v4n/configs/v2-0.404.json --slug <your-slug> --out scratch/push
+kaggle kernels push -p scratch/push
+```
+The current code with this config reproduces the v2 Kaggle output exactly (checked on the commit run, 0 differing rows).
 
 ## Run
 

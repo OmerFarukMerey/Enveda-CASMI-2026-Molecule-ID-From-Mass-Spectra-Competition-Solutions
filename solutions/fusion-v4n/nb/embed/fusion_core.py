@@ -18,7 +18,24 @@ import numpy as np
 import pandas as pd
 
 DEFAULTS = dict(LIB_TAU=0.9, REL_TH=600.0, SLOTS_AGG=[2, 4, 6, 8, 10], SLOTS_GENTLE=[4, 8, 12, 16, 20], TOPN=60,
-                ICE_LAM=1.0, GL_LAM=1.0, ICE_PC=True, FUSE_ALPHA=0.6, FUSE_KRR=3.0, FUSE_N=40, FALLBACK='CCO')
+                ICE_LAM=1.0, GL_LAM=1.0, ICE_PC=True, FUSE_ALPHA=0.6, FUSE_KRR=3.0, FUSE_N=40, FALLBACK='CCO',
+                POP_MU=0.0, FUSE_ENG_K=40, FRAG_LAM=0.0, FRAG_MODE='all',
+                POST_ICE_LAM=None, POST_GL_LAM=None,   # stage-C re-rank weights; None = ICE_LAM / GL_LAM
+                FUSE_SKIP_LIB=None,                    # skip engine-2 fusion when lib_max >= this; None = never
+                ICE_LAM_LIB=None, GL_LAM_LIB=None,     # ICE/GL weights for library hits (lib_max >= LIB_TAU); None = same
+                FILL_25=False)                         # top up lists shorter than 25 from the other channels
+
+
+def popularity_reorder(smis, keys, scs, forms, pids, pool_pop, mu):
+    """bobthebot369 v10 prior: f = z(ranker) + mu * pop[pid] for pool candidates; they are re-sorted among the pool
+    slots, generated candidates (pid < 0) keep their slots and get a '|gen' formula tag (own same-formula group)."""
+    s = np.asarray(scs, np.float64); z = (s - s.mean()) / (s.std() + 1e-9)
+    pid = np.asarray(pids); isg = pid < 0
+    f = z + mu * np.where(isg, 0.0, pool_pop[np.maximum(pid, 0)])
+    pool_i = np.where(~isg)[0]; o = np.empty(len(pid), np.int64)
+    o[isg] = np.where(isg)[0]; o[~isg] = pool_i[np.argsort(-f[pool_i], kind='stable')]
+    return ([smis[i] for i in o], [keys[i] for i in o], [float(f[i]) for i in o],
+            [forms[i] + ('|gen' if isg[i] else '') for i in o], [int(pid[i]) for i in o])
 
 
 def merge(base, base_keys, pc, pc_keys, slots, n=25):
@@ -51,7 +68,8 @@ def fuse_rrf(v_smis, e_smis, e_keys, score_key, alpha, krr, n):
 
 
 def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sample_ids,
-                     ice_fuse=None, gl_fuse=None, score_key=None, formula=None, log=print):
+                     ice_fuse=None, gl_fuse=None, score_key=None, formula=None, log=print, pool_pop=None,
+                     frag_scores=None):
     """Returns (submission DataFrame in sample order, stats dict). Inputs are not mutated."""
     c = dict(DEFAULTS); c.update({k: v for k, v in cfg.items() if k in DEFAULTS})
     base = copy.deepcopy(base); pc = copy.deepcopy(pc) if isinstance(pc, dict) else {}
@@ -77,11 +95,48 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
             g[tag + k] = g.get(tag + k, 0) + v
         return o
 
+    def covered(d):
+        return bool(d) and any(v is not None for v in d.values())
+
+    def frag_rerank(m, smis, keys, scs, forms, ice, gl, top_n):
+        """MetFrag-parsimony term (frag_rescore.py). 'all': one joint z-sum with ICE/GL; 'gap': only molecules ICE
+        does not cover (e.g. negative-mode or [M+NH4]+ only). None -> leave the current order."""
+        fr = (frag_scores or {}).get(str(m), {})
+        if c['FRAG_LAM'] <= 0 or not covered(fr) or gl_fuse is None:
+            return None
+        if c['FRAG_MODE'] == 'gap':
+            if covered(ice):
+                return None
+            terms, lams = [fr], [c['FRAG_LAM']]
+        else:
+            terms = [d for d in (ice, gl) if covered(d)] + [fr]
+            lams = [l for d, l in ((ice, ICE_LAM), (gl, GL_LAM)) if covered(d)] + [c['FRAG_LAM']]
+        stats.setdefault('frag', {'molecules': 0})['molecules'] += 1
+        return gl_fuse.rerank_multi(smis, keys, scs, forms, terms, lams, top_n=top_n)
+
+    def lam_pair(lib_max):
+        lib = lib_max >= LIB_TAU
+        il = c['ICE_LAM_LIB'] if (lib and c['ICE_LAM_LIB'] is not None) else c['ICE_LAM']
+        gll = c['GL_LAM_LIB'] if (lib and c['GL_LAM_LIB'] is not None) else c['GL_LAM']
+        return il, gll
+
+    extra = {}                                   # FILL_25: re-ranked base candidates beyond position 25
+
     # ---- stage A: ICE (+GL) re-rank of the base lists and of the PubChem lists of gated molecules
     for m in list(base):
-        smis, keys, lib_max, scs, forms = base[m]
+        v = base[m]
+        smis, keys, lib_max, scs, forms = list(v[0][:TOPN]), list(v[1][:TOPN]), v[2], list(v[3][:TOPN]), list(v[4][:TOPN])
+        pids = list(v[5][:TOPN]) if len(v) > 5 else None
+        ICE_LAM, GL_LAM = lam_pair(lib_max)       # closures (gl_rerank, frag_rerank) read these per molecule
+        if c['POP_MU'] > 0 and pool_pop is not None and pids is not None and len(scs) > 1:
+            try:
+                smis, keys, scs, forms, pids = popularity_reorder(smis, keys, scs, forms, pids, pool_pop, c['POP_MU'])
+                stats.setdefault('pop', {'molecules': 0})['molecules'] += 1
+            except Exception as e:
+                log('popularity prior failed', m, repr(e))
         ice = ice_scores.get(str(m), {}) if ice_scores else {}
         gl = gl_of(m)
+        smis0, keys0, scs0, forms0 = smis, keys, scs, forms
         if ice_fuse is not None and ice and any(v is not None for v in ice.values()):
             try:
                 order = ice_fuse.rerank(smis, keys, scs, forms, ice, lam=ICE_LAM, top_n=TOPN)
@@ -92,7 +147,14 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
                 smis, keys = s2, k2
             except Exception as e:
                 log('rerank failed', m, repr(e))
+        try:
+            o = frag_rerank(m, smis0, keys0, scs0, forms0, ice, gl, TOPN)
+            if o is not None:
+                smis, keys = [smis0[i] for i in o], [keys0[i] for i in o]
+        except Exception as e:
+            log('frag rerank failed', m, repr(e))
         base[m] = (smis[:25], keys[:25], lib_max)
+        extra[m] = smis[25:]
         p = pc.get(m) if c['ICE_PC'] else None
         if ice_fuse is not None and p and p.get('pc') and lib_max < LIB_TAU and ice:
             try:
@@ -127,30 +189,66 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
             final = [c['FALLBACK']]
         rows[mid] = ';'.join(final[:25])
     v4 = [(mid, rows.get(mid, c['FALLBACK'])) for mid in sample_ids]
+    lib_of = {m: v[2] for m, v in base.items()}
+
+    def fill(mid, lst):
+        """FILL_25: append engine-2, PubChem and deeper base candidates (metric-key dedup) until 25."""
+        if not c['FILL_25'] or len(lst) >= 25:
+            return lst
+        seen = {score_key(x) or x for x in lst}; out = list(lst)
+        pool = list((eng.get(str(mid)) or {}).get('smiles', [])) + list((pc.get(mid) or {}).get('pc', [])) + list(extra.get(mid, []))
+        for x in pool:
+            k = score_key(x) or x
+            if k not in seen:
+                seen.add(k); out.append(x)
+                if len(out) >= 25:
+                    break
+        stats.setdefault('fill', {'molecules': 0, 'added': 0})
+        stats['fill']['molecules'] += int(len(out) > len(lst)); stats['fill']['added'] += len(out) - len(lst)
+        return out
 
     # ---- stage C: engine-2 fusion (+ ICE/GL on the fused list)
     if not eng:
+        if c['FILL_25']:
+            v4 = [(mid, ';'.join(fill(mid, [x for x in s.split(';') if x and x != c['FALLBACK']])) or c['FALLBACK'])
+                  for mid, s in v4]
         return pd.DataFrame(v4, columns=['molecule_id', 'smiles']), stats
     out = []
     for mid, s in v4:
         vs = [x for x in s.split(';') if x and x != c['FALLBACK']]
+        ICE_LAM, GL_LAM = lam_pair(lib_of.get(mid, 0.0))
+        P_ICE = ICE_LAM if c['POST_ICE_LAM'] is None else c['POST_ICE_LAM']
+        P_GL = GL_LAM if c['POST_GL_LAM'] is None else c['POST_GL_LAM']
         e = eng.get(str(mid))
+        if c['FUSE_SKIP_LIB'] is not None and lib_of.get(mid, 0.0) >= c['FUSE_SKIP_LIB']:
+            e = None
+            stats['fuse']['skipped_lib'] = stats['fuse'].get('skipped_lib', 0) + 1
         if e and e.get('smiles'):
-            fsm, fk, fsc = fuse_rrf(vs, e['smiles'], e['keys'], score_key, c['FUSE_ALPHA'], c['FUSE_KRR'], c['FUSE_N'])
+            K = int(c['FUSE_ENG_K'])
+            fsm, fk, fsc = fuse_rrf(vs, e['smiles'][:K], e['keys'][:K], score_key, c['FUSE_ALPHA'], c['FUSE_KRR'], c['FUSE_N'])
             ice = ice_scores.get(str(mid), {}) if isinstance(ice_scores, dict) else {}
+            fsm0, fk0, fsc0 = fsm, fk, fsc
             if ice and ice_fuse is not None:
                 try:
                     forms = [formula(x) for x in fsm]
-                    o = ice_fuse.rerank(fsm, fk, fsc, forms, ice, lam=ICE_LAM, top_n=len(fsm))
+                    o = ice_fuse.rerank(fsm, fk, fsc, forms, ice, lam=P_ICE, top_n=len(fsm))
                     g = gl_of(mid)
                     if g and gl_fuse is not None:
-                        o = gl_fuse.rerank_multi(fsm, fk, fsc, forms, [ice, g], [ICE_LAM, GL_LAM], top_n=len(fsm))
+                        o = gl_fuse.rerank_multi(fsm, fk, fsc, forms, [ice, g], [P_ICE, P_GL], top_n=len(fsm))
                     stats['fuse']['ice_reordered'] += int(o[:25] != list(range(min(25, len(o)))))
                     fsm = [fsm[i] for i in o]
                 except Exception as ex:
                     log('fused ICE rerank failed', mid, repr(ex))
+            if c['FRAG_LAM'] > 0:
+                try:
+                    o = frag_rerank(mid, fsm0, fk0, fsc0, [formula(x) for x in fsm0], ice, gl_of(mid), len(fsm0))
+                    if o is not None:
+                        fsm = [fsm0[i] for i in o]
+                except Exception as ex:
+                    log('fused frag rerank failed', mid, repr(ex))
             stats['fuse']['top1_changed'] += int(bool(vs) and fsm[:1] != vs[:1])
             vs = fsm[:25]
+        vs = fill(mid, vs[:25])
         out.append((mid, ';'.join(vs[:25]) if vs else c['FALLBACK']))
     return pd.DataFrame(out, columns=['molecule_id', 'smiles']), stats
 

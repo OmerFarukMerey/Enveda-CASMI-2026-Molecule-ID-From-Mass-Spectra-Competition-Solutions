@@ -1,0 +1,7 @@
+{
+  "VERSION": "v3a-fpens",
+  "POP_MU": 0.15,
+  "FRAG_LAM": 0.5,
+  "FRAG_MODE": "gap",
+  "FP_BANK": "ens"
+}
