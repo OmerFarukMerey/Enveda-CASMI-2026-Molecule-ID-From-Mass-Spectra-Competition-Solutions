@@ -24,6 +24,8 @@ if CFG['FP_BANK'] == 'ens' and _FULL:        # average fpnet_full1 (v4m) and FPN
     _fp = [_FULL[0], _A]
 elif CFG['FP_BANK'] == 'full1' and _FULL:
     _fp = [_FULL[0]]
+elif CFG['FP_BANK'] == 'fold0':              # validation only: never saw the fold-0 hold-out structures
+    _fp = [find('casmi26-fold-safe-fpnet/**/fpnet_fold0.pt')]
 else:
     _fp = [_A]
 bank = fpnet.ModelBank(_fp, device=dev)

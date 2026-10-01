@@ -62,7 +62,7 @@ def load_run(run_dir):
     sc = next((d for d in glob.glob(os.path.join(run_dir, '**', 'stage_cache'), recursive=True)), None)
     assert sc, f'no stage_cache/ under {run_dir}'
     ld = lambda n: json.load(open(os.path.join(sc, f'{n}.json'))) if os.path.exists(os.path.join(sc, f'{n}.json')) else {}
-    S = {n: ld(n) for n in ['base', 'pc', 'eng', 'ice', 'gl', 'meta', 'frag']}
+    S = {n: ld(n) for n in ['base', 'pc', 'eng', 'ice', 'gl', 'meta', 'frag', 'pc_pop', 'gl_mh']}   # last two: VAL_EXTRAS
     S['val_labels'] = os.path.join(sc, 'val_labels.csv') if os.path.exists(os.path.join(sc, 'val_labels.csv')) else None
     return S
 
@@ -84,7 +84,10 @@ def parse_val(v):
 
 def run_one(S, mods, cfg, labels, pool_pop=None):
     ice_fuse, gl_fuse, score_key, formula = mods
-    sub, st = fusion_core.build_submission(S['base'], S['pc'], S['eng'], S['ice'], S['gl'], cfg,
+    # replay heavy-stage variants from the VAL_EXTRAS dumps: PubChem channel with popularity, GLACIER on [M+H]+ only
+    pc = S['pc_pop'] if (cfg.get('PC_POP_LAM') or 0) > 0 and S.get('pc_pop') else S['pc']
+    gl = S['gl_mh'] if cfg.get('GL_MH_ONLY') and S.get('gl_mh') else S['gl']
+    sub, st = fusion_core.build_submission(S['base'], pc, S['eng'], S['ice'], gl, cfg,
                                            S['meta']['mol_order'], S['meta']['sample_ids'], ice_fuse=ice_fuse,
                                            gl_fuse=gl_fuse, score_key=score_key, formula=formula, log=lambda *a: None,
                                            pool_pop=pool_pop, frag_scores=S['frag'] or None)

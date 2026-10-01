@@ -5,7 +5,9 @@ CFG = dict(
     VERSION='ours-v1-baseline',
     # --- v1 engine + ranker (base lists)
     TOPN=60,                      # base list depth handed to re-scoring
-    FP_BANK='full1',              # 'full1' = casmi26-fpnet-full1 (v4m); 'A' = fpnet_0.pt of casmi26-v4b-models; 'ens' = both
+    FP_BANK='full1',              # 'full1' = casmi26-fpnet-full1 (v4m, trained on everything); 'A' = fpnet_0.pt of
+                                  #   casmi26-v4b-models (never saw enveda-np-examples); 'ens' = both; 'fold0' = the
+                                  #   fold-safe checkpoint of dmitriigluzdov (validation only)
     # --- library gate + PubChem merge
     LIB_TAU=0.9,                  # lib_max >= LIB_TAU -> library hit, list left untouched
     REL_TH=600.0,                 # PubChem top f.z minus best pool f.z above this -> aggressive slots
@@ -37,6 +39,9 @@ CFG = dict(
     #     their spectra from the library, score them as the test set -> stage_cache/val_labels.csv
     VALIDATION=False, VAL_LIB='enveda-np-examples', VAL_N=250, VAL_SEED=0, VAL_MAX_SPEC=16,
     VAL_PURGE='all',              # 'all' = class-2-like (no spectra left); 'lib' = class-1-like (other libraries stay)
+    VAL_SET='np_examples',        # 'np_examples' = VAL_LIB structures (famous NPs); 'fold0_np' = NP-catalogue structures
+                                  #   unseen by the fold-safe FPNet (ordinary NPs; use FP_BANK='fold0', VAL_MAX_SPEC ~6)
+    VAL_EXTRAS=False,             # validation runs also dump pc_pop.json (PubChem channel with popularity) and gl_mh.json
     # --- run control
     SMOKE_N=12,                   # commit run on the visible test: only this many molecules ...
     SMOKE_ICE_BUDGET=300,

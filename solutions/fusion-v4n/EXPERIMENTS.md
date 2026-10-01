@@ -121,3 +121,23 @@ same public dataset) sits below v4n. Working hypothesis: the PubChem-channel pri
 GLACIER [M+H]+ alone is untested by us. Lesson: a code replica without the same data is not a replica; say so before submitting.
 Best remains v4b at 0.409.
 
+## Test harness v2: leak-reduced validation (2026-10-01, evening)
+
+Why the old harness misled us: the engine's FP bank `fpnet_full1` was trained on every training structure, including
+enveda-np-examples (89% top-1 there), whereas `FPNet A` (fpnet_0.pt, also in casmi26-v4b-models) excludes that library
+(42% top-1; figures from dmitriigluzdov/casmi26-natural-product-panel-benchmark). The same author's fold-safe FPNet
+reports that a popularity prior helps famous natural products and **hurts ordinary molecules** (top-1 71% -> 58% at
+0.25; even NP-catalogue answers peak at 0.15-0.25 and fall at 0.6). val1 held only famous NPs (median popularity 13.0),
+so it over-rewarded popularity.
+
+New validation runs (`VAL_EXTRAS` also dumps the PubChem channel with popularity and GLACIER on [M+H]+ only, so v5-style
+configs can be replayed locally):
+
+| Run | Structures | FP bank (never saw them) | Popularity median |
+|---|---|---|---|
+| valA (`casmi26-ours-vala`) | 250 enveda-np-examples, all spectra purged | FPNet A | 13.0 (famous) |
+| valF (`casmi26-ours-valf`) | 244 NP-catalogue structures of the fold-0 hold-out, all spectra purged, 6 spectra each from any library | fold-safe `fpnet_fold0` | 5.4 (ordinary) |
+
+Acceptance test for the harness: it must reproduce the order of our seven LB results
+(v4b 0.409 > v5c 0.405 > v2 = v4a 0.404 > v1 0.399 > v5a 0.393 > v3b 0.390) before any config chosen with it is submitted.
+

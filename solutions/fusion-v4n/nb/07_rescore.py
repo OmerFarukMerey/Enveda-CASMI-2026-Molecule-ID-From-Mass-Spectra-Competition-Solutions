@@ -40,6 +40,11 @@ if CFG['USE_ICE']:
                     p['pc_form'] = [formula_of(x) for x in p['pc']]
                     extra = ice_fuse.ice_candidates(p['pc'], p['pc_form'], 25)
                     cands[m] = list(dict.fromkeys(list(cands.get(m, [])) + extra))
+        for m in mids:                           # VAL_EXTRAS: score the popularity-channel proposals as well
+            p = PC_ALT.get(m) if isinstance(PC_ALT, dict) else None
+            if p and p.get('pc') and BASE[m][2] < LIB_TAU:
+                extra = ice_fuse.ice_candidates(p['pc'], [formula_of(x) for x in p['pc']], 25)
+                cands[m] = list(dict.fromkeys(list(cands.get(m, [])) + extra))
         cands = {m: c for m, c in cands.items() if c}
         items = ice_fuse.build_ice_input(te, cands)
         log('ICE input molecules', len(items), 'candidates', sum(len(it['cands']) for it in items))
@@ -88,5 +93,19 @@ if CFG['FRAG_LAM'] > 0:
     except Exception as e:
         FRAG = {}
         print('FRAG FAILED -> off:', repr(e))
+GL_MH = {}                                    # VAL_EXTRAS: GLACIER on [M+H]+ spectra only, for local replay
+if CFG['VALIDATION'] and CFG['VAL_EXTRAS'] and CFG['USE_GL'] and items and not CFG['GL_MH_ONLY'] and not IS_RERUN:
+    try:
+        _mh = [dict(it, spectra=[s for s in it['spectra'] if s.get('adduct') == '[M+H]+']) for it in items]
+        _mh = [it for it in _mh if it['spectra']]
+        gc.collect(); torch.cuda.empty_cache()
+        GL_MH = gl_fuse.run_gl(GL_PKG, _mh, workdir=os.path.join(WORK, 'gl_work_mh'), device='cuda',
+                               budget_s=CFG['GL_BUDGET'], site=os.path.join(WORK, 'ice_site'),
+                               wheels=os.path.join(ICE_PKG, 'wheels'))
+    except Exception as e:
+        GL_MH = {}
+        print('GL [M+H]+ EXTRA FAILED:', repr(e))
+    log('GLACIER [M+H]+ only (extras): molecules', len(GL_MH))
+    dump('gl_mh', GL_MH)
 log('ICE molecules', len(ICE_SCORES), '| GL molecules', len(GL_SCORES), '| FRAG molecules', len(FRAG))
 dump('ice', ICE_SCORES); dump('gl', GL_SCORES); dump('frag', FRAG); dump('pc', PC)   # pc again: now carries pc_form

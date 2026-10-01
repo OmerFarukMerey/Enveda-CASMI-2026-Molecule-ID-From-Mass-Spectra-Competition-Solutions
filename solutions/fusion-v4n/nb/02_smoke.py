@@ -9,16 +9,35 @@ ICE_BUDGET = CFG['ICE_BUDGET']
 TEST_ADDUCTS = ['[M+H]+', '[M+NH4]+', '[M-H2O+H]+', '[M-2H2O+H]+', '[M+Na]+', '[M+K]+',
                 '[M-H]-', '[M-H2O-H]-', '[M+CH2O2-H]-', '[M+Cl]-']
 
-def build_validation(comp, out, lib, n, seed, max_spec, purge='all'):
-    """Hold out n structures of `lib`: their spectra (test adducts, base peak >= 1000 counts, <= max_spec per
-    molecule) become test.parquet, and EVERY train row with those InChIKey14s is dropped from train.parquet, so the
-    library cannot answer them (candidate pools still contain them: a class-2-like setting). purge='lib' drops only
-    the held-out `lib` rows, so spectra of the same structures from OTHER libraries stay searchable: a class-1-like
-    setting (a new timsTOF measurement of a compound with public reference spectra). Writes labels too."""
+def fold0_np_keys():
+    """Structures that the fold-safe FPNet (dmitriigluzdov/casmi26-fold-safe-fpnet, fold 'hold') never saw and that
+    are in a natural-product catalogue (pool_np > 0: COCONUT / LOTUS / NPAtlas). Ordinary natural products: median
+    popularity 5.4 against 13.0 for the famous enveda-np-examples."""
+    import numpy as np
+    sp = pd.read_parquet(find('casmi26-fold-safe-fpnet/**/split.parquet'))
+    pm = pd.read_parquet(os.path.join(POOL_DIR, 'pool_meta.parquet'), columns=['key', 'pid'])
+    npf = np.load(find('casmi26-pubchem-popularity-prior/**/pool_np.npy'))
+    nat = set(pm.key.values[npf[pm.pid.values] > 0])
+    h = sp[(sp.fold == 'hold') & sp.key.isin(nat)]
+    return set(h.inchikey14)
+
+
+def build_validation(comp, out, lib, n, seed, max_spec, purge='all', only=None):
+    """Hold out n structures: their spectra (test adducts, base peak >= 1000 counts, <= max_spec per molecule) become
+    test.parquet, and EVERY train row with those InChIKey14s is dropped from train.parquet, so the library cannot
+    answer them (candidate pools still contain them: a class-2-like setting). purge='lib' drops only the held-out
+    `lib` rows, so spectra of the same structures from OTHER libraries stay searchable: a class-1-like setting (a new
+    timsTOF measurement of a compound with public reference spectra). lib=None with `only` (a set of InChIKey14s)
+    draws the structures from that set and their test spectra from any library. Writes labels too."""
     import numpy as np, pyarrow as pa, pyarrow.parquet as pq, pyarrow.compute as pc
     src = os.path.join(comp, 'train.parquet')
     meta = pq.read_table(src, columns=['ingest_lib', 'inchikey14', 'adduct']).to_pandas()
-    keys = sorted(meta.loc[(meta.ingest_lib == lib) & meta.adduct.isin(TEST_ADDUCTS), 'inchikey14'].unique())
+    ok = meta.adduct.isin(TEST_ADDUCTS)
+    if lib is not None:
+        ok &= meta.ingest_lib == lib
+    if only is not None:
+        ok &= meta.inchikey14.isin(only)
+    keys = sorted(meta.loc[ok, 'inchikey14'].unique())
     keys = [keys[i] for i in np.random.RandomState(seed).permutation(len(keys))[:n]]
     hold = pa.array(keys)
     os.makedirs(out, exist_ok=True)
@@ -26,17 +45,19 @@ def build_validation(comp, out, lib, n, seed, max_spec, purge='all'):
     for rg in range(pf.num_row_groups):
         t = pf.read_row_group(rg)
         held = pc.is_in(t['inchikey14'], value_set=hold)
-        drop = held if purge == 'all' else pc.and_(held, pc.equal(t['ingest_lib'], lib))
+        in_lib = pc.equal(t['ingest_lib'], lib) if lib is not None else held
+        drop = held if purge == 'all' else pc.and_(held, in_lib)
         kept = t.filter(pc.invert(drop))
         writer = writer or pq.ParquetWriter(os.path.join(out, 'train.parquet'), kept.schema)
         writer.write_table(kept)
-        q = t.filter(pc.and_(pc.and_(held, pc.equal(t['ingest_lib'], lib)),
-                             pc.is_in(t['adduct'], value_set=pa.array(TEST_ADDUCTS))))
+        q = t.filter(pc.and_(pc.and_(held, in_lib), pc.is_in(t['adduct'], value_set=pa.array(TEST_ADDUCTS))))
         if q.num_rows:
             parts.append(q)
     writer.close()
     q = pa.concat_tables(parts).to_pandas()
     q = q[q.base_peak_intensity.isna() | (q.base_peak_intensity >= 1000)]
+    if lib is None:                               # many libraries per structure: a seeded random subset, not the first rows
+        q = q.sample(frac=1.0, random_state=seed).sort_values('inchikey14', kind='stable')
     q = q.groupby('inchikey14', group_keys=False).head(max_spec).reset_index(drop=True)
     q['molecule_id'] = ['v_' + hashlib.md5(k.encode()).hexdigest()[:8] for k in q.inchikey14]
     q['spectrum_id'] = [f'vs_{i:06d}' for i in range(len(q))]
@@ -53,10 +74,14 @@ def build_validation(comp, out, lib, n, seed, max_spec, purge='all'):
 
 if CFG['VALIDATION'] and not IS_RERUN:
     _t0 = time.time()
-    _nm, _ns = build_validation(COMP, os.path.join(WORK, 'val_comp'), CFG['VAL_LIB'], CFG['VAL_N'], CFG['VAL_SEED'],
-                                CFG['VAL_MAX_SPEC'], CFG['VAL_PURGE'])
+    if CFG['VAL_SET'] == 'fold0_np':
+        _nm, _ns = build_validation(COMP, os.path.join(WORK, 'val_comp'), None, CFG['VAL_N'], CFG['VAL_SEED'],
+                                    CFG['VAL_MAX_SPEC'], 'all', only=fold0_np_keys())
+    else:
+        _nm, _ns = build_validation(COMP, os.path.join(WORK, 'val_comp'), CFG['VAL_LIB'], CFG['VAL_N'], CFG['VAL_SEED'],
+                                    CFG['VAL_MAX_SPEC'], CFG['VAL_PURGE'])
     COMP = os.path.join(WORK, 'val_comp')
-    log(f'VALIDATION: {_nm} held-out {CFG["VAL_LIB"]} molecules / {_ns} spectra, purge={CFG["VAL_PURGE"]} ({time.time()-_t0:.0f}s)')
+    log(f'VALIDATION {CFG["VAL_SET"]}: {_nm} held-out molecules / {_ns} spectra, purge={CFG["VAL_PURGE"]} ({time.time()-_t0:.0f}s)')
 elif not IS_RERUN and not CFG['FULL_ON_COMMIT']:
     SM = os.path.join(WORK, 'smoke_comp'); os.makedirs(SM, exist_ok=True)
     _full = pd.read_parquet(os.path.join(COMP, 'test.parquet'))

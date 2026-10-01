@@ -36,13 +36,14 @@ if __name__ == '__main__':
     a = ap.parse_args()
     sc = next(d for d in glob.glob(os.path.join(a.run, '**', 'stage_cache'), recursive=True))
     ld = lambda n: json.load(open(os.path.join(sc, f'{n}.json'))) if os.path.exists(os.path.join(sc, f'{n}.json')) else {}
-    base, eng, pc = ld('base'), ld('eng'), ld('pc')
+    base, eng, pc, pc2 = ld('base'), ld('eng'), ld('pc'), ld('pc_pop')
     spec = molecule_spectra(pd.read_parquet(a.test))
     missing = [m for m in base if m not in spec]
     assert not missing, f'{len(missing)} run molecules missing from {a.test} (wrong test file?) e.g. {missing[:3]}'
     tasks = []
     for m in base:
-        c = list(dict.fromkeys(list(base[m][0]) + list(eng.get(m, {}).get('smiles', [])) + list((pc.get(m) or {}).get('pc', []))))
+        c = list(dict.fromkeys(list(base[m][0]) + list(eng.get(m, {}).get('smiles', [])) + list((pc.get(m) or {}).get('pc', []))
+                               + list((pc2.get(m) or {}).get('pc', []))))
         tasks.append((m, spec[m], c))
     t0 = time.time()
     with ProcessPoolExecutor(a.workers) as ex:
