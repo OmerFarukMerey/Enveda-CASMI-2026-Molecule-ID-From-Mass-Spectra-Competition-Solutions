@@ -124,6 +124,7 @@ class ResultCache:
 def effective_cfg(cfg):
     """Only the keys fusion_core reads decide the result (cache key)."""
     c = dict(fusion_core.DEFAULTS); c.update({k: v for k, v in cfg.items() if k in fusion_core.DEFAULTS})
+    c['PC_POP_LAM'] = cfg.get('PC_POP_LAM') or 0; c['GL_MH_ONLY'] = bool(cfg.get('GL_MH_ONLY'))   # read by refuse.run_one
     return c
 
 

@@ -141,3 +141,27 @@ configs can be replayed locally):
 Acceptance test for the harness: it must reproduce the order of our seven LB results
 (v4b 0.409 > v5c 0.405 > v2 = v4a 0.404 > v1 0.399 > v5a 0.393 > v3b 0.390) before any config chosen with it is submitted.
 
+## Reviews of 2026-10-02 (reports in reviews/) and what changed
+
+**Audit** (reviews/audit-2026-10-02.md): metric identical to the official one on 37 submission/label pairs; six LB configs
+match what ran; 12 Kaggle runs re-fuse exactly; the PubChem-popularity port matches v29 line for line; pool popularity arrays
+aligned. Harness bugs found and fixed: (1) the validation purge used the stored inchikey14, leaving tautomer twins of 14/250
+answers (27/244 in valF) in the library -> purge and sample by the metric key from train_structs.parquet; (2) valF relabelled
+Orbitrap/QTOF spectra as timsTOF -> real labels kept for non-np-examples sets; (3) regime_eval's result cache ignored
+PC_POP_LAM / GL_MH_ONLY; (4) the isomer shuffle ran on the 80-deep cache before the TOPN cut and lost the truth in ~15% of
+molecules -> lists are cut first (earlier sim numbers are affected); (5) TOPN 60 replay of an 80-deep cache is inexact in
+stage C for 38-57 of 250 lists -> future validation runs dump at TOPN 60. Structural limits: the public LB is ~132
+molecules, so nearly all gaps between our seven scores are under 2 SE; validation truths are never PubChem-only, so
+PubChem-channel changes cannot be measured locally; popularity alone scores 0.726 on val1.
+
+**Research** (reviews/research-2026-10-02.md): the 0.415 notebook's popularity arrays are private ("Dataset private");
+its code with public arrays scores 0.393-0.401 for three teams. With public data the PubChem-channel prior costs
+0.007-0.018 and GLACIER on [M+H]+ only gains 0.007-0.010 (analyticaobscura: bob v10 + that filter = 0.408-0.411).
+
+**Directions** (reviews/directions-2026-10-02.md): an estimated 38-46% of hidden molecules score ~0 (truth never listed);
+isomer order is the main loss when the truth is listed; engine-2 has the truth in 7.6% of its lists without library
+analogs and its fusion costs class-2-like molecules -> FUSE_MIN_LIB (no cost on valc1: +0.002, 2-3 wins / 0-1 losses).
+
+valA / valF (running since 23:05 on 2026-10-01) were built before fixes (1), (2) and (5): drop the twin molecules when
+scoring valA; treat valF as low-trust.
+

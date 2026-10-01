@@ -22,11 +22,13 @@ import refuse
 import metric
 
 
-def shuffle_isomers(base, rng, rho):
-    """Per molecule (prob 1-rho): permute the candidates of every same-formula group among that group's slots."""
+def shuffle_isomers(base, rng, rho, topn=60):
+    """Per molecule (prob 1-rho): permute the candidates of every same-formula group among that group's slots.
+    Lists are cut to `topn` first: shuffling a deeper cache pushed the truth past the cut in ~15% of molecules."""
     out = {}
     for m, v in base.items():
         v = copy.deepcopy(v)
+        v = [x[:topn] if isinstance(x, list) else x for x in v]
         if len(v[0]) > 1 and rng.random() >= rho:
             groups = {}
             for i, f in enumerate(v[4]):

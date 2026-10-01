@@ -22,10 +22,10 @@ def fold0_np_keys():
     return set(h.inchikey14)
 
 
-def build_validation(comp, out, lib, n, seed, max_spec, purge='all', only=None):
+def build_validation(comp, out, lib, n, seed, max_spec, mode='all', only=None):
     """Hold out n structures: their spectra (test adducts, base peak >= 1000 counts, <= max_spec per molecule) become
     test.parquet, and EVERY train row with those InChIKey14s is dropped from train.parquet, so the library cannot
-    answer them (candidate pools still contain them: a class-2-like setting). purge='lib' drops only the held-out
+    answer them (candidate pools still contain them: a class-2-like setting). mode='lib' drops only the held-out
     `lib` rows, so spectra of the same structures from OTHER libraries stay searchable: a class-1-like setting (a new
     timsTOF measurement of a compound with public reference spectra). lib=None with `only` (a set of InChIKey14s)
     draws the structures from that set and their test spectra from any library. Writes labels too."""
@@ -38,15 +38,28 @@ def build_validation(comp, out, lib, n, seed, max_spec, purge='all', only=None):
     if only is not None:
         ok &= meta.inchikey14.isin(only)
     keys = sorted(meta.loc[ok, 'inchikey14'].unique())
-    keys = [keys[i] for i in np.random.RandomState(seed).permutation(len(keys))[:n]]
+    # audit 2026-10-02: the metric compares tautomer-canonical keys, so sample one structure per metric key and purge
+    # every training InChIKey14 that shares a held-out metric key (train_structs.parquet carries key per structure)
+    _st = pd.read_parquet(os.path.join(POOL_DIR, 'train_structs.parquet'), columns=['inchikey14', 'key'])
+    ik2key = dict(zip(_st.inchikey14, _st.key))
+    order = [keys[i] for i in np.random.RandomState(seed).permutation(len(keys))]
+    keys, seen = [], set()
+    for k in order:
+        mk = ik2key.get(k, k)
+        if mk not in seen:
+            seen.add(mk); keys.append(k)
+        if len(keys) >= n:
+            break
     hold = pa.array(keys)
+    purge = pa.array(sorted(set(keys) | set(_st.inchikey14[_st.key.isin(seen)])))   # held-out keys and their twins
     os.makedirs(out, exist_ok=True)
     pf, writer, parts = pq.ParquetFile(src), None, []
     for rg in range(pf.num_row_groups):
         t = pf.read_row_group(rg)
         held = pc.is_in(t['inchikey14'], value_set=hold)
+        twin = pc.is_in(t['inchikey14'], value_set=purge)
         in_lib = pc.equal(t['ingest_lib'], lib) if lib is not None else held
-        drop = held if purge == 'all' else pc.and_(held, in_lib)
+        drop = twin if mode == 'all' else pc.and_(held, in_lib)
         kept = t.filter(pc.invert(drop))
         writer = writer or pq.ParquetWriter(os.path.join(out, 'train.parquet'), kept.schema)
         writer.write_table(kept)
@@ -61,7 +74,8 @@ def build_validation(comp, out, lib, n, seed, max_spec, purge='all', only=None):
     q = q.groupby('inchikey14', group_keys=False).head(max_spec).reset_index(drop=True)
     q['molecule_id'] = ['v_' + hashlib.md5(k.encode()).hexdigest()[:8] for k in q.inchikey14]
     q['spectrum_id'] = [f'vs_{i:06d}' for i in range(len(q))]
-    q['instrument_type'] = 'timsTOF'
+    if lib is not None:                           # enveda-np-examples really is timsTOF; other libraries keep their label
+        q['instrument_type'] = 'timsTOF'
     test_cols = ['molecule_id', 'spectrum_id', 'ms2_mzs', 'ms2_normalized_intensities', 'base_peak_intensity', 'adduct',
                  'ionization_mode', 'instrument_type', 'precursor_mz', 'collision_energy_ev', 'collision_energy_orig',
                  'collision_energy_orig_units']
