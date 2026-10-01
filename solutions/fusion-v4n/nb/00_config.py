@@ -21,6 +21,7 @@ CFG = dict(
     GL_MH_ONLY=False,             # GLACIER scores [M+H]+ spectra only (wangpenghua v29)
     # --- engine-2 (prvsiyan two-ranker, BIO + AFIX) and its fusion
     USE_ENG=True, ENG_W_PV=0.88, ENG_W_A=[0.35, 0.55], ENG_SEEDS=[0, 1], ENG_N_ANALOG=200, ENG_ORDER_K=80, ENG_TOPK=40,
+    ENG_FP_EXTRA=[],              # extra FPNet dataset slugs averaged into engine-2 (e.g. 'casmi26-fp-npx4-soup')
     FUSE_ALPHA=0.6, FUSE_KRR=3.0, FUSE_N=40, FUSE_ENG_K=40,   # FUSE_ENG_K: engine-2 depth used in the fusion
     # --- PubChem popularity prior on pool candidates (bobthebot369 v10, LB 0.401 used 0.15); 0 = off
     POP_MU=0.0,

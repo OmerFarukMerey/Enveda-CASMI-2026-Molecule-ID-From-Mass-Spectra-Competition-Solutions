@@ -75,7 +75,8 @@ def main():
     meta = dict(id=f'{user or "YOUR_KAGGLE_USERNAME"}/{a.slug}', title=a.title or a.slug, code_file=code_file,
                 language='python', kernel_type='notebook', is_private=True, enable_gpu=True, enable_tpu=False,
                 enable_internet=False, machine_shape='NvidiaTeslaT4',
-                dataset_sources=DATASETS + ([over['VAL_EXT']] if over.get('VAL_EXT') else []),   # external validation set
+                dataset_sources=DATASETS + ([over['VAL_EXT']] if over.get('VAL_EXT') else [])   # external validation set
+                + list(over.get('EXTRA_DATASETS', [])),   # inputs of non-default knobs (e.g. ENG_FP_EXTRA)
                 competition_sources=[COMPETITION], kernel_sources=[], model_sources=[])
     if not a.no_pin:
         meta['docker_image'] = DOCKER_IMAGE

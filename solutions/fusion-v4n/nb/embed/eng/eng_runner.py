@@ -6,7 +6,7 @@ if __name__ == '__main__':
     test, train, sample, out = sys.argv[1:5]
     import casmi_engine as E
     # ours: knobs come from the notebook CFG via CASMI_ENG_CFG (defaults = reference v4n)
-    C = dict(W_A=(0.35, 0.55), SEEDS=(0, 1), N_ANALOG=200, W_PV=0.88, ORDER_K=80, TOPK=40)
+    C = dict(W_A=(0.35, 0.55), SEEDS=(0, 1), N_ANALOG=200, W_PV=0.88, ORDER_K=80, TOPK=40, FP_EXTRA=())
     C.update(json.loads(os.environ.get('CASMI_ENG_CFG', '{}')))
     _orig_find = E.find
     def _find(n):                                  # v4g ships its own fp_bits.npy (10,226 bits): take prvsiyan's 6,930
@@ -17,6 +17,11 @@ if __name__ == '__main__':
     E.RANK.W_A = tuple(C['W_A']); E.RANK.SEEDS = tuple(C['SEEDS']); E.CFG.N_ANALOG = int(C['N_ANALOG'])
     import glob
     fp_models = sorted(p for p in glob.glob('/kaggle/input/**/fp_*.pt', recursive=True) if 'casmi26-fp-models-v2' in p)
+    for slug in C['FP_EXTRA']:                     # ours: extra prvsiyan-architecture FPNets join the single-model average
+        extra = sorted(glob.glob(f'/kaggle/input/**/{slug}/**/fp_*.pt', recursive=True))
+        if not extra:
+            raise FileNotFoundError(f'ENG_FP_EXTRA: no fp_*.pt under {slug}')
+        fp_models += extra
     print('engine fp models', fp_models, flush=True)
     T0 = time.time()
     subs, recs, S = E.main(test, train, sample, E.find('sim_rank_rows_nofp.npz'), E.find('rank_train.npz'), fp_models,
