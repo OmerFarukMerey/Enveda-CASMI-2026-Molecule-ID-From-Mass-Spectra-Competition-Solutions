@@ -35,6 +35,7 @@ CFG = dict(
     FILL_25=False,                         # top up lists shorter than 25 from the other channels
     POP_LIB_OFF=False, FRAG_LIB_OFF=False, # no popularity / frag term for library hits
     GATE_TAU=None,                         # lib_max threshold of the *_LIB gates; None = LIB_TAU
+    FUSE_MIN_LIB=None,                     # fuse engine-2 only when lib_max >= this (it needs library analogs)
     # --- validation mode (commit runs only; the scoring rerun ignores it): hold out VAL_LIB structures, drop ALL
     #     their spectra from the library, score them as the test set -> stage_cache/val_labels.csv
     VALIDATION=False, VAL_LIB='enveda-np-examples', VAL_N=250, VAL_SEED=0, VAL_MAX_SPEC=16,

@@ -25,7 +25,8 @@ DEFAULTS = dict(LIB_TAU=0.9, REL_TH=600.0, SLOTS_AGG=[2, 4, 6, 8, 10], SLOTS_GEN
                 ICE_LAM_LIB=None, GL_LAM_LIB=None,     # ICE/GL weights for library hits (lib_max >= LIB_TAU); None = same
                 FILL_25=False,                         # top up lists shorter than 25 from the other channels
                 POP_LIB_OFF=False, FRAG_LIB_OFF=False, # no popularity / frag term for library hits
-                GATE_TAU=None)                         # lib_max threshold of the *_LIB gates; None = LIB_TAU
+                GATE_TAU=None,                         # lib_max threshold of the *_LIB gates; None = LIB_TAU
+                FUSE_MIN_LIB=None)                     # fuse engine-2 only when lib_max >= this (it needs library analogs)
 
 
 def popularity_reorder(smis, keys, scs, forms, pids, pool_pop, mu):
@@ -232,6 +233,9 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
         if c['FUSE_SKIP_LIB'] is not None and lib_of.get(mid, 0.0) >= c['FUSE_SKIP_LIB']:
             e = None
             stats['fuse']['skipped_lib'] = stats['fuse'].get('skipped_lib', 0) + 1
+        if c['FUSE_MIN_LIB'] is not None and lib_of.get(mid, 0.0) < c['FUSE_MIN_LIB']:
+            e = None
+            stats['fuse']['skipped_nolib'] = stats['fuse'].get('skipped_nolib', 0) + 1
         if e and e.get('smiles'):
             K = int(c['FUSE_ENG_K'])
             fsm, fk, fsc = fuse_rrf(vs, e['smiles'][:K], e['keys'][:K], score_key, c['FUSE_ALPHA'], c['FUSE_KRR'], c['FUSE_N'])
