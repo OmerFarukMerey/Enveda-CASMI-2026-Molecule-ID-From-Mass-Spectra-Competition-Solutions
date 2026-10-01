@@ -62,3 +62,18 @@ and misses v3b's drop. val1 has no library hits (class-2-like only); the drop ma
 validation (`VAL_PURGE='lib'`: only the held-out timsTOF rows are purged, all 250 structures keep 55.6k spectra from
 other libraries) is running as `casmi26-ours-valc1`.
 
+## v4 candidates: library gate (2026-10-01)
+
+On 400 exact library hits (vis) v2 loses 18 answers to the ICE/GLACIER re-rank (MRR 0.975; re-rank off: 1.000).
+Gate = ICE_LAM_LIB / GL_LAM_LIB for molecules with lib_max ≥ 0.9. Paired vs v2:
+
+| Config | Library regime (400) | Class-2 sim (250, 6 seeds) | Smoke (12) | LB |
+|---|---|---|---|---|
+| v4a hard gate 0/0 | +0.0255 ± 0.0060, 18/0 | −0.0031 ± 0.0014, 1/7 (analog hits) | 1.000 | submitted, pending |
+| v4c soft gate 0.5/0.5 | +0.0196 ± 0.0050, 16/0 | +0.0001 ± 0.0004, 3/4 | 0.958 | not submitted |
+| gate 0.25/0.25 | +0.0238 ± 0.0056, 18/0 | −0.0004 ± 0.0004, 2/5 | – | – |
+| v4b hard gate + POP_MU 0.25 | +0.0255 | +0.0193 ± 0.0037 (popularity-biased) | 1.000 | submitted, pending |
+
+Predictions made before scoring: v4a 0.404–0.410, v4b 0.400–0.414. v4a vs v2 isolates the gate; v4b vs v4a isolates
+popularity 0.25. Soft vs hard is too small for the LB to resolve; decide it on the class-1 validation (valc1).
+
