@@ -14,5 +14,5 @@ One row per Kaggle submission. Details go in the solution's own `EXPERIMENTS.md`
 | 6 | 2026-10-01 | fusion-v4n | v3b-fragall025 (submission 56745660) | v2 with the frag term in `all` mode λ=0.25 instead of `gap` λ=0.5 | 5 | 0.390 | −0.014 | Hemre |
 | 7 | 2026-10-01 | fusion-v4n | v4a-libgate (submission 56751038) | v2 + library gate: ICE/GL weight 0 when lib_max ≥ 0.9 | 5 | 0.404 | 0.000 | Hemre |
 | 8 | 2026-10-01 | fusion-v4n | v4b-libgate-pop025 (submission 56751042) | v4a + popularity prior μ=0.25 | 7 | **0.409** | +0.005 | Hemre |
-| 9 | 2026-10-01 | fusion-v4n | v5a-v29replica | reference + pool popularity 0.15 + PubChem-channel popularity 0.25/200 + GLACIER on [M+H]+ only (replica of wangpenghua v29, reported 0.415) | ref 0.399 | pending | – | Hemre |
-| 10 | 2026-10-01 | fusion-v4n | v5c-v4b-pcpop-glmh | v4b (0.409) + PubChem-channel popularity + GLACIER [M+H]+ only | 8 | pending | – | Hemre |
+| 9 | 2026-10-01 | fusion-v4n | v5a-v29replica | reference + pool popularity 0.15 + PubChem-channel popularity 0.25/200 + GLACIER on [M+H]+ only (attempted replica of wangpenghua v29, reported 0.415; its popularity datasets are private, ours came from dmitriigluzdov) | ref 0.399 | 0.393 | −0.006 | Hemre |
+| 10 | 2026-10-01 | fusion-v4n | v5c-v4b-pcpop-glmh | v4b (0.409) + PubChem-channel popularity + GLACIER [M+H]+ only | 8 | 0.405 | −0.004 | Hemre |

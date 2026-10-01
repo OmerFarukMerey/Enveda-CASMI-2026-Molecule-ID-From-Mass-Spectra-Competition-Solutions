@@ -109,7 +109,15 @@ Predictions before scoring: v5a 0.408–0.418, v5c 0.410–0.425.
 
 | Preset | Content | Smoke (12) | LB |
 |---|---|---|---|
-| v5a-v29replica | POP_MU 0.15, PC_POP_LAM 0.25, PC_POP_UNION 200, GL_MH_ONLY | 0.958 | submitted, pending |
+| v5a-v29replica | POP_MU 0.15, PC_POP_LAM 0.25, PC_POP_UNION 200, GL_MH_ONLY | 0.958 | **0.393** (predicted 0.408–0.418: wrong) |
 | v5b-v29-fraggap-softgate08 | v5a + frag gap + soft gate at 0.8 | 0.958 | not submitted (superseded by v5c) |
-| v5c-v4b-pcpop-glmh | v4b (POP_MU 0.25, frag gap, hard gate) + PC popularity + GL_MH_ONLY | 1.000 | submitted, pending |
+| v5c-v4b-pcpop-glmh | v4b (POP_MU 0.25, frag gap, hard gate) + PC popularity + GL_MH_ONLY | 1.000 | **0.405** (v4b: 0.409; predicted 0.410–0.425: wrong) |
+
+**Post-mortem (2026-10-01).** v5a was not a replica: wangpenghua has no public datasets, so the two blank inputs of v29
+are his private popularity arrays. We substituted dmitriigluzdov/casmi26-pubchem-popularity-prior. With it, "PubChem-channel
+popularity + GLACIER [M+H]+" costs −0.004 on top of v4b and about −0.01 on top of reference + pool popularity (bob 0.401,
+v2 0.404). The research notes had already flagged that thivnti's notebook (v4n + PubChem-channel popularity + pool μ 0.2,
+same public dataset) sits below v4n. Working hypothesis: the PubChem-channel prior with this dataset is the harmful part;
+GLACIER [M+H]+ alone is untested by us. Lesson: a code replica without the same data is not a replica; say so before submitting.
+Best remains v4b at 0.409.
 
