@@ -1,0 +1,8 @@
+{
+  "VERSION": "v3c-icegl15",
+  "POP_MU": 0.15,
+  "FRAG_LAM": 0.5,
+  "FRAG_MODE": "gap",
+  "ICE_LAM": 1.5,
+  "GL_LAM": 1.5
+}

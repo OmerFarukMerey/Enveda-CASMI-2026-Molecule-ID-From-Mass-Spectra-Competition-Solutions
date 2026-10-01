@@ -27,3 +27,19 @@ purged train, so it has the truth in only 7.6% of lists. Consequences:
 Lesson: public artefacts trained on all of train.parquet leak into any train-derived holdout. Only untrained components
 (frag_rescore, isomer-panel test) and the LB give trustworthy signal for this pipeline.
 
+## v3 candidates (2026-10-01), each = v2 + one change. Commit runs all clean (16–19 min).
+
+Validation (val1/val2, 250 held-out molecules, leaked: see above) paired vs v2, `tools/compare_configs.py`:
+
+| Config | val MRR | Δ vs v2 ± SE | W/L | top-1 changed | top-25 changed | smoke (12 visible) |
+|---|---|---|---|---|---|---|
+| v1 (LB 0.399) | 0.6258 | −0.0001 ± 0.0096 | 21/27 | 35 | 242 | 0.958 |
+| v2 (LB 0.404) | 0.6259 | — | — | — | — | 0.958 |
+| v3a-fpens (S1) | 0.6239 | −0.0020 ± 0.0031 | 5/7 | 5 | 208 | 0.958 |
+| v3b-fragall025 (S2) | 0.6272 | +0.0012 ± 0.0065 | 13/19 | 15 | 246 | 0.958 |
+| v3c-icegl15 (S3) | 0.6255 | −0.0005 ± 0.0094 | 18/36 | 26 | 214 | **0.917** (one library hit demoted) |
+| v3d-pop025 (S4) | 0.6237 | −0.0022 ± 0.0043 | 5/11 | 6 | 187 | 0.958 |
+
+The validation cannot separate them: v1 vs v2 is −0.0001 here but +0.005 on the LB. Use the change counts as effect size: S1/S4
+are tiny (likely below LB noise), S2/S3 are the informative LB probes. Presets: configs/v3*.json.
+
