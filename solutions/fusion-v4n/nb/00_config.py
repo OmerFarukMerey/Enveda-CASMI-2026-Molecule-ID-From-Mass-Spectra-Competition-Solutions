@@ -32,6 +32,7 @@ CFG = dict(
     # --- validation mode (commit runs only; the scoring rerun ignores it): hold out VAL_LIB structures, drop ALL
     #     their spectra from the library, score them as the test set -> stage_cache/val_labels.csv
     VALIDATION=False, VAL_LIB='enveda-np-examples', VAL_N=250, VAL_SEED=0, VAL_MAX_SPEC=16,
+    VAL_PURGE='all',              # 'all' = class-2-like (no spectra left); 'lib' = class-1-like (other libraries stay)
     # --- run control
     SMOKE_N=12,                   # commit run on the visible test: only this many molecules ...
     SMOKE_ICE_BUDGET=300,

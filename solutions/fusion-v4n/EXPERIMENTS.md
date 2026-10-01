@@ -43,3 +43,22 @@ Validation (val1/val2, 250 held-out molecules, leaked: see above) paired vs v2, 
 The validation cannot separate them: v1 vs v2 is −0.0001 here but +0.005 on the LB. Use the change counts as effect size: S1/S4
 are tiny (likely below LB noise), S2/S3 are the informative LB probes. Presets: configs/v3*.json.
 
+## v3b result and the de-leaked proxy (2026-10-01)
+
+**v3b-fragall025 scored 0.390 on the public LB (v2: 0.404, −0.014 ≈ 5–6 molecules).** Predicted 0.406; wrong. The frag term
+must not be applied to molecules ICE/GLACIER already score. The combo (v3e, frag all + FPNet ensemble) was never submitted.
+
+`tools/sim_isomer_eval.py` shuffles same-formula candidates inside the base lists of val1 to erase the v1 ranker's
+memorised isomer order (6 seeds). Calibration against the three LB points:
+
+| Config | LB | sim MRR | Δ vs v2 ± SE |
+|---|---|---|---|
+| v1 | 0.399 | 0.408 | −0.044 ± 0.008 |
+| v2 | 0.404 | 0.452 | — |
+| v3b | 0.390 | 0.453 | +0.001 ± 0.004 |
+
+It gets v2 > v1 right (gain overstated: enveda-np-examples are deliberately common compounds, so popularity is over-rewarded)
+and misses v3b's drop. val1 has no library hits (class-2-like only); the drop may come from class-1 molecules. A class-1
+validation (`VAL_PURGE='lib'`: only the held-out timsTOF rows are purged, all 250 structures keep 55.6k spectra from
+other libraries) is running as `casmi26-ours-valc1`.
+

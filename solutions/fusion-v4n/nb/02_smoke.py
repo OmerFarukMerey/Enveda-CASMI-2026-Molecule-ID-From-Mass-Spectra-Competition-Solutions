@@ -9,10 +9,12 @@ ICE_BUDGET = CFG['ICE_BUDGET']
 TEST_ADDUCTS = ['[M+H]+', '[M+NH4]+', '[M-H2O+H]+', '[M-2H2O+H]+', '[M+Na]+', '[M+K]+',
                 '[M-H]-', '[M-H2O-H]-', '[M+CH2O2-H]-', '[M+Cl]-']
 
-def build_validation(comp, out, lib, n, seed, max_spec):
+def build_validation(comp, out, lib, n, seed, max_spec, purge='all'):
     """Hold out n structures of `lib`: their spectra (test adducts, base peak >= 1000 counts, <= max_spec per
     molecule) become test.parquet, and EVERY train row with those InChIKey14s is dropped from train.parquet, so the
-    library cannot answer them (candidate pools still contain them: a class-2-like setting). Writes labels too."""
+    library cannot answer them (candidate pools still contain them: a class-2-like setting). purge='lib' drops only
+    the held-out `lib` rows, so spectra of the same structures from OTHER libraries stay searchable: a class-1-like
+    setting (a new timsTOF measurement of a compound with public reference spectra). Writes labels too."""
     import numpy as np, pyarrow as pa, pyarrow.parquet as pq, pyarrow.compute as pc
     src = os.path.join(comp, 'train.parquet')
     meta = pq.read_table(src, columns=['ingest_lib', 'inchikey14', 'adduct']).to_pandas()
@@ -24,7 +26,8 @@ def build_validation(comp, out, lib, n, seed, max_spec):
     for rg in range(pf.num_row_groups):
         t = pf.read_row_group(rg)
         held = pc.is_in(t['inchikey14'], value_set=hold)
-        kept = t.filter(pc.invert(held))
+        drop = held if purge == 'all' else pc.and_(held, pc.equal(t['ingest_lib'], lib))
+        kept = t.filter(pc.invert(drop))
         writer = writer or pq.ParquetWriter(os.path.join(out, 'train.parquet'), kept.schema)
         writer.write_table(kept)
         q = t.filter(pc.and_(pc.and_(held, pc.equal(t['ingest_lib'], lib)),
@@ -51,9 +54,9 @@ def build_validation(comp, out, lib, n, seed, max_spec):
 if CFG['VALIDATION'] and not IS_RERUN:
     _t0 = time.time()
     _nm, _ns = build_validation(COMP, os.path.join(WORK, 'val_comp'), CFG['VAL_LIB'], CFG['VAL_N'], CFG['VAL_SEED'],
-                                CFG['VAL_MAX_SPEC'])
+                                CFG['VAL_MAX_SPEC'], CFG['VAL_PURGE'])
     COMP = os.path.join(WORK, 'val_comp')
-    log(f'VALIDATION: {_nm} held-out {CFG["VAL_LIB"]} molecules / {_ns} spectra, library purged ({time.time()-_t0:.0f}s)')
+    log(f'VALIDATION: {_nm} held-out {CFG["VAL_LIB"]} molecules / {_ns} spectra, purge={CFG["VAL_PURGE"]} ({time.time()-_t0:.0f}s)')
 elif not IS_RERUN and not CFG['FULL_ON_COMMIT']:
     SM = os.path.join(WORK, 'smoke_comp'); os.makedirs(SM, exist_ok=True)
     _full = pd.read_parquet(os.path.join(COMP, 'test.parquet'))
