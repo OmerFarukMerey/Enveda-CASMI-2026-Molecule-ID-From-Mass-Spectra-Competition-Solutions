@@ -50,6 +50,10 @@ def main():
     ap.add_argument('--out', default=OUT); ap.add_argument('--no-pin', action='store_true')
     a = ap.parse_args()
 
+    over = json.load(open(a.config, encoding='utf-8')) if a.config else {}
+    for kv in a.set:
+        k, v = kv.split('=', 1)
+        over[k] = json.loads(v)
     embed = {}
     for p in sorted(glob.glob(os.path.join(NB, 'embed', '**', '*.py'), recursive=True)):
         embed[os.path.relpath(p, os.path.join(NB, 'embed')).replace(os.sep, '/')] = open(p, encoding='utf-8').read()
@@ -57,11 +61,7 @@ def main():
                        + repr(embed), 'embed')]
     for p in sorted(glob.glob(os.path.join(NB, '[0-9][0-9]_*.py'))):
         src = open(p, encoding='utf-8').read()
-        if os.path.basename(p).startswith('00_') and (a.set or a.config):
-            over = json.load(open(a.config, encoding='utf-8')) if a.config else {}
-            for kv in a.set:
-                k, v = kv.split('=', 1)
-                over[k] = json.loads(v)
+        if os.path.basename(p).startswith('00_') and over:
             src += f'\nCFG.update({over!r})   # --set overrides from build_notebook.py\n'
         cells.append(code_cell(src, os.path.basename(p)[:-3].replace('_', '-')))
     nb = dict(cells=cells, metadata=dict(kernelspec=dict(display_name='Python 3', language='python', name='python3'),
@@ -74,7 +74,8 @@ def main():
     user = a.user or kaggle_user()
     meta = dict(id=f'{user or "YOUR_KAGGLE_USERNAME"}/{a.slug}', title=a.title or a.slug, code_file=code_file,
                 language='python', kernel_type='notebook', is_private=True, enable_gpu=True, enable_tpu=False,
-                enable_internet=False, machine_shape='NvidiaTeslaT4', dataset_sources=DATASETS,
+                enable_internet=False, machine_shape='NvidiaTeslaT4',
+                dataset_sources=DATASETS + ([over['VAL_EXT']] if over.get('VAL_EXT') else []),   # external validation set
                 competition_sources=[COMPETITION], kernel_sources=[], model_sources=[])
     if not a.no_pin:
         meta['docker_image'] = DOCKER_IMAGE

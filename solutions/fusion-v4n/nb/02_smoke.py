@@ -57,6 +57,19 @@ if CFG['VALIDATION'] and not IS_RERUN:
                                 CFG['VAL_MAX_SPEC'], CFG['VAL_PURGE'])
     COMP = os.path.join(WORK, 'val_comp')
     log(f'VALIDATION: {_nm} held-out {CFG["VAL_LIB"]} molecules / {_ns} spectra, purge={CFG["VAL_PURGE"]} ({time.time()-_t0:.0f}s)')
+elif CFG['VAL_EXT'] and not IS_RERUN:
+    # external validation: structures absent from train.parquet (tools/build_ext_val.py), library and pools untouched
+    EX = os.path.join(WORK, 'ext_comp'); os.makedirs(EX, exist_ok=True); os.makedirs(STAGE, exist_ok=True)
+    _ext_slug = CFG['VAL_EXT'].split('/')[-1]   # several external sets may be mounted: read the configured one
+    _ext = pd.read_parquet(find(f'{_ext_slug}/**/ext_test.parquet'))
+    _ext.to_parquet(os.path.join(EX, 'test.parquet'), index=False)
+    _lab = pd.read_csv(find(f'{_ext_slug}/**/ext_val_labels.csv'))
+    _lab.to_csv(os.path.join(STAGE, 'val_labels.csv'), index=False)
+    pd.DataFrame({'molecule_id': _lab.molecule_id, 'smiles': 'CCO'}).to_csv(os.path.join(EX, 'sample_submission.csv'), index=False)
+    if not os.path.exists(os.path.join(EX, 'train.parquet')):
+        os.symlink(os.path.join(COMP, 'train.parquet'), os.path.join(EX, 'train.parquet'))
+    COMP = EX
+    log(f'VAL_EXT: {_lab.molecule_id.nunique()} external molecules / {len(_ext)} spectra from {CFG["VAL_EXT"]}')
 elif not IS_RERUN and not CFG['FULL_ON_COMMIT']:
     SM = os.path.join(WORK, 'smoke_comp'); os.makedirs(SM, exist_ok=True)
     _full = pd.read_parquet(os.path.join(COMP, 'test.parquet'))
@@ -68,4 +81,4 @@ elif not IS_RERUN and not CFG['FULL_ON_COMMIT']:
     COMP = SM
     ICE_BUDGET = CFG['SMOKE_ICE_BUDGET']
 log('RERUN', IS_RERUN, '| sig', _sig, '| COMP', COMP, '| ICE_BUDGET', ICE_BUDGET, '| FULL_ON_COMMIT', CFG['FULL_ON_COMMIT'],
-    '| VALIDATION', CFG['VALIDATION'])
+    '| VALIDATION', CFG['VALIDATION'], '| VAL_EXT', CFG['VAL_EXT'])

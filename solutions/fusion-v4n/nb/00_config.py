@@ -37,6 +37,9 @@ CFG = dict(
     #     their spectra from the library, score them as the test set -> stage_cache/val_labels.csv
     VALIDATION=False, VAL_LIB='enveda-np-examples', VAL_N=250, VAL_SEED=0, VAL_MAX_SPEC=16,
     VAL_PURGE='all',              # 'all' = class-2-like (no spectra left); 'lib' = class-1-like (other libraries stay)
+    # --- external validation (commit runs only): Kaggle dataset 'owner/slug' holding ext_test.parquet + ext_val_labels.csv
+    #     from tools/build_ext_val.py (structures absent from train.parquet); train.parquet stays complete
+    VAL_EXT=None,
     # --- run control
     SMOKE_N=12,                   # commit run on the visible test: only this many molecules ...
     SMOKE_ICE_BUDGET=300,
