@@ -1,13 +1,10 @@
 {
- "VERSION": "v6a-v5c-npx4",
+ "VERSION": "np1-v4b-npx4",
  "POP_MU": 0.25,
  "FRAG_LAM": 0.5,
  "FRAG_MODE": "gap",
  "ICE_LAM_LIB": 0.0,
  "GL_LAM_LIB": 0.0,
- "PC_POP_LAM": 0.25,
- "PC_POP_UNION": 200,
- "GL_MH_ONLY": true,
  "ENG_FP_EXTRA": [
   "casmi26-fp-npx4-soup"
  ],
