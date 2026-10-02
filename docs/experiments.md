@@ -16,3 +16,5 @@ One row per Kaggle submission. Details go in the solution's own `EXPERIMENTS.md`
 | 8 | 2026-10-01 | fusion-v4n | v4b-libgate-pop025 (submission 56751042) | v4a + popularity prior μ=0.25 | 7 | **0.409** | +0.005 | Hemre |
 | 9 | 2026-10-01 | fusion-v4n | v5a-v29replica | reference + pool popularity 0.15 + PubChem-channel popularity 0.25/200 + GLACIER on [M+H]+ only (attempted replica of wangpenghua v29, reported 0.415; its popularity datasets are private, ours came from dmitriigluzdov) | ref 0.399 | 0.393 | −0.006 | Hemre |
 | 10 | 2026-10-01 | fusion-v4n | v5c-v4b-pcpop-glmh | v4b (0.409) + PubChem-channel popularity + GLACIER [M+H]+ only | 8 | 0.405 | −0.004 | Hemre |
+| 11 | 2026-10-02 | fusion-v4n (teammate's variant, not in this tree) | np1 (submission 56767215) | v4b + NP-tuned FPNet (goooman npx4 soup) averaged into engine-2 | 8 | 0.413 | +0.004 | teammate |
+| 12 | 2026-10-02 | fusion-v4n | v7b-v4b-glmh-eng2gate05 (submission 56771836) | v4b + GLACIER on [M+H]+ only + engine-2 fused only when lib_max ≥ 0.5 | 8 | pending | – | Hemre |
