@@ -135,3 +135,5 @@ goooman NP fine-tune averaged into engine-2's single models). The model loaded (
 
 Engine-2 lists changed for 279/315 molecules, but its standalone MRR@25 moved 0.6348 → 0.6354. No usable gain; preset
 np1 (v4b + npx4) not proposed for submission. Calibration note: ext-val puts v5c (LB 0.405) above v4b (LB 0.409).
+
+| np1-v4b-npx4 (2026-10-02) | v4b + NP-tuned FPNet averaged into engine-2 (`ENG_FP_EXTRA`) | smoke 12/12 clean | **LB 0.413** (v4b 0.409, +0.004: inside the ±0.016 LB noise; ext-val predicted +0.003) |
