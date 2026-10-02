@@ -165,3 +165,35 @@ analogs and its fusion costs class-2-like molecules -> FUSE_MIN_LIB (no cost on 
 valA / valF (running since 23:05 on 2026-10-01) were built before fixes (1), (2) and (5): drop the twin molecules when
 scoring valA; treat valF as low-trust.
 
+## valA / valF results (2026-10-02): the harness fails its acceptance test
+
+Both runs finished with VAL_EXTRAS; molecules whose metric key has a twin left in the library were dropped (valA 250 -> 236,
+valF 244 -> 217). Per-channel truth recall on the twin-free sets:
+
+| Run | FP bank | v1 base top-1 / listed | engine-2 top-1 / listed |
+|---|---|---|---|
+| valA (famous NPs) | FPNet A (never saw them) | 94.9% / 100% | 0.4% / 2.5% |
+| valF (ordinary NPs) | fpnet_fold0 (never saw them) | 76.5% / 90.8% | 0.0% / 0.5% |
+
+Swapping the FP bank did not remove the leak: the v1 ranker and its feature resources still recognise training structures.
+`tools/calibrate.py` over our seven LB points: valA Spearman -0.13 (2/10 large gaps ordered correctly), valF **-0.95** (0/10).
+valF penalises popularity (ordinary molecules), the LB rewards it. **No local set orders our submissions like the LB;
+local numbers are "does it harm" checks only.**
+
+Paired vs v4b (0.409):
+
+| Config | valA (236) | valF (217) |
+|---|---|---|
+| v6a: GL_MH_ONLY | +0.007 ± 0.005 (9/4) | -0.002 ± 0.005 (7/7) |
+| FUSE_MIN_LIB 0.5 | **+0.125 ± 0.016 (52/1)** | **+0.139 ± 0.018 (53/0)** |
+| FUSE_MIN_LIB 0.7 | +0.187 ± 0.019 (79/1) | +0.183 ± 0.019 (73/1) |
+| POP_MU 0.15 | -0.000 ± 0.004 | +0.002 ± 0.005 |
+| POP_MU 0.4 | +0.014 ± 0.006 (16/9) | -0.011 ± 0.006 (10/22) |
+| FRAG_LAM 0 | +0.005 ± 0.005 | -0.000 ± 0.003 |
+| PC_POP_LAM 0.25 | -0.001 ± 0.001 | +0.001 ± 0.004 |
+
+The size of the FUSE_MIN_LIB gain is inflated (v1 is memorised here, so skipping the fusion and its second ICE/GL
+re-rank keeps a correct top-1). The premise is leak-independent: without library analogs engine-2 lists the truth for
+0.5-2.5% of molecules. Presets v7a (v4b + FUSE_MIN_LIB 0.5) and v7b (v7a + GL_MH_ONLY) have commit runs; nothing submitted.
+A teammate's submission "np1" (v4b + NP-tuned FPNet in engine-2) was made on 2026-10-02 06:09 UTC and is not from this tree.
+
