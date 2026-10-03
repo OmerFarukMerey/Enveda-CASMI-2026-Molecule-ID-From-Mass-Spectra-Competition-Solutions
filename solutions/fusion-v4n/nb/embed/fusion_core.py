@@ -26,7 +26,9 @@ DEFAULTS = dict(LIB_TAU=0.9, REL_TH=600.0, SLOTS_AGG=[2, 4, 6, 8, 10], SLOTS_GEN
                 FILL_25=False,                         # top up lists shorter than 25 from the other channels
                 POP_LIB_OFF=False, FRAG_LIB_OFF=False, # no popularity / frag term for library hits
                 GATE_TAU=None,                         # lib_max threshold of the *_LIB gates; None = LIB_TAU
-                FUSE_MIN_LIB=None)                     # fuse engine-2 only when lib_max >= this (it needs library analogs)
+                FUSE_MIN_LIB=None,                     # fuse engine-2 only when lib_max >= this (it needs library analogs)
+                PC_FWD_T1=None, PC_FWD_N=25)           # early PubChem slots when the best proposal beats the base
+                                                       #   candidates in the forward models by more than this; None = off
 
 
 def popularity_reorder(smis, keys, scs, forms, pids, pool_pop, mu):
@@ -54,6 +56,24 @@ def merge(base, base_keys, pc, pc_keys, slots, n=25):
         elif pj < len(pcs):
             out.append(pcs[pj]); pj += 1
     return out
+
+
+def forward_margin(prop, base, scores, n=25, formula=None):
+    """min over the forward models of score(proposal) - max score(base top-n candidates with the proposal's formula),
+    or None. A model counts only if it scored the proposal and at least one compared base candidate
+    (reviews/pubchem-2026-10-02.md: a positive margin means the answer is rarely in the pool)."""
+    cand = list(base[:n])
+    if formula is not None:
+        fp = formula(prop)
+        cand = [b for b in cand if formula(b) == fp]
+    ok = lambda x: isinstance(x, (int, float)) and np.isfinite(x)
+    margins = []
+    for d in scores:
+        v = d.get(prop) if d else None
+        bs = [x for x in (d.get(b) for b in cand) if ok(x)] if ok(v) else []
+        if bs:
+            margins.append(v - max(bs))
+    return min(margins) if margins else None
 
 
 def fuse_rrf(v_smis, e_smis, e_keys, score_key, alpha, krr, n):
@@ -193,6 +213,13 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
             top = p['fz_top'] if p.get('fz_top') is not None else p['pc_fz'][0]   # fz_top: raw f.z when the list is popularity-sorted
             rel = top - bp if bp is not None and np.isfinite(bp) else 1e9
             aggressive = rel > c['REL_TH']
+            if not aggressive and c['PC_FWD_T1'] is not None:
+                bk = set(keys)
+                new = [s for s, k in zip(p['pc'], p['pc_keys']) if k not in bk]
+                fwd = forward_margin(new[0], smis, [ice_scores.get(str(mid), {}), gl_of(mid)], c['PC_FWD_N'],
+                                     formula) if new else None
+                if fwd is not None and fwd > c['PC_FWD_T1']:
+                    aggressive = True; ms['fwd_early'] = ms.get('fwd_early', 0) + 1
             ms['aggressive' if aggressive else 'gentle'] += 1
             final = merge(smis, keys, p['pc'], p['pc_keys'], c['SLOTS_AGG'] if aggressive else c['SLOTS_GENTLE'])
         if not final:

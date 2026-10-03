@@ -1,0 +1,14 @@
+{
+  "VERSION": "v9b-v9a-icesurr-pcfwd",
+  "POP_MU": 0.25,
+  "FRAG_LAM": 0.5,
+  "FRAG_MODE": "gap",
+  "ICE_LAM_LIB": 0.5,
+  "GL_LAM_LIB": 0.5,
+  "GATE_TAU": 0.8,
+  "GL_MH_ONLY": true,
+  "FUSE_MIN_LIB": 0.5,
+  "ICE_SURROGATE": "gap",
+  "SLOTS_GENTLE": [3, 6, 9, 12, 15],
+  "PC_FWD_T1": 0.0
+}

@@ -1,6 +1,6 @@
 # PubChem-only channel in its own process (S1 code snapshot + FPNet A+B of casmi26-v3-models)
 PC = {}
-_pc_env = dict(os.environ, CASMI_PC_N1=str(CFG['PC_N1']))
+_pc_env = dict(os.environ, CASMI_PC_N1=str(CFG['PC_N1']), CASMI_PC_K=str(max(25, CFG['PC_JOIN_N'])))
 if CFG['PC_POP_LAM'] > 0:                    # popularity prior inside the PubChem channel (wangpenghua v29)
     try:
         _pc_env.update(CASMI_POP_DIR=os.path.dirname(find('casmi26-pubchem-popularity-prior/**/pc_lsid.npy')),
@@ -18,7 +18,14 @@ if CFG['USE_PC']:
         PC = json.load(open(os.path.join(WORK, 'pc_lists.json')))
     except Exception as e:
         print('PUBCHEM CHANNEL FAILED -> base lists only:', repr(e))
-log('pubchem lists', len(PC))
+PC_DEEP = {}
+if CFG['PC_JOIN_N'] > 0:                     # the join (nb/06) reads the deep list; the fusion sees the first 25 as before
+    for _m, _p in PC.items():
+        PC_DEEP[_m] = dict(pc=list(_p['pc']), pc_fz=list(_p['pc_fz']), pc_keys=list(_p['pc_keys']), best_pool_fz=_p.get('best_pool_fz'))
+        for _k in ('pc', 'pc_fz', 'pc_keys'):
+            _p[_k] = _p[_k][:25]
+    dump('pc_deep', PC_DEEP)
+log('pubchem lists', len(PC), '| deep lists for the join', len(PC_DEEP))
 dump('pc', PC)
 PC_ALT = {}                                  # VAL_EXTRAS: the same channel with the popularity prior, for local replay
 if CFG['VALIDATION'] and CFG['VAL_EXTRAS'] and CFG['USE_PC'] and not CFG['PC_POP_LAM'] > 0 and not IS_RERUN:

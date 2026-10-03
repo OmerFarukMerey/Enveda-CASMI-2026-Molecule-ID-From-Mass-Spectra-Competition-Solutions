@@ -1,7 +1,7 @@
 <!-- index: fusion-v4n: pipeline stages, what is the same as and different from the 0.399 reference, how to run -->
 # fusion-v4n: public 0.399 pipeline, restructured for iteration
 
-Owner: Hemre · Status: **public LB 0.399 (2026-09-30), identical to the reference** · Baseline:
+Owner: Hemre · Status: **public LB 0.420 (v12a, 2026-10-03)**; the default config reproduces the reference (0.399) · Baseline:
 [CASMI26 | v4n + Engine Fusion + Union [LB 0.399]](https://www.kaggle.com/code/seyitkaangunes/casmi26-v4n-engine-fusion-union-lb-0-399)
 
 The default `CFG` reproduces the reference step for step. Every improvement goes in as a config knob or a flagged stage, so
@@ -42,12 +42,18 @@ engine-2`); the stage order; smoke / rerun detection (same test signature); the 
 
 **Verified on Kaggle:** commit runs pass every stage (12-molecule smoke: 0.958 local, all exact library hits), and the hidden-test submission scored **0.399**, the same as the reference.
 
-## Best submission: public LB 0.404 (v2)
+## Best submission: public LB 0.420 (v12a)
 
 | Version | Config | Public LB | Exact notebook |
 |---|---|---|---|
 | v1 | [configs/v1-0.399.json](configs/v1-0.399.json) (reference defaults) | 0.399 | |
-| **v2** | [configs/v2-0.404.json](configs/v2-0.404.json): pool popularity prior μ=0.15 + MetFrag-parsimony re-score in `gap` mode (λ=0.5, only molecules ICEBERG/GLACIER cannot score) | **0.404** | [kaggle/submitted/v2-0.404.ipynb](kaggle/submitted/v2-0.404.ipynb) |
+| v2 | [configs/v2-0.404.json](configs/v2-0.404.json): pool popularity prior μ=0.15 + MetFrag-parsimony re-score in `gap` mode (λ=0.5, only molecules ICEBERG/GLACIER cannot score) | 0.404 | [kaggle/submitted/v2-0.404.ipynb](kaggle/submitted/v2-0.404.ipynb) |
+| v4b | [configs/v4b-libgate-pop025.json](configs/v4b-libgate-pop025.json): v2 + ICEBERG / GLACIER off for library hits + popularity μ=0.25 | 0.409 | public: [Kaggle notebook](https://www.kaggle.com/code/huseyinemreaksoy/casmi26-sub-v4b-0-409-on-the-public) |
+| **v12a** | [configs/v12a-v4b-pcjoin50-lib07.json](configs/v12a-v4b-pcjoin50-lib07.json): v4b + **PubChem join**: the best 50 PubChem-only candidates enter the v1 engine and are placed by its ranker when `lib_max` < 0.7 (`nb/embed/pc_join.py`, [reviews/pcjoin-2026-10-02.md](reviews/pcjoin-2026-10-02.md)) | **0.420** | [kaggle/submitted/v12a-0.420.ipynb](kaggle/submitted/v12a-0.420.ipynb) |
+
+Eleven submissions of this pipeline are logged in [../../docs/experiments.md](../../docs/experiments.md); every change to how
+pool candidates are ordered stayed between 0.390 and 0.409. v12a is the first change that acts on answers outside the
+main pool. Why: [reviews/mixed-regime-2026-10-02.md](reviews/mixed-regime-2026-10-02.md).
 
 Reproduce v2: either upload `kaggle/submitted/v2-0.404.ipynb` (File → Import Notebook) and attach the 14 inputs listed in
 `solution.json`, or build and push it:

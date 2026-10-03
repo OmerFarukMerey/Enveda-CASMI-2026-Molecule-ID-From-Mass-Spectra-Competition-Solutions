@@ -1,0 +1,4 @@
+{
+  "VERSION": "v10a-v4b-tiefree-gate07", "POP_MU": 0.25, "FRAG_LAM": 0.5, "FRAG_MODE": "gap", "ICE_LAM_LIB": 0.0, "GL_LAM_LIB": 0.0,
+  "RANKER": "public_free", "RANKER_LIB_GATE": 0.7
+}

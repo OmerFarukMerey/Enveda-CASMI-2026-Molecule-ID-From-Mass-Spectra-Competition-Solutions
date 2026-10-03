@@ -46,3 +46,13 @@ def rank_score(X, names):
     Xs = np.ascontiguousarray(X[:, [pos[f] for f in RK_FEATS]], dtype=np.float32)
     return np.mean([b.predict(Xs, num_threads=4) for b in RK_B], axis=0)
 log('engine ready; ranker features', len(RK_FEATS), 'boosters', len(RK_B))
+import ranker_infer
+OUR_RK = None
+if CFG['RANKER'] in ('ours', 'blend'):
+    OUR_RK = ranker_infer.OurRanker.load(os.path.dirname(find('casmi26-ours-ranker/**/features.json')))
+    log('our ranker:', len(OUR_RK.features), 'features,', len(OUR_RK.boosters), 'boosters')
+import pc_join
+if CFG['PC_JOIN_N'] > 0:
+    from casmi import frag as fragmod
+    pc_join.install(E, V, CFG['PC_JOIN_ORDER'])
+    log('PubChem join: N', CFG['PC_JOIN_N'], 'order', CFG['PC_JOIN_ORDER'], 'max lib', CFG['PC_JOIN_MAX_LIB'])

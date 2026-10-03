@@ -8,6 +8,10 @@ CFG = dict(
     FP_BANK='full1',              # 'full1' = casmi26-fpnet-full1 (v4m, trained on everything); 'A' = fpnet_0.pt of
                                   #   casmi26-v4b-models (never saw enveda-np-examples); 'ens' = both; 'fold0' = the
                                   #   fold-safe checkpoint of dmitriigluzdov (validation only)
+    RANKER='public',              # base-list score: 'public' (the public ranker as it is) | 'public_free' (public ranker,
+                                  #   rank features with order-free ties) | 'ours' (casmi26-ours-ranker) | 'blend'
+                                  #   (z(ours) + z(public_free)); see reviews/ranker-2026-10-02.md
+    RANKER_LIB_GATE=None,         # lib_max >= this keeps the public ranker whatever RANKER says; None = no gate
     # --- library gate + PubChem merge
     LIB_TAU=0.9,                  # lib_max >= LIB_TAU -> library hit, list left untouched
     REL_TH=600.0,                 # PubChem top f.z minus best pool f.z above this -> aggressive slots
@@ -16,11 +20,19 @@ CFG = dict(
     # --- PubChem-only channel
     USE_PC=True, PC_N1=5000, PC_WORKERS=4,
     PC_POP_LAM=0.0, PC_POP_UNION=200,   # popularity prior inside the PubChem channel (wangpenghua v29 used 0.25 / 200); 0 = off
+    PC_JOIN_N=0,                  # best N PubChem-only candidates enter the v1 engine and are placed by the ranker
+                                  #   (nb/embed/pc_join.py, reviews/pcjoin-2026-10-02.md); 0 = off. Needs PC_POP_LAM = 0
+    PC_JOIN_ORDER='first',        # 'first': the generator treats injected keys as pool keys | 'after'
+    PC_JOIN_MAX_LIB=None,         # no injection when the engine's lib_max >= this (0.7 = class-1-like lists as today)
+    PC_JOIN_MIN_REL=None,         # only proposals with f.z - best pool f.z above this (not recommended)
     # --- ICEBERG / GLACIER re-scoring
     USE_ICE=True, ICE_LAM=1.0, ICE_BUDGET=5400, ICE_PC=True,
     ICE_UNION=True, ICE_UNION_K=40,   # also score engine-2 candidates
     USE_GL=True, GL_LAM=1.0, GL_BUDGET=4000,
     GL_MH_ONLY=False,             # GLACIER scores [M+H]+ spectra only (wangpenghua v29)
+    ICE_SURROGATE=False,          # score [M+NH4]+ / water-loss spectra against the [M+H]+ prediction (nb/embed/surrogate.py):
+                                  #   'gap' = only molecules without an [M+H]+ / [M+Na]+ spectrum, 'all' = every molecule
+    GL_SURROGATE=False,           # hand the surrogate spectra to GLACIER as well (untested)
     # --- engine-2 (prvsiyan two-ranker, BIO + AFIX) and its fusion
     USE_ENG=True, ENG_W_PV=0.88, ENG_W_A=[0.35, 0.55], ENG_SEEDS=[0, 1], ENG_N_ANALOG=200, ENG_ORDER_K=80, ENG_TOPK=40,
     FUSE_ALPHA=0.6, FUSE_KRR=3.0, FUSE_N=40, FUSE_ENG_K=40,   # FUSE_ENG_K: engine-2 depth used in the fusion
@@ -36,6 +48,8 @@ CFG = dict(
     POP_LIB_OFF=False, FRAG_LIB_OFF=False, # no popularity / frag term for library hits
     GATE_TAU=None,                         # lib_max threshold of the *_LIB gates; None = LIB_TAU
     FUSE_MIN_LIB=None,                     # fuse engine-2 only when lib_max >= this (it needs library analogs)
+    PC_FWD_T1=None, PC_FWD_N=25,           # PubChem proposals get the early slots when the best one beats every
+                                           #   same-formula base candidate in ICEBERG and GLACIER by more than this (0.0)
     # --- validation mode (commit runs only; the scoring rerun ignores it): hold out VAL_LIB structures, drop ALL
     #     their spectra from the library, score them as the test set -> stage_cache/val_labels.csv
     VALIDATION=False, VAL_LIB='enveda-np-examples', VAL_N=250, VAL_SEED=0, VAL_MAX_SPEC=16,

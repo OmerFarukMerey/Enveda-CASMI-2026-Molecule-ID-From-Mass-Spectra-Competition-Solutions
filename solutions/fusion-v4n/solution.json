@@ -1,7 +1,7 @@
 {
   "name": "fusion-v4n",
   "owner": "Hemre",
-  "status": "v4b-submitted",
+  "status": "v12a-submitted (public LB 0.420)",
   "summary": "Public 0.399 pipeline (v1 engine + prvsiyan engine-2 + gated PubChem channel + ICEBERG/GLACIER isomer re-scoring + RRF fusion), config-driven with stage dumps and a tested fusion core.",
   "based_on": {
     "notebook": "https://www.kaggle.com/code/seyitkaangunes/casmi26-v4n-engine-fusion-union-lb-0-399",

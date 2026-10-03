@@ -10,7 +10,7 @@ def formula_of(s):
     except Exception:
         return s
 
-ICE_SCORES, GL_SCORES, items, ice_fuse, gl_fuse = {}, {}, None, None, None
+ICE_SCORES, GL_SCORES, items, items_native, ice_fuse, gl_fuse = {}, {}, None, None, None, None
 TOPN, LIB_TAU = CFG['TOPN'], CFG['LIB_TAU']
 if CFG['USE_ICE']:
     try:
@@ -46,7 +46,12 @@ if CFG['USE_ICE']:
                 extra = ice_fuse.ice_candidates(p['pc'], [formula_of(x) for x in p['pc']], 25)
                 cands[m] = list(dict.fromkeys(list(cands.get(m, [])) + extra))
         cands = {m: c for m, c in cands.items() if c}
-        items = ice_fuse.build_ice_input(te, cands)
+        items = items_native = ice_fuse.build_ice_input(te, cands)
+        if CFG['ICE_SURROGATE']:                 # [M+NH4]+ / water-loss spectra scored against the [M+H]+ prediction
+            import surrogate
+            items, _n = surrogate.extend_items(items_native, ice_fuse.build_ice_input(surrogate.rewrite(te), cands),
+                                               CFG['ICE_SURROGATE'])
+            log('ICE_SURROGATE', CFG['ICE_SURROGATE'], ': molecules with surrogate spectra', _n)
         log('ICE input molecules', len(items), 'candidates', sum(len(it['cands']) for it in items))
         ICE_SCORES = ice_fuse.run_ice(ICE_PKG, items, workdir=os.path.join(WORK, 'ice_work'), device='cuda',
                                       budget_s=ICE_BUDGET, site=os.path.join(WORK, 'ice_site'))
@@ -62,8 +67,8 @@ if CFG['USE_GL'] and items:
         sys.path.append(GL_PKG)
         import gl_fuse
         gc.collect(); torch.cuda.empty_cache()
-        gl_items = items
-        if CFG['GL_MH_ONLY']:                 # GLACIER on [M+H]+ spectra only (wangpenghua v29: +0.006 on the LB)
+        gl_items = items if CFG['GL_SURROGATE'] else items_native    # surrogate spectra are untested with GLACIER
+        if CFG['GL_MH_ONLY']:                # GLACIER on [M+H]+ spectra only (wangpenghua v29: +0.006 on the LB)
             gl_items = [dict(it, spectra=[s for s in it['spectra'] if s.get('adduct') == '[M+H]+']) for it in items]
             gl_items = [it for it in gl_items if it['spectra']]
             log('GLACIER [M+H]+ only: molecules', len(gl_items), 'of', len(items))
@@ -96,7 +101,7 @@ if CFG['FRAG_LAM'] > 0:
 GL_MH = {}                                    # VAL_EXTRAS: GLACIER on [M+H]+ spectra only, for local replay
 if CFG['VALIDATION'] and CFG['VAL_EXTRAS'] and CFG['USE_GL'] and items and not CFG['GL_MH_ONLY'] and not IS_RERUN:
     try:
-        _mh = [dict(it, spectra=[s for s in it['spectra'] if s.get('adduct') == '[M+H]+']) for it in items]
+        _mh = [dict(it, spectra=[s for s in it['spectra'] if s.get('adduct') == '[M+H]+']) for it in items_native]
         _mh = [it for it in _mh if it['spectra']]
         gc.collect(); torch.cuda.empty_cache()
         GL_MH = gl_fuse.run_gl(GL_PKG, _mh, workdir=os.path.join(WORK, 'gl_work_mh'), device='cuda',
