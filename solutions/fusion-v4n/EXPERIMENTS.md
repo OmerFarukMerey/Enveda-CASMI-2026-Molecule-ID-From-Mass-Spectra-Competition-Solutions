@@ -479,3 +479,13 @@ v12a = v4b + PubChem join (`PC_JOIN_N=50`, `PC_JOIN_MAX_LIB=0.7`, public ranker)
 v4b: the first of eleven submissions of this pipeline outside the 0.390 to 0.409 band, and the first change that acts
 on answers outside the main pool. Predicted 0.415 (0.403 to 0.44); the agent's probe-scaled range was +0.002 / +0.010
 / +0.03, its central value matches. The scoring run took about 3 h 50 min (others about 3 h 10 min).
+
+## v13a result: 0.431, new best (2026-10-03)
+
+v13a = v12a with `PC_JOIN_N=100` (was 50) scored **0.431** against 0.420: a second step of +0.011 from the same
+mechanism, so the join is now supported by two submissions (0.409 → 0.420 → 0.431). Predicted 0.423 (0.412 to 0.432).
+Local paired difference N 100 − N 50 (public ranker, no gate): truth only in PubChem +0.016 ± 0.007 without forward
+models and +0.033 ± 0.014 on the ICEBERG prefix; truth in the pool without spectra +0.005 ± 0.008; class 1 −0.001 to
+−0.005. The LB step from 50 to 100 is as large as the step from 0 to 50, which the local sets did not predict (they
+show diminishing returns): hidden answers sit deeper in the PubChem list than the local, well-documented ones.
+Next: deeper lists (N 200), the gate at 0.8, and `GL_MH_ONLY` on top; commit runs pushed, nothing submitted.

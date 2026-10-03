@@ -12,7 +12,7 @@ tautomer-canonical InChIKey14. Final submission deadline: **2026-12-14**.
 
 | Solution | Owner | Idea | Public LB | Status |
 |---|---|---|---|---|
-| [`solutions/fusion-v4n`](solutions/fusion-v4n/) | Hemre | Reproduces the public 0.399 notebook (two engines + PubChem channel + ICEBERG/GLACIER isomer re-scoring + RRF fusion) with every knob in one config, stage dumps and a tested fusion core | **0.420** | v12a: v4b (popularity prior 0.25 + gap-mode MetFrag re-score + library gate) + PubChem join |
+| [`solutions/fusion-v4n`](solutions/fusion-v4n/) | Hemre | Reproduces the public 0.399 notebook (two engines + PubChem channel + ICEBERG/GLACIER isomer re-scoring + RRF fusion) with every knob in one config, stage dumps and a tested fusion core | **0.431** | v13a: v4b (popularity prior 0.25 + gap-mode MetFrag re-score + library gate) + PubChem join, 100 candidates |
 | `research/competition-analysis` (branch) | İlker | Built from scratch: leak-aware validation, library search, PubChem/COCONUT catalog, fragmentation ranking (Stage D) | 0.260 | active on its branch |
 
 See [solutions/README.md](solutions/README.md) for how a solution is laid out.
