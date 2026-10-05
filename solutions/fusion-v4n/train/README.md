@@ -133,3 +133,49 @@ two halves of the molecules, cosine 0.999): a prior for what a measured structur
 Adding that vector to the control's logits gives +0.06 of the +0.07 at N 100. It is learned from the training
 libraries; it holds on the Enveda panel, which no model here was trained on, but the hidden test is the only real check.
 Production = the same fine-tune applied to public models A and B (commands in the report, section 7); not started.
+
+
+Question 4 (2026-10-05): can we make our own natural-product-tuned FPNet for engine 2 (the role of
+`goooman/casmi26-fp-npx4-soup`, whose base model is undocumented)? Full report: `reviews/np-ours-2026-10-05.md`.
+Engine 2's network is `nb/embed/eng/pv_fp.FPNet` (prvsiyan's architecture: 6,930 bits, an instrument embedding, raw
+collision energy), not the v1 network, so it has its own trainer, `train_eng_fpnet.py` (same sharing, resume and
+logging). Base: the public `prvsiyan/casmi26-fp-models-v2/fp_single_s2.pt` (CC0), the per-spectrum model engine 2
+already runs in every submission.
+
+```bash
+R=D:/casmi-data/np_ours/run; B=D:/casmi-data/mixed_regime/ds/fpv2/fp_single_s2.pt
+# one fold: the fold's 50 Enveda NP standards and the 380 replay molecules are never trained on
+$P $T/guard_run.py --free_gb 12 --checks 1 --every 5 -- python $T/train_eng_fpnet.py --run $R --init $B --mix $B \
+    --hold_keys D:/casmi-data/mixed_regime/mols.parquet --hold_np_fold 0 --seed 0 --boost lib:enveda-np-examples=100 \
+    --max_steps 2000 --bs 64 --lr 5e-5 --warmup 200 --w_bce 0 --resume --tag p_np100_f0        # 2.6 min, 2.7 GB
+$P $T/train_eng_fpnet.py --run $R --soup $R/p_np100_f0_final.pt,...,$R/p_np100_f4_final.pt --out $R/fp_single_np100_soup.pt
+```
+
+Start-up check of the base (printed as `BASE`): logit standard deviation over the bits 12.2, f.z spread inside a
+candidate list 405 to 420, **ranking loss at temperature 1: 30 to 38** (the failure of the raw recipe on public models
+A / B), at the fitted temperature 90.5: 0.80 to 0.93, BCE 0.33, training top-1 0.75 to 0.78. The loss divides f.z by
+that fixed temperature, so the fine-tune starts at the base's own optimum; the 200-step smoke run kept every
+evaluation set within ±0.01 and the loss at 0.73 to 0.84 (the base is converged on data it has seen).
+
+The base has not seen the Enveda NP standards (`enveda-np-examples`, 250 structures): it ranks them at MRR 0.48
+against 0.77 to 0.92 on the other libraries. They are therefore a real unseen set; every fold model is evaluated on
+the 50 it did not train on. Rank of the answer by f.z in its ±10 ppm pool window, mean logits over the structure's
+np-examples spectra, pooled over the five folds (n 250, paired to the base):
+
+| Arm (5 folds × 2,000 steps, lr 5e-5, batch 64) | share of samples | unseen standards, model alone | unseen, ½ (model + base) | enveda-180 (seen), alone | replay molecules (not trained on), alone |
+|---|---|---|---|---|---|
+| base `fp_single_s2` | | 0.478 | | 0.910 | 0.864 |
+| NP standards ×100 (`p_np100`) | 4.2% | 0.613 (+0.136 ± 0.018, 114 / 23) | 0.558 (+0.080 ± 0.013) | −0.003 ± 0.003 | −0.017 ± 0.004 |
+| all timsTOF rows ×4 (`p_tims4`) | 77% | 0.500 (+0.022 ± 0.009) | 0.488 (+0.010 ± 0.006) | +0.009 ± 0.003 | −0.006 ± 0.003 |
+| fold 0 only (n 50): no boost / ×4 / ×20 with loss weight 4 / ×100 / ×500 | | +0.046 ± 0.029 / +0.053 ± 0.029 / +0.173 ± 0.043 / +0.233 ± 0.052 / +0.214 ± 0.051 | | | |
+
+Result (2026-10-05): **training on 200 Enveda NP standards moves the 50 the model has not seen from 0.48 to 0.61**;
+oversampling all timsTOF spectra does not. A literal 4× of the standards is 0.17% of the samples and does nothing
+beyond the control. In engine 2's own mix (½ [½ (s2 + ours) + merged]) the unseen standards go 0.490 → 0.538
+(+0.048 ± 0.010). On the local replay (no NP standard, no timsTOF natural product among its 380 molecules) the soup
+is indistinguishable from no extra model, and below goooman's model on engine 2's `c2` list (−0.008 ± 0.004).
+Soups: `D:\casmi-data\np_ours\run\fp_single_np100_soup.pt`, `fp_single_tims4_soup.pt`. GPU: 0.31 h for the ten
+fold runs, 0.11 h of pilots. A model trained from scratch with the same trainer (`scr_np100`: 20,000 steps, lr 3e-4,
+`--temp 90.5 --w_bce 0.2`, 0.30 h) reaches 0.68 to 0.84 on seen libraries against the public model's 0.78 to 0.92
+and adds nothing as an extra model either. Neither is as good as goooman's model in the replay; the dataset
+`casmi26-fp-np-ours` was not created (flag value `ENG_EXTRA_FPNET='np-ours'` and preset `v25b` exist, default off).

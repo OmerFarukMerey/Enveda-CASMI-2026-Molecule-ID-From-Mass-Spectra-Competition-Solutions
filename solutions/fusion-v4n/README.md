@@ -94,3 +94,12 @@ PubChem structures of the same mass window as negatives (`train/mine_pc_negative
 `reviews/hardneg-2026-10-05.md`). Inputs: competition training data, public weights trained on it, PubChem (public
 domain). No NIST, nothing keyed to `test.parquet`. To be made public if the rules or the hosts require external
 artefacts to be public.
+
+`goooman/casmi26-fp-npx4-soup` (flag `ENG_EXTRA_FPNET`, off by default; preset `v25a-v13a-np-eng2`): one file,
+`fp_single_npx4soup.pt` (144 MB, sha256 `4f4c090a…`), Apache-2.0 (licence field of the dataset). Card: an FPNet of
+prvsiyan's architecture, the weight average of five fine-tunes of a model `fp_np_l4`, each on 200 of the "250 Enveda
+NP standards (timsTOF rows)", which matches `ingest_lib == 'enveda-np-examples'` of `train.parquet` (250 structures,
+1,184 timsTOF rows). **The training data of the base model `fp_np_l4` is not documented and no training code is
+public**; its weights are unrelated to the public `fp_single_s2` / `fp_merged_m1` (cosine of the layers about 0), so
+it is not a fine-tune of those. Provenance is therefore incomplete: ask the author before a final selection relies on
+it (`reviews/np-eng2-2026-10-05.md`).

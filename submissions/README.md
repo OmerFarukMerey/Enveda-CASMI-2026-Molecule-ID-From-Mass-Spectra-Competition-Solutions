@@ -11,7 +11,8 @@ One folder per submission worth keeping, named `<solution>-<version>-<public LB>
 
 | Folder | Public LB | Date | Change |
 |---|---|---|---|
-| [fusion-v4n-v13a-0.431](fusion-v4n-v13a-0.431/) | **0.431** | 2026-10-03 | v12a with 100 PubChem candidates in the join |
+| [fusion-v4n-v24a-0.437](fusion-v4n-v24a-0.437/) | **0.437** | 2026-10-05 | v13a with ICEBERG / GLACIER weights 0.75 instead of 1.0 |
+| [fusion-v4n-v13a-0.431](fusion-v4n-v13a-0.431/) | 0.431 | 2026-10-03 | v12a with 100 PubChem candidates in the join |
 | [fusion-v4n-v12a-0.420](fusion-v4n-v12a-0.420/) | 0.420 | 2026-10-03 | v4b + PubChem join (50 candidates, `lib_max` < 0.7) |
 
 Every submission, including the ones without a folder, is a row in [../docs/experiments.md](../docs/experiments.md) and in the

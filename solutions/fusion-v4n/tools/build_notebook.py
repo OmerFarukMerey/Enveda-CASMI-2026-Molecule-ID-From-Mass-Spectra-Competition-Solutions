@@ -83,6 +83,9 @@ def main():
         datasets.append((user or 'YOUR_KAGGLE_USERNAME') + '/casmi26-fpnet-pc-hn')
     if over_all.get('ICE_FT'):
         datasets.append('ahmedberatozer/casmi26-ice-ft')
+    if over_all.get('ENG_EXTRA_FPNET'):
+        v = str(over_all['ENG_EXTRA_FPNET'])                # 'np-ours' = our own fine-tune (train/train_eng_fpnet.py), else 'owner/slug'
+        datasets.append((user or 'YOUR_KAGGLE_USERNAME') + '/casmi26-fp-np-ours' if v == 'np-ours' else v)   # huseyinemreaksoy/casmi26-fp-np-ours
     meta = dict(id=f'{user or "YOUR_KAGGLE_USERNAME"}/{a.slug}', title=a.title or a.slug, code_file=code_file,
                 language='python', kernel_type='notebook', is_private=True, enable_gpu=True, enable_tpu=False,
                 enable_internet=False, machine_shape='NvidiaTeslaT4', dataset_sources=datasets,
