@@ -19,7 +19,7 @@ See [solutions/README.md](solutions/README.md) for how a solution is laid out.
 
 ## Submissions and scores
 
-Public leaderboard (MRR@25). Best so far: **0.431** (v13a). Folders with the exact notebook, config and a detailed
+Public leaderboard (MRR@25). Best so far: **0.437** (v24a). Folders with the exact notebook, config and a detailed
 `README.txt` are in [submissions/](submissions/); every row with its details is in [docs/experiments.md](docs/experiments.md).
 
 | # | Date | Solution | Version | Change | Public LB | Folder |
@@ -40,7 +40,7 @@ Public leaderboard (MRR@25). Best so far: **0.431** (v13a). Folders with the exa
 | 14 | 10-02 | fusion-v4n | v10a | v4b + order-free ties in the ranker | 0.408 | |
 | 15 | 10-02 | fusion-v4n | v11 | v4b + five small changes at once | 0.405 | |
 | 16 | 10-03 | fusion-v4n | v12a | v4b + PubChem join, 50 candidates | 0.420 | [folder](submissions/fusion-v4n-v12a-0.420/) |
-| 17 | 10-03 | fusion-v4n | **v13a** | v12a with 100 candidates in the join | **0.431** | [folder](submissions/fusion-v4n-v13a-0.431/) |
+| 17 | 10-03 | fusion-v4n | v13a | v12a with 100 candidates in the join | 0.431 | [folder](submissions/fusion-v4n-v13a-0.431/) |
 | 18 | 10-03 | fusion-v4n | v14a | v13a with 200 candidates | 0.406 | |
 | 19 | 10-03 | fusion-v4n | v14c | v13a + GLACIER on [M+H]+ only | 0.431 | |
 | 20 | 10-03 | fusion-v4n | v14b | v13a with the join gate at 0.8 | 0.416 | |
@@ -49,7 +49,8 @@ Public leaderboard (MRR@25). Best so far: **0.431** (v13a). Folders with the exa
 | 23 | 10-04 | fusion-v4n | v17b | v13a + confidence gate for the join | 0.430 | |
 | 24 | 10-04 | fusion-v4n | v20a | v13a + fine-tuned ICEBERG intensity model | 0.401 | |
 | 25 | 10-04 | fusion-v4n | v19a | 200 candidates + confidence gate | 0.409 | |
-| 26 | 10-05 | fusion-v4n | v22a | v13a, joined candidates selected by a fine-tuned FPNet | pending | |
+| 26 | 10-05 | fusion-v4n | v22a | v13a, joined candidates selected by a fine-tuned FPNet | 0.423 | |
+| 27 | 10-05 | fusion-v4n | **v24a** | v13a with ICEBERG / GLACIER weights 0.75 | **0.437** | [folder](submissions/fusion-v4n-v24a-0.437/) |
 
 ## Where things are
 

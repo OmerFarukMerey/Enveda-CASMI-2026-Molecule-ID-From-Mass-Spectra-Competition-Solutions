@@ -29,8 +29,10 @@ DEFAULTS = dict(LIB_TAU=0.9, REL_TH=600.0, SLOTS_AGG=[2, 4, 6, 8, 10], SLOTS_GEN
                 FUSE_MIN_LIB=None,                     # fuse engine-2 only when lib_max >= this (it needs library analogs)
                 PC_FWD_T1=None, PC_FWD_N=25,           # early PubChem slots when the best proposal beats the base
                                                        #   candidates in the forward models by more than this; None = off
-                FUSE_INJ_CREDIT=0.0)                   # engine fusion: a joined PubChem row (pool id -2) gets this share of the
+                FUSE_INJ_CREDIT=0.0,                   # engine fusion: a joined PubChem row (pool id -2) gets this share of the
                                                        #   engine-2 weight at its own rank, because engine-2 cannot list it
+                JOIN_FWD_A=None)                       # stage A: ICEBERG / GLACIER terms of joined PubChem rows (pool id -2) times
+                                                       #   this, other rows keep 1.0; None = off (reviews/calib-2026-10-05.md)
 
 
 def popularity_reorder(smis, keys, scs, forms, pids, pool_pop, mu):
@@ -76,6 +78,56 @@ def forward_margin(prop, base, scores, n=25, formula=None):
         if bs:
             margins.append(v - max(bs))
     return min(margins) if margins else None
+
+
+def _zs(vals):
+    """z over the finite values (ddof 1); missing, a single value or zero spread -> 0 (as fuse._z / gl_fuse._z)."""
+    xs = [float(v) for v in vals if v is not None]
+    if len(xs) < 2:
+        return [0.0] * len(vals)
+    mu = sum(xs) / len(xs); sd = float(np.sqrt(sum((x - mu) ** 2 for x in xs) / (len(xs) - 1)))
+    if not sd > 0:
+        return [0.0] * len(vals)
+    return [((float(v) - mu) / sd) if v is not None else 0.0 for v in vals]
+
+
+def rerank_joined(smis, keys, scores, formulas, score_dicts, lams, top_n, joined, w, tie_eps=1e-9):
+    """gl_fuse.rerank_multi with the forward terms of the rows flagged in `joined` multiplied by w (JOIN_FWD_A).
+    Inside each same-formula group of the first top_n rows the members are re-sorted by z(score) + sum_k lam_k z_k
+    (x w for a joined row) and put back into the group's positions; w = 1 gives rerank_multi's order."""
+    def num(v):
+        try:
+            v = float(v)
+        except (TypeError, ValueError):
+            return None
+        return v if np.isfinite(v) else None
+
+    n = len(smis); order = list(range(n))
+    use = [(d, float(l)) for d, l in zip(score_dicts, lams) if d]
+    if n == 0 or not use:
+        return order
+    groups = {}
+    for i in range(min(int(top_n), n)):
+        groups.setdefault(formulas[i], []).append(i)
+    for idx in groups.values():
+        if len(idx) < 2:
+            continue
+        cols = []
+        for d, lam in use:
+            v = [num(d.get(smis[i]) if d.get(smis[i]) is not None else (d.get(keys[i]) if keys is not None else None)) for i in idx]
+            if sum(x is not None for x in v) >= 2:
+                cols.append((_zs(v), lam))
+        if not cols:
+            continue
+        fused = _zs([float(scores[i]) for i in idx])
+        for z, lam in cols:
+            fused = [a + lam * b * (w if joined[i] else 1.0) for a, b, i in zip(fused, z, idx)]
+        if len(cols) >= 2 and tie_eps > 0:
+            fused = [round(x / tie_eps) for x in fused]
+        new = [idx[k] for k in sorted(range(len(idx)), key=lambda k: (-fused[k], k))]
+        for slot, src in zip(idx, new):
+            order[slot] = src
+    return order
 
 
 def fuse_rrf(v_smis, e_smis, e_keys, score_key, alpha, krr, n, credit=None, credit_w=0.0):
@@ -176,8 +228,14 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
         smis0, keys0, scs0, forms0 = smis, keys, scs, forms
         if ice_fuse is not None and ice and any(v is not None for v in ice.values()):
             try:
-                order = ice_fuse.rerank(smis, keys, scs, forms, ice, lam=ICE_LAM, top_n=TOPN)
-                order = gl_rerank(order, smis, keys, scs, forms, ice, gl, TOPN)
+                jrow = [p == -2 for p in pids] if (c['JOIN_FWD_A'] is not None and pids is not None) else None
+                if jrow and any(jrow):                # joined rows: forward terms at a reduced weight
+                    order = rerank_joined(smis, keys, scs, forms, [ice, gl if gl_fuse is not None else {}],
+                                          [ICE_LAM, GL_LAM], TOPN, jrow, float(c['JOIN_FWD_A']))
+                    stats['ice']['join_fwd_a'] = stats['ice'].get('join_fwd_a', 0) + 1
+                else:
+                    order = ice_fuse.rerank(smis, keys, scs, forms, ice, lam=ICE_LAM, top_n=TOPN)
+                    order = gl_rerank(order, smis, keys, scs, forms, ice, gl, TOPN)
                 s2 = [smis[i] for i in order]; k2 = [keys[i] for i in order]
                 st = stats['ice']; st['molecules'] += 1
                 st['changed_top25'] += int(s2[:25] != smis[:25]); st['changed_top1'] += int(bool(s2) and s2[0] != smis[0])

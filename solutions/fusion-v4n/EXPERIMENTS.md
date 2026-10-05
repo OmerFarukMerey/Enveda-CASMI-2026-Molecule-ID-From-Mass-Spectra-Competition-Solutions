@@ -568,3 +568,37 @@ without the gate was 0.406 (v14a), N 100 with the gate at 0.7 was 0.430 (v17b). 
 that look wrong does not rescue it, so the loss at N 200 is in the lists that need the join, not in the pool-answer
 lists the gate protects: candidates 101 to 200 push the answer down among the first 100. N stays at 100; depth is
 closed as a lever unless the selection of the candidates improves.
+
+v22a (v13a with the 100 joined candidates selected by the hard-negative fine-tune, `PC_MODELS='hn'`) scored **0.423**,
+0.008 below v13a; the scoring run took 4 h 50 min (second channel pass). Locally the selection holds the answer in the
+first 100 for 77.8% instead of 70.5% of unseen molecules and the v1 side gains +0.028 on answer-removed molecules
+(`reviews/hardneg-2026-10-05.md`); the full replay with real ICEBERG / GLACIER scores (`reviews/fwd-replay-2026-10-05.md`,
+finished after the submission) showed dA +0.015, dB +0.030, c2 −0.005 and a joined row on top of 8.2% instead of 6.6%
+of the pool-answer lists. The leaderboard again follows the exposure number, not the answer-removed gain: every change
+that raised the share of pool-answer lists topped by a joined row has lost (N 200, gate 0.8, ranker blend, now the
+fine-tuned selection, whose candidates look more like measured structures and are scored higher by the ranker and the
+forward models). `PC_MODELS` stays off. Rule from here on: a join variant is not submitted unless the full replay with
+real forward-model scores shows the exposure on c2 / c1 at or below v13a's.
+
+## NP-tuned FPNet in engine 2 (2026-10-05): flag added, not submitted
+
+Source: `reviews/np-eng2-2026-10-05.md`. The teammate's np1 (0.413 on v4b 0.409) used `goooman/casmi26-fp-npx4-soup`
+(`fp_single_npx4soup.pt`, Apache-2.0): it joins the per-spectrum group of engine 2's fingerprint models. Flag
+`ENG_EXTRA_FPNET` (default `None`), preset `v25a-v13a-np-eng2` = v13a + the flag. Full replay with real forward scores
+on the 380 mixed-regime molecules, with minus without: `c1` +0.0044 ± 0.0035, `c2` +0.0020 ± 0.0023, `dA` +0.0028 ±
+0.0018, `dB` -0.0026 ± 0.0023 (none beyond two standard errors); pool-answer lists topped by a joined row 25 -> 24
+(`c2`) and 6 -> 6 (`c1`); engine 2's own list +0.008 ± 0.003. Limits: engine 2's fingerprint features are NaN for 58%
+of the local molecules (a spectrum without collision energy makes the logits NaN; 0% of Enveda spectra in train), and
+the regime holds no timsTOF natural product. The training data of the soup's base model is undocumented: not for a
+final selection until the author answers. No commit run was built.
+
+2026-10-06: v24a (v13a with `ICE_LAM` = `GL_LAM` = 0.75) scored **0.437**, +0.006 on v13a and the new best; the scoring
+run took a little over 4 h. It is the first submission since the join that gains, and the first test of the exposure
+rule in the gaining direction: in the full replay it lowers the pool-answer lists topped by a joined row from 25 to 22
+(answer lost first 8 to 5) with c1 +0.005 ± 0.004, c2 +0.011 ± 0.004 (22 / 5), dA +0.001, dB +0.001
+(`reviews/combo-2026-10-05.md`, context rows), and on the Enveda panel c1 / c2 gain in all four arms with dB −0.004 to
+−0.009 (`reviews/panel2-2026-10-05.md`). The parameter search had found the same direction as its only consistent
+signal (`reviews/param-search-2026-10-05.md`). Same-day studies that did not lead to a submission: calibration of the
+replay to the leaderboard (none; veto only), parameter search, joined-row verifier, their combination, the pair-tail
+ranker of engine 2, an NP-tuned engine-2 FPNet of our own, mass-window pruning, the Enveda panel regime (reviews of
+2026-10-05). Next on the same axis: weights 0.5 (replay: c2 +0.026, c1 +0.009, dA −0.004, dB −0.007, 19 exposed lists).

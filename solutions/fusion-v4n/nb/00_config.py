@@ -48,6 +48,12 @@ CFG = dict(
     GL_SURROGATE=False,           # hand the surrogate spectra to GLACIER as well (untested)
     # --- engine-2 (prvsiyan two-ranker, BIO + AFIX) and its fusion
     USE_ENG=True, ENG_W_PV=0.88, ENG_W_A=[0.35, 0.55], ENG_SEEDS=[0, 1], ENG_N_ANALOG=200, ENG_ORDER_K=80, ENG_TOPK=40,
+    ENG_EXTRA_FPNET=None,         # 'owner/slug' of a dataset with an FPNet of prvsiyan's architecture (fp_*.pt, 6,930 bits)
+                                  #   that is averaged into engine-2's fingerprint logits (a file without 'merged' in its
+                                  #   name joins the per-spectrum group). 'goooman/casmi26-fp-npx4-soup' = the teammate's
+                                  #   np1 (0.413 on v4b 0.409); reviews/np-eng2-2026-10-05.md. 'np-ours' = our own
+                                  #   fine-tune of the public fp_single_s2 (dataset <user>/casmi26-fp-np-ours;
+                                  #   train/train_eng_fpnet.py, reviews/np-ours-2026-10-05.md)
     FUSE_ALPHA=0.6, FUSE_KRR=3.0, FUSE_N=40, FUSE_ENG_K=40,   # FUSE_ENG_K: engine-2 depth used in the fusion
     # --- PubChem popularity prior on pool candidates (bobthebot369 v10, LB 0.401 used 0.15); 0 = off
     POP_MU=0.0,
@@ -63,6 +69,8 @@ CFG = dict(
     FUSE_MIN_LIB=None,                     # fuse engine-2 only when lib_max >= this (it needs library analogs)
     FUSE_INJ_CREDIT=0.0,                   # engine fusion: joined PubChem rows get this share of the engine-2 weight at
                                            #   their own rank (engine-2 cannot list them); 1.0 = as if both engines agreed
+    JOIN_FWD_A=None,                       # stage A: ICEBERG / GLACIER terms of joined PubChem rows times this (0.25);
+                                           #   None = off (reviews/calib-2026-10-05.md)
     PC_FWD_T1=None, PC_FWD_N=25,           # PubChem proposals get the early slots when the best one beats every
                                            #   same-formula base candidate in ICEBERG and GLACIER by more than this (0.0)
     # --- validation mode (commit runs only; the scoring rerun ignores it): hold out VAL_LIB structures, drop ALL
