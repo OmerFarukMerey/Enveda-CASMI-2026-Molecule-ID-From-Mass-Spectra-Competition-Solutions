@@ -17,6 +17,40 @@ tautomer-canonical InChIKey14. Final submission deadline: **2026-12-14**.
 
 See [solutions/README.md](solutions/README.md) for how a solution is laid out.
 
+## Submissions and scores
+
+Public leaderboard (MRR@25). Best so far: **0.431** (v13a). Folders with the exact notebook, config and a detailed
+`README.txt` are in [submissions/](submissions/); every row with its details is in [docs/experiments.md](docs/experiments.md).
+
+| # | Date | Solution | Version | Change | Public LB | Folder |
+|---|---|---|---|---|---|---|
+| 1 | 09-30 | competition-analysis | Stage F v1 | library search + catalogue fallback | 0.193 | |
+| 2 | 09-30 | competition-analysis | Stage F v2 | training + COCONUT pool only | 0.163 | |
+| 3 | 09-30 | competition-analysis | Stage D | pool re-ranked by fragmentation + analog propagation | 0.260 | |
+| 4 | 09-30 | fusion-v4n | v1 | reproduction of the public 0.399 notebook | 0.399 | |
+| 5 | 09-30 | fusion-v4n | v2 | + popularity prior 0.15 + gap-mode MetFrag re-score | 0.404 | |
+| 6 | 10-01 | fusion-v4n | v3b | v2 with the MetFrag term on all molecules | 0.390 | |
+| 7 | 10-01 | fusion-v4n | v4a | v2 + forward models off for library hits | 0.404 | |
+| 8 | 10-01 | fusion-v4n | v4b | v4a + popularity prior 0.25 | 0.409 | |
+| 9 | 10-01 | fusion-v4n | v5a | replica of a public 0.415 notebook | 0.393 | |
+| 10 | 10-01 | fusion-v4n | v5c | v4b + PubChem-channel popularity + GLACIER on [M+H]+ only | 0.405 | |
+| 11 | 10-02 | fusion-v4n (teammate) | np1 | v4b + NP-tuned FPNet in engine 2 | 0.413 | |
+| 12 | 10-02 | fusion-v4n | v7b | v4b + GLACIER on [M+H]+ only + engine-2 gate | 0.405 | |
+| 13 | 10-02 | fusion-v4n (teammate) | v7a | v4b + isomer-ranker channel | 0.400 | |
+| 14 | 10-02 | fusion-v4n | v10a | v4b + order-free ties in the ranker | 0.408 | |
+| 15 | 10-02 | fusion-v4n | v11 | v4b + five small changes at once | 0.405 | |
+| 16 | 10-03 | fusion-v4n | v12a | v4b + PubChem join, 50 candidates | 0.420 | [folder](submissions/fusion-v4n-v12a-0.420/) |
+| 17 | 10-03 | fusion-v4n | **v13a** | v12a with 100 candidates in the join | **0.431** | [folder](submissions/fusion-v4n-v13a-0.431/) |
+| 18 | 10-03 | fusion-v4n | v14a | v13a with 200 candidates | 0.406 | |
+| 19 | 10-03 | fusion-v4n | v14c | v13a + GLACIER on [M+H]+ only | 0.431 | |
+| 20 | 10-03 | fusion-v4n | v14b | v13a with the join gate at 0.8 | 0.416 | |
+| 21 | 10-04 | fusion-v4n | v15b | v13a with a PubChem shortlist of 20,000 | 0.431 | |
+| 22 | 10-04 | fusion-v4n | v15a | v13a + our own ranker blended in | 0.417 | |
+| 23 | 10-04 | fusion-v4n | v17b | v13a + confidence gate for the join | 0.430 | |
+| 24 | 10-04 | fusion-v4n | v20a | v13a + fine-tuned ICEBERG intensity model | 0.401 | |
+| 25 | 10-04 | fusion-v4n | v19a | 200 candidates + confidence gate | 0.409 | |
+| 26 | 10-05 | fusion-v4n | v22a | v13a, joined candidates selected by a fine-tuned FPNet | pending | |
+
 ## Where things are
 
 | You want… | Go to |
@@ -25,7 +59,8 @@ See [solutions/README.md](solutions/README.md) for how a solution is laid out.
 | What is allowed (NIST banned, offline, 9 h) and known traps | [docs/competition/rules-and-pitfalls.md](docs/competition/rules-and-pitfalls.md) |
 | Leaderboard, public notebooks, forum insights | [docs/landscape/](docs/landscape/) |
 | The plan and the next experiments | [docs/plan/roadmap.md](docs/plan/roadmap.md) |
-| Every submission and its score | [docs/experiments.md](docs/experiments.md) |
+| Every submission and its score | [docs/experiments.md](docs/experiments.md), table above |
+| The exact notebook, config and write-up of a submission | [submissions/](submissions/) |
 | Data layout (not in git) | [data/README.md](data/README.md) |
 
 ## Quick start
