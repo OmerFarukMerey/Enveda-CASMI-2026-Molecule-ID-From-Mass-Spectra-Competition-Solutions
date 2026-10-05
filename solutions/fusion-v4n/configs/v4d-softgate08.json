@@ -1,0 +1,9 @@
+{
+  "VERSION": "v4d-softgate08",
+  "POP_MU": 0.15,
+  "FRAG_LAM": 0.5,
+  "FRAG_MODE": "gap",
+  "ICE_LAM_LIB": 0.5,
+  "GL_LAM_LIB": 0.5,
+  "GATE_TAU": 0.8
+}

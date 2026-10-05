@@ -1,0 +1,10 @@
+{
+  "VERSION": "v7b-v4b-glmh-eng2gate05",
+  "POP_MU": 0.25,
+  "FRAG_LAM": 0.5,
+  "FRAG_MODE": "gap",
+  "ICE_LAM_LIB": 0.0,
+  "GL_LAM_LIB": 0.0,
+  "GL_MH_ONLY": true,
+  "FUSE_MIN_LIB": 0.5
+}

@@ -1,0 +1,7 @@
+{
+  "VERSION": "v3e-fragall025-fpens",
+  "POP_MU": 0.15,
+  "FRAG_LAM": 0.25,
+  "FRAG_MODE": "all",
+  "FP_BANK": "ens"
+}

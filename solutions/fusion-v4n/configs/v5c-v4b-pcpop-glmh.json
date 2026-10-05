@@ -1,0 +1,11 @@
+{
+  "VERSION": "v5c-v4b-pcpop-glmh",
+  "POP_MU": 0.25,
+  "FRAG_LAM": 0.5,
+  "FRAG_MODE": "gap",
+  "ICE_LAM_LIB": 0.0,
+  "GL_LAM_LIB": 0.0,
+  "PC_POP_LAM": 0.25,
+  "PC_POP_UNION": 200,
+  "GL_MH_ONLY": true
+}

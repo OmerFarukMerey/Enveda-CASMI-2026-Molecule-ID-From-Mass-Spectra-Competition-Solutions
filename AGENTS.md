@@ -27,6 +27,7 @@ docs/landscape/     leaderboard + public notebooks + forum (dated snapshots)
 docs/plan/          roadmap and open questions
 docs/experiments.md team-wide submission log (append-only)
 solutions/<name>/   one self-contained approach each
+submissions/        one folder per notable submission: README.txt, exact notebook, config (see submissions/README.md)
 data/               NOT in git. data/input/ mirrors /kaggle/input (competitions/<slug>/, datasets/<owner>/<slug>/)
 tools/              repo-level scripts (gen_index.py)
 ```

@@ -1,0 +1,5 @@
+{
+  "VERSION": "v14c-v13a-glmh", "POP_MU": 0.25, "FRAG_LAM": 0.5, "FRAG_MODE": "gap", "ICE_LAM_LIB": 0.0, "GL_LAM_LIB": 0.0,
+  "PC_JOIN_N": 100, "PC_JOIN_MAX_LIB": 0.7,
+  "GL_MH_ONLY": true
+}

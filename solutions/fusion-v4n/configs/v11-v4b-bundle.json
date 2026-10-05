@@ -1,0 +1,14 @@
+{
+  "VERSION": "v11-v4b-bundle",
+  "POP_MU": 0.25,
+  "FRAG_LAM": 0.5,
+  "FRAG_MODE": "gap",
+  "ICE_LAM_LIB": 0.0,
+  "GL_LAM_LIB": 0.0,
+  "RANKER": "blend",
+  "RANKER_LIB_GATE": 0.7,
+  "SLOTS_GENTLE": [3, 6, 9, 12, 15],
+  "PC_FWD_T1": 0.0,
+  "GL_MH_ONLY": true,
+  "ICE_SURROGATE": "gap"
+}

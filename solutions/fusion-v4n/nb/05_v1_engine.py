@@ -24,6 +24,8 @@ if CFG['FP_BANK'] == 'ens' and _FULL:        # average fpnet_full1 (v4m) and FPN
     _fp = [_FULL[0], _A]
 elif CFG['FP_BANK'] == 'full1' and _FULL:
     _fp = [_FULL[0]]
+elif CFG['FP_BANK'] == 'fold0':              # validation only: never saw the fold-0 hold-out structures
+    _fp = [find('casmi26-fold-safe-fpnet/**/fpnet_fold0.pt')]
 else:
     _fp = [_A]
 bank = fpnet.ModelBank(_fp, device=dev)
@@ -44,3 +46,19 @@ def rank_score(X, names):
     Xs = np.ascontiguousarray(X[:, [pos[f] for f in RK_FEATS]], dtype=np.float32)
     return np.mean([b.predict(Xs, num_threads=4) for b in RK_B], axis=0)
 log('engine ready; ranker features', len(RK_FEATS), 'boosters', len(RK_B))
+import ranker_infer
+OUR_RK = None
+if CFG['RANKER'] in ('ours', 'blend'):
+    OUR_RK = ranker_infer.OurRanker.load(os.path.dirname(find('casmi26-ours-ranker/**/features.json')))
+    log('our ranker:', len(OUR_RK.features), 'features,', len(OUR_RK.boosters), 'boosters')
+import pc_join
+if CFG['PC_JOIN_N'] > 0:
+    from casmi import frag as fragmod
+    pc_join.install(E, V, CFG['PC_JOIN_ORDER'])
+    log('PubChem join: N', CFG['PC_JOIN_N'], 'order', CFG['PC_JOIN_ORDER'], 'max lib', CFG['PC_JOIN_MAX_LIB'])
+import conf_gate
+if CFG['PC_JOIN_CONF'] is not None:
+    assert CFG['PC_JOIN_N'] > 0, 'PC_JOIN_CONF needs PC_JOIN_N > 0'
+    _need = [f[3:] if f.startswith('t1_') else f for f in conf_gate.MODEL['features'] if f not in ('s1', 'm1_10')]
+    assert all(f in FEATURES for f in _need), 'engine features the confidence model reads are missing'
+    log('confidence gate: join when p_present <', CFG['PC_JOIN_CONF'], '| deep:', CFG['PC_JOIN_CONF_DEEP'], CFG['PC_JOIN_N_DEEP'])

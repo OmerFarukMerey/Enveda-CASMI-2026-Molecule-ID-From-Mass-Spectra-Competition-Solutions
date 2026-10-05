@@ -1,0 +1,15 @@
+{
+  "summary": "Public-LB results of fusion-v4n configs (overrides on the default CFG); the calibration set for tools/calibrate.py",
+  "points": [
+    {"name": "v1",  "lb": 0.399, "set": {}},
+    {"name": "v2",  "lb": 0.404, "set": {"POP_MU": 0.15, "FRAG_LAM": 0.5, "FRAG_MODE": "gap"}},
+    {"name": "v3b", "lb": 0.390, "set": {"POP_MU": 0.15, "FRAG_LAM": 0.25, "FRAG_MODE": "all"}},
+    {"name": "v4a", "lb": 0.404, "set": {"POP_MU": 0.15, "FRAG_LAM": 0.5, "FRAG_MODE": "gap", "ICE_LAM_LIB": 0.0, "GL_LAM_LIB": 0.0}},
+    {"name": "v4b", "lb": 0.409, "set": {"POP_MU": 0.25, "FRAG_LAM": 0.5, "FRAG_MODE": "gap", "ICE_LAM_LIB": 0.0, "GL_LAM_LIB": 0.0}},
+    {"name": "v5a", "lb": 0.393, "set": {"POP_MU": 0.15, "PC_POP_LAM": 0.25, "PC_POP_UNION": 200, "GL_MH_ONLY": true}, "needs_extras": true},
+    {"name": "v5c", "lb": 0.405, "set": {"POP_MU": 0.25, "FRAG_LAM": 0.5, "FRAG_MODE": "gap", "ICE_LAM_LIB": 0.0, "GL_LAM_LIB": 0.0,
+                                         "PC_POP_LAM": 0.25, "PC_POP_UNION": 200, "GL_MH_ONLY": true}, "needs_extras": true},
+    {"name": "v7b", "lb": 0.405, "set": {"POP_MU": 0.25, "FRAG_LAM": 0.5, "FRAG_MODE": "gap", "ICE_LAM_LIB": 0.0, "GL_LAM_LIB": 0.0,
+                                         "GL_MH_ONLY": true, "FUSE_MIN_LIB": 0.5}, "needs_extras": true}
+  ]
+}

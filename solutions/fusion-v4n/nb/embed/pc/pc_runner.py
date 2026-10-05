@@ -17,10 +17,12 @@ if __name__ == '__main__':
     sys.path.insert(0, V3CODE); sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import torch, glob
     import probe_core2 as pc
+    import mass_window
+    _OFF = mass_window.offsets(json.loads(os.environ.get('CASMI_MASS_OFFSET', 'null')))   # ours: MASS_OFFSET_BY_ADDUCT
     from casmi import fpnet, chem
     T0 = time.time()
     models = sorted(glob.glob(os.path.join(V3MOD, 'fpnet_*.pt')))
-    assert len(models) == 2, models
+    assert len(models) == 2 or (os.environ.get('CASMI_PC_MODELS_ANY') and len(models) >= 1), models   # ours: PC_MODELS
     dev = 'cuda' if torch.cuda.is_available() else 'cpu'
     bank = fpnet.ModelBank(models, device=dev)
     bits = np.load(os.path.join(POOL_DIR, 'fp_bits.npy')); nbits = len(bits)
@@ -63,8 +65,10 @@ if __name__ == '__main__':
             best = float((F @ z.astype(np.float64)).max())
         else:
             best = float('nan')
+        _ok = np.isfinite(sub.nm.values)
+        target_pc = mass_window.target_mass(sub.nm.values[_ok], sub.adduct.values[_ok], _OFF) if _OFF else target
         extra[mid] = dict(best_pool_fz=best, target=target)
-        tasks.append((mid, target, z))
+        tasks.append((mid, target_pc, z))
     del bank; torch.cuda.empty_cache()
     print(f'logits for {len(tasks)} molecules {time.time()-T0:.0f}s', flush=True)
     res = {}
@@ -73,7 +77,7 @@ if __name__ == '__main__':
     with ctx.Pool(NW, initializer=pc.init_worker, initargs=(PC_DIR, os.path.join(POOL_DIR, 'fp_bits.npy'),
                                                             os.path.join(POOL_DIR, 'pool_meta.parquet'), V3CODE)) as P:
         for k, (mid, smis, fzs, keys, d) in enumerate(P.imap_unordered(pc.probe_one, tasks, chunksize=1)):
-            res[mid] = dict(pc=smis, pc_fz=fzs, pc_keys=keys, **extra[mid])
+            res[mid] = dict(pc=smis, pc_fz=fzs, pc_keys=keys, fz_top=(d or {}).get('fz_top'), **extra[mid])   # ours: fz_top
             if (k + 1) % 25 == 0 or k + 1 == len(tasks):
                 print(f'  pubchem {k+1}/{len(tasks)} {time.time()-T0:.0f}s', flush=True)
     json.dump(res, open(OUT, 'w'))

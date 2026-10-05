@@ -14,5 +14,5 @@ if CFG['USE_ENG']:
         ENG = json.load(open(os.path.join(WORK, 'eng_lists.json')))
         log('engine-2 lists', len(ENG), f'{time.time()-_t0:.0f}s')
     except Exception as e:
-        print('ENGINE-2 FAILED -> v4 lists kept:', repr(e))
+        print('ENGINE-2 FAILED -> v4 lists kept:', repr(e)); FAILS.append('engine-2: ' + repr(e)[:200])
 dump('eng', ENG)

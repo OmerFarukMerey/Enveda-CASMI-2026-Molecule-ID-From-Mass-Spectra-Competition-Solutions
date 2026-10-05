@@ -1,7 +1,7 @@
 <!-- index: fusion-v4n: pipeline stages, what is the same as and different from the 0.399 reference, how to run -->
 # fusion-v4n: public 0.399 pipeline, restructured for iteration
 
-Owner: Hemre · Status: **public LB 0.399 (2026-09-30), identical to the reference** · Baseline:
+Owner: Hemre · Status: **public LB 0.431 (v13a, 2026-10-03)**; the default config reproduces the reference (0.399) · Baseline:
 [CASMI26 | v4n + Engine Fusion + Union [LB 0.399]](https://www.kaggle.com/code/seyitkaangunes/casmi26-v4n-engine-fusion-union-lb-0-399)
 
 The default `CFG` reproduces the reference step for step. Every improvement goes in as a config knob or a flagged stage, so
@@ -42,12 +42,19 @@ engine-2`); the stage order; smoke / rerun detection (same test signature); the 
 
 **Verified on Kaggle:** commit runs pass every stage (12-molecule smoke: 0.958 local, all exact library hits), and the hidden-test submission scored **0.399**, the same as the reference.
 
-## Best submission: public LB 0.404 (v2)
+## Best submission: public LB 0.431 (v13a)
 
 | Version | Config | Public LB | Exact notebook |
 |---|---|---|---|
 | v1 | [configs/v1-0.399.json](configs/v1-0.399.json) (reference defaults) | 0.399 | |
-| **v2** | [configs/v2-0.404.json](configs/v2-0.404.json): pool popularity prior μ=0.15 + MetFrag-parsimony re-score in `gap` mode (λ=0.5, only molecules ICEBERG/GLACIER cannot score) | **0.404** | [kaggle/submitted/v2-0.404.ipynb](kaggle/submitted/v2-0.404.ipynb) |
+| v2 | [configs/v2-0.404.json](configs/v2-0.404.json): pool popularity prior μ=0.15 + MetFrag-parsimony re-score in `gap` mode (λ=0.5, only molecules ICEBERG/GLACIER cannot score) | 0.404 | [kaggle/submitted/v2-0.404.ipynb](kaggle/submitted/v2-0.404.ipynb) |
+| v4b | [configs/v4b-libgate-pop025.json](configs/v4b-libgate-pop025.json): v2 + ICEBERG / GLACIER off for library hits + popularity μ=0.25 | 0.409 | public: [Kaggle notebook](https://www.kaggle.com/code/huseyinemreaksoy/casmi26-sub-v4b-0-409-on-the-public) |
+| v12a | [configs/v12a-v4b-pcjoin50-lib07.json](configs/v12a-v4b-pcjoin50-lib07.json): v4b + **PubChem join**: the best 50 PubChem-only candidates enter the v1 engine and are placed by its ranker when `lib_max` < 0.7 (`nb/embed/pc_join.py`, [reviews/pcjoin-2026-10-02.md](reviews/pcjoin-2026-10-02.md)) | 0.420 | [submissions/fusion-v4n-v12a-0.420](../../submissions/fusion-v4n-v12a-0.420/) |
+| **v13a** | [configs/v13a-v12a-n100.json](configs/v13a-v12a-n100.json): v12a with 100 instead of 50 PubChem candidates in the join | **0.431** | [submissions/fusion-v4n-v13a-0.431](../../submissions/fusion-v4n-v13a-0.431/) |
+
+Twelve submissions of this pipeline are logged in [../../docs/experiments.md](../../docs/experiments.md); every change to how
+pool candidates are ordered stayed between 0.390 and 0.409. v12a and v13a are the first changes that act on answers outside
+the main pool, and each added 0.011. Why: [reviews/mixed-regime-2026-10-02.md](reviews/mixed-regime-2026-10-02.md).
 
 Reproduce v2: either upload `kaggle/submitted/v2-0.404.ipynb` (File → Import Notebook) and attach the 14 inputs listed in
 `solution.json`, or build and push it:
@@ -80,3 +87,10 @@ The visible test is a placeholder drawn from train: local scores on it check the
 ## Data provenance
 All inputs are public Kaggle datasets listed in `solution.json` → `kaggle.datasets`. ICEBERG / GLACIER are ms-pred
 MassSpecGym checkpoints (MIT). No NIST-derived artefact is known to be used. Re-check before the final selection.
+
+`huseyinemreaksoy/casmi26-fpnet-pc-hn` (flag `PC_MODELS='hn'`, private for now): FPNet A and B of
+`ahmedberatozer/casmi26-v3-models`, each fine-tuned by us for 20,000 steps on the competition's `train.parquet` with
+PubChem structures of the same mass window as negatives (`train/mine_pc_negatives.py`, `train/train_fpnet.py --pc_neg`;
+`reviews/hardneg-2026-10-05.md`). Inputs: competition training data, public weights trained on it, PubChem (public
+domain). No NIST, nothing keyed to `test.parquet`. To be made public if the rules or the hosts require external
+artefacts to be public.

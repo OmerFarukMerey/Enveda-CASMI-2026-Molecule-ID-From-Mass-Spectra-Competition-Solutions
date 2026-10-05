@@ -1,5 +1,5 @@
 {
- "id": "huseyinemreaksoy/casmi26-ours",
+ "id": "YOUR_KAGGLE_USERNAME/casmi26-ours",
  "title": "casmi26-ours",
  "code_file": "casmi26-ours.ipynb",
  "language": "python",
@@ -23,7 +23,8 @@
   "prvsiyan/chebi-lipidmaps-casmi26",
   "prvsiyan/coconut-casmi26-candidates",
   "metric/rdkit-2026-3-3-wheel",
-  "dmitriigluzdov/casmi26-pubchem-popularity-prior"
+  "dmitriigluzdov/casmi26-pubchem-popularity-prior",
+  "dmitriigluzdov/casmi26-fold-safe-fpnet"
  ],
  "competition_sources": [
   "enveda-CASMI26-molecule-id-mass-spectra"

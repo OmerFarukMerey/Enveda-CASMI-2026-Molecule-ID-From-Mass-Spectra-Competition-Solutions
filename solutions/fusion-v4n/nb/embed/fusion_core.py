@@ -23,7 +23,14 @@ DEFAULTS = dict(LIB_TAU=0.9, REL_TH=600.0, SLOTS_AGG=[2, 4, 6, 8, 10], SLOTS_GEN
                 POST_ICE_LAM=None, POST_GL_LAM=None,   # stage-C re-rank weights; None = ICE_LAM / GL_LAM
                 FUSE_SKIP_LIB=None,                    # skip engine-2 fusion when lib_max >= this; None = never
                 ICE_LAM_LIB=None, GL_LAM_LIB=None,     # ICE/GL weights for library hits (lib_max >= LIB_TAU); None = same
-                FILL_25=False)                         # top up lists shorter than 25 from the other channels
+                FILL_25=False,                         # top up lists shorter than 25 from the other channels
+                POP_LIB_OFF=False, FRAG_LIB_OFF=False, # no popularity / frag term for library hits
+                GATE_TAU=None,                         # lib_max threshold of the *_LIB gates; None = LIB_TAU
+                FUSE_MIN_LIB=None,                     # fuse engine-2 only when lib_max >= this (it needs library analogs)
+                PC_FWD_T1=None, PC_FWD_N=25,           # early PubChem slots when the best proposal beats the base
+                                                       #   candidates in the forward models by more than this; None = off
+                FUSE_INJ_CREDIT=0.0)                   # engine fusion: a joined PubChem row (pool id -2) gets this share of the
+                                                       #   engine-2 weight at its own rank, because engine-2 cannot list it
 
 
 def popularity_reorder(smis, keys, scs, forms, pids, pool_pop, mu):
@@ -53,12 +60,33 @@ def merge(base, base_keys, pc, pc_keys, slots, n=25):
     return out
 
 
-def fuse_rrf(v_smis, e_smis, e_keys, score_key, alpha, krr, n):
-    """sum 1/(krr + r) over the v4 list plus alpha/(krr + r) over the engine list, keyed by the metric key."""
+def forward_margin(prop, base, scores, n=25, formula=None):
+    """min over the forward models of score(proposal) - max score(base top-n candidates with the proposal's formula),
+    or None. A model counts only if it scored the proposal and at least one compared base candidate
+    (reviews/pubchem-2026-10-02.md: a positive margin means the answer is rarely in the pool)."""
+    cand = list(base[:n])
+    if formula is not None:
+        fp = formula(prop)
+        cand = [b for b in cand if formula(b) == fp]
+    ok = lambda x: isinstance(x, (int, float)) and np.isfinite(x)
+    margins = []
+    for d in scores:
+        v = d.get(prop) if d else None
+        bs = [x for x in (d.get(b) for b in cand) if ok(x)] if ok(v) else []
+        if bs:
+            margins.append(v - max(bs))
+    return min(margins) if margins else None
+
+
+def fuse_rrf(v_smis, e_smis, e_keys, score_key, alpha, krr, n, credit=None, credit_w=0.0):
+    """sum 1/(krr + r) over the v4 list plus alpha/(krr + r) over the engine list, keyed by the metric key.
+    credit: SMILES of the v4 list that engine-2 could not have listed (joined PubChem rows); each gets
+    credit_w * alpha / (krr + r) on top, i.e. is treated as if engine-2 ranked it where the v4 list does."""
     sc, smi_of = {}, {}
     for r, s in enumerate(v_smis, 1):
         k = score_key(s) or s
-        sc[k] = sc.get(k, 0.0) + 1.0 / (krr + r); smi_of.setdefault(k, s)
+        w = 1.0 + (credit_w * alpha if (credit and s in credit) else 0.0)
+        sc[k] = sc.get(k, 0.0) + w / (krr + r); smi_of.setdefault(k, s)
     for r, (s, k) in enumerate(zip(e_smis, e_keys), 1):
         if not k:
             continue
@@ -104,6 +132,8 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
         fr = (frag_scores or {}).get(str(m), {})
         if c['FRAG_LAM'] <= 0 or not covered(fr) or gl_fuse is None:
             return None
+        if c['FRAG_LIB_OFF'] and lib_of_m.get(m, lib_of_m.get(str(m), 0.0)) >= GATE_TAU:
+            return None
         if c['FRAG_MODE'] == 'gap':
             if covered(ice):
                 return None
@@ -114,13 +144,17 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
         stats.setdefault('frag', {'molecules': 0})['molecules'] += 1
         return gl_fuse.rerank_multi(smis, keys, scs, forms, terms, lams, top_n=top_n)
 
+    GATE_TAU = LIB_TAU if c['GATE_TAU'] is None else c['GATE_TAU']   # LIB_TAU itself keeps steering the PubChem merge
+
     def lam_pair(lib_max):
-        lib = lib_max >= LIB_TAU
+        lib = lib_max >= GATE_TAU
         il = c['ICE_LAM_LIB'] if (lib and c['ICE_LAM_LIB'] is not None) else c['ICE_LAM']
         gll = c['GL_LAM_LIB'] if (lib and c['GL_LAM_LIB'] is not None) else c['GL_LAM']
         return il, gll
 
     extra = {}                                   # FILL_25: re-ranked base candidates beyond position 25
+    inj_of = {}                                  # FUSE_INJ_CREDIT: joined PubChem rows (pool id -2) per molecule
+    lib_of_m = {m: v[2] for m, v in base.items()}
 
     # ---- stage A: ICE (+GL) re-rank of the base lists and of the PubChem lists of gated molecules
     for m in list(base):
@@ -128,12 +162,15 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
         smis, keys, lib_max, scs, forms = list(v[0][:TOPN]), list(v[1][:TOPN]), v[2], list(v[3][:TOPN]), list(v[4][:TOPN])
         pids = list(v[5][:TOPN]) if len(v) > 5 else None
         ICE_LAM, GL_LAM = lam_pair(lib_max)       # closures (gl_rerank, frag_rerank) read these per molecule
-        if c['POP_MU'] > 0 and pool_pop is not None and pids is not None and len(scs) > 1:
+        pop_on = c['POP_MU'] > 0 and not (c['POP_LIB_OFF'] and lib_max >= GATE_TAU)
+        if pop_on and pool_pop is not None and pids is not None and len(scs) > 1:
             try:
                 smis, keys, scs, forms, pids = popularity_reorder(smis, keys, scs, forms, pids, pool_pop, c['POP_MU'])
                 stats.setdefault('pop', {'molecules': 0})['molecules'] += 1
             except Exception as e:
                 log('popularity prior failed', m, repr(e))
+        if pids is not None and c['FUSE_INJ_CREDIT'] > 0:
+            inj_of[m] = {s for s, p in zip(smis, pids) if p == -2}
         ice = ice_scores.get(str(m), {}) if ice_scores else {}
         gl = gl_of(m)
         smis0, keys0, scs0, forms0 = smis, keys, scs, forms
@@ -181,8 +218,16 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
             ms['untouched'] += 1; final = smis
         else:
             bp = p.get('best_pool_fz')
-            rel = p['pc_fz'][0] - bp if bp is not None and np.isfinite(bp) else 1e9
+            top = p['fz_top'] if p.get('fz_top') is not None else p['pc_fz'][0]   # fz_top: raw f.z when the list is popularity-sorted
+            rel = top - bp if bp is not None and np.isfinite(bp) else 1e9
             aggressive = rel > c['REL_TH']
+            if not aggressive and c['PC_FWD_T1'] is not None:
+                bk = set(keys)
+                new = [s for s, k in zip(p['pc'], p['pc_keys']) if k not in bk]
+                fwd = forward_margin(new[0], smis, [ice_scores.get(str(mid), {}), gl_of(mid)], c['PC_FWD_N'],
+                                     formula) if new else None
+                if fwd is not None and fwd > c['PC_FWD_T1']:
+                    aggressive = True; ms['fwd_early'] = ms.get('fwd_early', 0) + 1
             ms['aggressive' if aggressive else 'gentle'] += 1
             final = merge(smis, keys, p['pc'], p['pc_keys'], c['SLOTS_AGG'] if aggressive else c['SLOTS_GENTLE'])
         if not final:
@@ -223,9 +268,13 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
         if c['FUSE_SKIP_LIB'] is not None and lib_of.get(mid, 0.0) >= c['FUSE_SKIP_LIB']:
             e = None
             stats['fuse']['skipped_lib'] = stats['fuse'].get('skipped_lib', 0) + 1
+        if c['FUSE_MIN_LIB'] is not None and lib_of.get(mid, 0.0) < c['FUSE_MIN_LIB']:
+            e = None
+            stats['fuse']['skipped_nolib'] = stats['fuse'].get('skipped_nolib', 0) + 1
         if e and e.get('smiles'):
             K = int(c['FUSE_ENG_K'])
-            fsm, fk, fsc = fuse_rrf(vs, e['smiles'][:K], e['keys'][:K], score_key, c['FUSE_ALPHA'], c['FUSE_KRR'], c['FUSE_N'])
+            fsm, fk, fsc = fuse_rrf(vs, e['smiles'][:K], e['keys'][:K], score_key, c['FUSE_ALPHA'], c['FUSE_KRR'], c['FUSE_N'],
+                                    inj_of.get(mid), c['FUSE_INJ_CREDIT'])
             ice = ice_scores.get(str(mid), {}) if isinstance(ice_scores, dict) else {}
             fsm0, fk0, fsc0 = fsm, fk, fsc
             if ice and ice_fuse is not None:
