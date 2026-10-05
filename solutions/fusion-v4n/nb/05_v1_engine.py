@@ -56,3 +56,9 @@ if CFG['PC_JOIN_N'] > 0:
     from casmi import frag as fragmod
     pc_join.install(E, V, CFG['PC_JOIN_ORDER'])
     log('PubChem join: N', CFG['PC_JOIN_N'], 'order', CFG['PC_JOIN_ORDER'], 'max lib', CFG['PC_JOIN_MAX_LIB'])
+import conf_gate
+if CFG['PC_JOIN_CONF'] is not None:
+    assert CFG['PC_JOIN_N'] > 0, 'PC_JOIN_CONF needs PC_JOIN_N > 0'
+    _need = [f[3:] if f.startswith('t1_') else f for f in conf_gate.MODEL['features'] if f not in ('s1', 'm1_10')]
+    assert all(f in FEATURES for f in _need), 'engine features the confidence model reads are missing'
+    log('confidence gate: join when p_present <', CFG['PC_JOIN_CONF'], '| deep:', CFG['PC_JOIN_CONF_DEEP'], CFG['PC_JOIN_N_DEEP'])

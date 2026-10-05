@@ -17,6 +17,16 @@ if CFG['USE_ICE']:
         ICE_PKG = os.path.dirname(find('casmi26-iceberg/**/ice_runner.py'))
         sys.path.append(ICE_PKG)
         import fuse as ice_fuse
+        ICE_RUN_PKG = ICE_PKG
+        if CFG['ICE_FT']:                        # writable copy of the package with the fine-tuned intensity model
+            import shutil
+            ICE_RUN_PKG = os.path.join(WORK, 'ice_pkg_ft')
+            if not os.path.exists(ICE_RUN_PKG):
+                shutil.copytree(ICE_PKG, ICE_RUN_PKG)
+            _ft = find('casmi26-ice-ft/**/inten.pt')
+            _dst = os.path.join(ICE_RUN_PKG, 'ckpt', 'inten.pt')
+            os.chmod(_dst, 0o644); shutil.copyfile(_ft, _dst)
+            log('ICE_FT: intensity model', _ft, os.path.getsize(_dst), 'bytes')
         del V, E, bank; gc.collect(); torch.cuda.empty_cache()
         mids = sorted(BASE, key=lambda m: BASE[m][2])        # molecules without a library match first
         cands = {m: ice_fuse.ice_candidates(BASE[m][0], BASE[m][4], TOPN) for m in mids}
@@ -53,14 +63,14 @@ if CFG['USE_ICE']:
                                                CFG['ICE_SURROGATE'])
             log('ICE_SURROGATE', CFG['ICE_SURROGATE'], ': molecules with surrogate spectra', _n)
         log('ICE input molecules', len(items), 'candidates', sum(len(it['cands']) for it in items))
-        ICE_SCORES = ice_fuse.run_ice(ICE_PKG, items, workdir=os.path.join(WORK, 'ice_work'), device='cuda',
+        ICE_SCORES = ice_fuse.run_ice(ICE_RUN_PKG, items, workdir=os.path.join(WORK, 'ice_work'), device='cuda',
                                       budget_s=ICE_BUDGET, site=os.path.join(WORK, 'ice_site'))
         meta_f = os.path.join(WORK, 'ice_work', 'ice_out.json.meta.json')
         if os.path.exists(meta_f):
             print('ICE meta', open(meta_f).read()[:1500])
     except Exception as e:
         ICE_SCORES = {}
-        print('ICE FAILED -> ranker order kept:', repr(e))
+        print('ICE FAILED -> ranker order kept:', repr(e)); FAILS.append('iceberg: ' + repr(e)[:200])
 if CFG['USE_GL'] and items:
     try:
         GL_PKG = os.path.dirname(find('casmi26-glacier/**/gl_runner.py'))
@@ -79,7 +89,7 @@ if CFG['USE_GL'] and items:
         print('GL meta', open(meta_f).read()[:1500] if os.path.exists(meta_f) else 'missing')
     except Exception as e:
         GL_SCORES = {}
-        print('GL FAILED -> ICE only:', repr(e))
+        print('GL FAILED -> ICE only:', repr(e)); FAILS.append('glacier: ' + repr(e)[:200])
 FRAG = {}                                   # MetFrag-parsimony term (frag_rescore.py), CPU, ~1 ms per candidate
 if CFG['FRAG_LAM'] > 0:
     try:
@@ -97,7 +107,7 @@ if CFG['FRAG_LAM'] > 0:
         log('frag scores', len(FRAG), 'molecules', f'{time.time()-_t0:.0f}s')
     except Exception as e:
         FRAG = {}
-        print('FRAG FAILED -> off:', repr(e))
+        print('FRAG FAILED -> off:', repr(e)); FAILS.append('frag: ' + repr(e)[:200])
 GL_MH = {}                                    # VAL_EXTRAS: GLACIER on [M+H]+ spectra only, for local replay
 if CFG['VALIDATION'] and CFG['VAL_EXTRAS'] and CFG['USE_GL'] and items and not CFG['GL_MH_ONLY'] and not IS_RERUN:
     try:
@@ -113,4 +123,8 @@ if CFG['VALIDATION'] and CFG['VAL_EXTRAS'] and CFG['USE_GL'] and items and not C
     log('GLACIER [M+H]+ only (extras): molecules', len(GL_MH))
     dump('gl_mh', GL_MH)
 log('ICE molecules', len(ICE_SCORES), '| GL molecules', len(GL_SCORES), '| FRAG molecules', len(FRAG))
+if CFG['USE_ICE'] and not ICE_SCORES:
+    FAILS.append('iceberg returned no scores')
+if CFG['USE_GL'] and not GL_SCORES:
+    FAILS.append('glacier returned no scores')
 dump('ice', ICE_SCORES); dump('gl', GL_SCORES); dump('frag', FRAG); dump('pc', PC)   # pc again: now carries pc_form

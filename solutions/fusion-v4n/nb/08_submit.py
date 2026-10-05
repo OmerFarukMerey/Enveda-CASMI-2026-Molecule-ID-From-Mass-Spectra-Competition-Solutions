@@ -41,4 +41,8 @@ if os.path.exists(os.path.join(STAGE, 'val_labels.csv')):   # validation mode: s
     log(f'VALIDATION MRR@25 = {np.mean(_rr):.4f} | top1 {np.mean(np.array(_rr) == 1):.3f} | hit@25 {np.mean(np.array(_rr) > 0):.3f} | n {len(_rr)}')
 # the ICE/GLACIER wheel site holds thousands of files: drop it so the version's output stays small to list/download
 import shutil; shutil.rmtree(os.path.join(WORK, 'ice_site'), ignore_errors=True)
+shutil.rmtree(os.path.join(WORK, 'ice_pkg_ft'), ignore_errors=True)
+log('stage fallbacks:', FAILS if FAILS else 'none')
+if CFG['STRICT'] and FAILS:
+    raise RuntimeError('STRICT: ' + ' | '.join(FAILS))
 sub.head()

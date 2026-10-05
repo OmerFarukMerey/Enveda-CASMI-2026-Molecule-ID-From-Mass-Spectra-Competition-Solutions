@@ -95,3 +95,41 @@ all class-2 competitors are simulated. Projected gain there: +0.03 to +0.08 top-
 measured). Next: the window arm (`scratch/simspec/run_chain5.sh`: the competitors of 431 targets simulated too),
 before the 13-hour simulation of all 436,515 class-2 pool entries.
 
+
+Question 3 (2026-10-05): does the model choose better among PubChem isomers when PubChem isomers are among its
+training negatives? Full report: `reviews/hardneg-2026-10-05.md`. The PubChem channel hands the 100 best PubChem-only
+structures by f.z to the engine, in windows of about 7,500 rows, and the model had only ever been trained against the
+pool's window (about 56 rows). `mine_pc_negatives.py` collects, for each of the 219,155 training structures, 16 hard
+negatives (highest ECFP4 Tanimoto in a 1,024-row sample of its ±10 ppm PubChem window; 81% share the answer's
+formula) and 32 random window rows per formula (43%); `train_fpnet.py --pc_neg` adds 16 + 16 of them to the 63 pool
+negatives of every sample. Otherwise the recipe of `ft_ctrl`.
+
+```bash
+H=D:/casmi-data/hardneg
+$P $T/mine_pc_negatives.py --work D:/casmi-data/directions/run/work --code D:/casmi-data/directions/code \
+    --tier D:/casmi-data/pubchem_study/tier --ik14 D:/casmi-data/pubchem_study/popds/pc_ik14.npy --out $H/w10   # 2.6 h, 2 workers
+$P $T/mine_pc_negatives.py ... --out $H/w10 --assemble                                                        # fp.npy 4.0 GB
+$P $T/guard_run.py --free_gb 12 --checks 2 --every 20 -- python $T/train_fpnet.py $C \
+    --init 'D:\casmi-data\directions\dl\fpnet_fold0.pt' --pc_neg $H/w10 --pc_k 32 --pc_hard 16 \
+    --bs 64 --lr 1e-4 --warmup 500 --max_steps 20000 --duty 0.8 --game_duty 0.25 --yield_gb 11 --resume --tag ft_hn
+```
+
+"Answer among the first N PubChem-only structures", both passes of the channel, truth-removed molecules with a PubChem
+record that the model never saw; paired difference to `ft_ctrl`:
+
+| Molecules | n | first 25 | first 50 | first 100 | first 200 |
+|---|---|---|---|---|---|
+| mixed regime, `ft_ctrl` | 325 | 0.600 | 0.655 | 0.705 | 0.751 |
+| mixed regime, `ft_hn` | 325 | 0.705 (+0.105 ± 0.018) | 0.742 (+0.086 ± 0.017) | 0.778 (+0.074 ± 0.016) | 0.825 (+0.074 ± 0.015) |
+| second hold set, `ft_hn` − `ft_ctrl` | 689 | +0.132 ± 0.014 | +0.102 ± 0.012 | +0.078 ± 0.011 | +0.058 ± 0.010 |
+| np panel (Enveda timsTOF), `ft_ctrl` → `ft_hn` | 250 | 0.704 → 0.804 | 0.748 → 0.868 | 0.836 → 0.904 | 0.864 → 0.928 |
+
+Pool side (hold-out table, paired): hold all top-1 0.669 → 0.685 (+0.016 ± 0.006), hold NP-catalogue 0.393 → 0.408,
+np panel timsTOF 0.345 → 0.403 (+0.060 ± 0.022).
+
+Result (2026-10-05): **the first training change that moves the model on unseen molecules; the answer is as often in
+the first 25 as it was in the first 100.** Two thirds of the change of the logits is one constant vector (the same on
+two halves of the molecules, cosine 0.999): a prior for what a measured structure looks like among PubChem rows.
+Adding that vector to the control's logits gives +0.06 of the +0.07 at N 100. It is learned from the training
+libraries; it holds on the Enveda panel, which no model here was trained on, but the hidden test is the only real check.
+Production = the same fine-tune applied to public models A and B (commands in the report, section 7); not started.

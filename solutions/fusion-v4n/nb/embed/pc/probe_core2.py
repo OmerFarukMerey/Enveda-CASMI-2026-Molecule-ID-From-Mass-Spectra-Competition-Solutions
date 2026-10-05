@@ -20,7 +20,7 @@ import time
 import numpy as np
 
 PC_N1 = int(os.environ.get('CASMI_PC_N1', 5000))   # ours: overridable from CFG['PC_N1']
-PPM = 10.0
+PPM = float(os.environ.get('CASMI_PC_PPM', 10.0))   # ours: CFG['PC_PPM']
 K = int(os.environ.get('CASMI_PC_K', 25))   # ours: list depth, raised for PC_JOIN_N
 
 _W = {}

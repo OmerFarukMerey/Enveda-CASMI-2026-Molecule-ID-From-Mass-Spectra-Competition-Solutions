@@ -1,6 +1,7 @@
 # setup: offline rdkit wheel, input discovery, MANIFEST check, embedded sources written to /kaggle/working/ours
 import os, sys, glob, re, subprocess, time, json, hashlib, pickle
 T0 = time.time()
+FAILS = []                       # stage fallbacks of this run (see CFG['STRICT'])
 WORK = '/kaggle/working'
 STAGE = os.path.join(WORK, 'stage_cache')
 OURS = os.path.join(WORK, 'ours')

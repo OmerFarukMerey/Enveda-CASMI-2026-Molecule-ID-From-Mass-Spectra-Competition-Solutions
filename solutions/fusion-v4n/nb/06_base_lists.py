@@ -4,6 +4,7 @@ te = pd.read_parquet(os.path.join(COMP, 'test.parquet'))
 te['nm'] = chem.neutral_mass(te.precursor_mz.values.astype(np.float64), te.adduct.values)
 mols = list(te.groupby('molecule_id', sort=False))
 BASE, n_err, n_rk_err, n_rk_diff, n_join, n_join_mol, n_join_err = {}, 0, 0, 0, 0, 0, 0
+n_conf = n_conf_join = 0; CONF_P = {}
 for gi, (mid, sub) in enumerate(mols):
     nms = sub.nm.values[np.isfinite(sub.nm.values)]
     smis, keys, lib_max, scs, forms, pids = [], [], 0.0, [], [], []
@@ -18,14 +19,25 @@ for gi, (mid, sub) in enumerate(mols):
                                 prec=float(r.precursor_mz), ce=float(ce_arr.mean()) if len(ce_arr) else np.nan,
                                 ce_n=int(len(ce_arr)) if len(ce_arr) else 1))
         try:
-            recs, inj, _out = [], None, {}
+            recs, inj, _out, _r0 = [], None, {}, None
             if CFG['PC_JOIN_N'] > 0:
                 try:
                     _p = PC_DEEP.get(mid) or PC_DEEP.get(str(mid))
                     # smoke commit runs join every molecule (the smoke molecules are library hits): a bug must fail the commit
-                    _gate = CFG['PC_JOIN_MAX_LIB'] if (IS_RERUN or CFG['VALIDATION']) else None
-                    if _p and (_gate is None or pc_join.library_max(E, spectra, target) < _gate):
-                        _ix = pc_join.select_injection(_p, CFG['PC_JOIN_N'], min_rel=CFG['PC_JOIN_MIN_REL'])
+                    _live = IS_RERUN or CFG['VALIDATION']
+                    _gate = CFG['PC_JOIN_MAX_LIB'] if _live else None
+                    _n = CFG['PC_JOIN_N'] if (_p and (_gate is None or pc_join.library_max(E, spectra, target) < _gate)) else 0
+                    if _n and CFG['PC_JOIN_CONF'] is not None:        # confidence pass: the engine without injected rows
+                        pc_join.set_injection(E, []); _r0 = V.run(spectra, target); _pc = 0.0
+                        if len(_r0[0].pid):
+                            _s0 = rank_score(np.concatenate([_r0[1], _r0[2]], 1), list(FEATURES) + list(_r0[3]))
+                            _pc = conf_gate.p_present(conf_gate.list_features(_s0, _r0[1], list(FEATURES), _r0[2], list(_r0[3]), _r0[0].formula))
+                        n_conf += 1; CONF_P[mid] = round(float(_pc), 4)
+                        _n = conf_gate.join_depth(_pc, 0.0, CFG['PC_JOIN_CONF'], _n, None, CFG['PC_JOIN_CONF_DEEP'], CFG['PC_JOIN_N_DEEP']) \
+                            if _live else max(_n, CFG['PC_JOIN_N_DEEP'])   # commit runs: the model is exercised, every molecule is joined
+                        n_conf_join += int(_n > 0)
+                    if _n:
+                        _ix = pc_join.select_injection(_p, _n, min_rel=CFG['PC_JOIN_MIN_REL'])
                         recs = pc_join.build_records([_p['pc'][i] for i in _ix], [_p['pc_keys'][i] for i in _ix], chem, fragmod,
                                                      P.bits, fz=[_p['pc_fz'][i] for i in _ix])
                         recs = [r for r in recs if abs(r['mass'] - target) <= target * 30e-6]   # never the 'CCO' fallback
@@ -35,7 +47,7 @@ for gi, (mid, sub) in enumerate(mols):
                     print('PC JOIN FAILED -> no injection', mid, repr(e)); recs = []; n_join_err += 1
                 pc_join.set_injection(E, recs)
             try:
-                C, X, F, names, info = V.run(spectra, target)
+                C, X, F, names, info = _r0 if (_r0 is not None and not recs) else V.run(spectra, target)
             except Exception as e:
                 if not recs or not IS_RERUN:
                     raise
@@ -68,16 +80,32 @@ for gi, (mid, sub) in enumerate(mols):
                 for i in order:
                     k = C.key[i]
                     if k in seen: continue
-                    seen.add(k); smis.append(_out.get(int(i), C.smiles[i])); keys.append(k); scs.append(float(score[i])); forms.append(C.formula[i]); pids.append(int(C.pid[i]))
+                    seen.add(k); smis.append(_out.get(int(i), C.smiles[i])); keys.append(k); scs.append(float(score[i])); forms.append(C.formula[i])
+                    pids.append(-2 if (inj is not None and inj[i]) else int(C.pid[i]))   # -2 = joined PubChem row, -1 = generated
                     if len(smis) >= CFG['TOPN']: break
         except Exception as e:
             print('ERROR', mid, repr(e)); n_err += 1
     BASE[mid] = [smis, keys, lib_max, scs, forms, pids]
     if (gi + 1) % 25 == 0 or gi == len(mols) - 1:
-        log(f'  {gi+1}/{len(mols)} molecules')
+        try:                                  # resident memory: the join's per-SMILES caches grow with PC_JOIN_N
+            import psutil; _rss = psutil.Process().memory_info().rss / 2 ** 30
+        except Exception:
+            _rss = float('nan')
+        log(f'  {gi+1}/{len(mols)} molecules | RSS {_rss:.1f} GB | errors {n_err} | joined rows {n_join}, join failures {n_join_err}')
 log('base lists done, errors', n_err, '| RANKER', CFG['RANKER'], 'gate', CFG['RANKER_LIB_GATE'], 'fallbacks', n_rk_err,
     '| ungated top-1 differs from the public ranker (commit runs):', n_rk_diff,
-    '| PC join: injected rows', n_join, 'in', n_join_mol, 'molecules, failures', n_join_err)
+    '| PC join: injected rows', n_join, 'in', n_join_mol, 'molecules, failures', n_join_err,
+    '| confidence gate: lists scored', n_conf, 'joined', n_conf_join)
+if CONF_P:
+    _cp = np.array(list(CONF_P.values()))
+    log('confidence p_present quantiles 10/25/50/75/90:', np.round(np.quantile(_cp, [.1, .25, .5, .75, .9]), 3).tolist())
+    dump('conf_p', CONF_P)
+if (n_err + n_join_err + n_rk_err) > max(2, 0.02 * len(mols)):      # a couple of odd molecules are not a stage failure
+    FAILS.append(f'base lists: {n_err} molecules failed, {n_join_err} join fallbacks, {n_rk_err} ranker fallbacks')
+if CFG['USE_PC'] and len(PC) < 0.9 * len(mols):
+    FAILS.append(f'pubchem lists for {len(PC)} of {len(mols)} molecules')
+if CFG['PC_JOIN_N'] > 0 and (IS_RERUN or CFG['VALIDATION']) and n_join_mol == 0:
+    FAILS.append('the join was active but no molecule received joined rows')
 assert IS_RERUN or (CFG['RANKER'] == 'public' and CFG['PC_JOIN_N'] == 0) or n_err == 0, \
     'base-list errors with RANKER != public or PC_JOIN_N > 0: fix before submitting'
 dump('base', BASE)

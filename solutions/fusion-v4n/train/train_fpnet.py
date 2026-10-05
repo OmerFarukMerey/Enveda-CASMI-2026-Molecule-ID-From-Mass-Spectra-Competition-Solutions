@@ -17,6 +17,12 @@ element-count head). Additions:
              peaks below a share of the base peak (the spectrum cache uses 0.001)
              --sim_w T=0.1 gives the structures of a set a relative sampling weight (default 1 each): the way to
              test how often a structure's simulated spectra must be seen (a full pool gives few passes per structure)
+  --pc_neg   directory (or comma list) written by train/mine_pc_negatives.py (PubChem mass-window negatives of the training structures:
+             fp.npy, pid.npy, hard.npy, rand.npy). The ranking loss then runs over the true structure, the pool
+             negatives and --pc_k PubChem negatives per sample, --pc_hard of them the structure's hard ones (highest
+             similarity), the rest drawn from its formula's random window rows. A structure without mined negatives
+             (or with fewer) has the missing columns masked out of the softmax. --pool_k (default 63 = all) keeps
+             only that many pool negatives, e.g. --pool_k 31 --pc_k 32 replaces half of them at equal list size
   --extra_sets  parquet (sid, set): extra evaluation sets "<set> all / positive / [M+H]+ / negative"
   --ranks_out   with --eval_only: write the rank of every query group to <tag>_ranks.parquet (paired comparisons)
   --resume   continue from <tag>_resume.pt (model, optimiser, step); the schedule is step-based (--max_steps)
@@ -58,6 +64,10 @@ ap.add_argument('--sim_sets', default=None, help='comma list of values of the se
 ap.add_argument('--sim_floor', type=float, default=0.0, help='drop simulated peaks below this share of the base peak')
 ap.add_argument('--sim_pow', type=float, default=1.0, help='power applied to the simulated intensities (2 = sqrt scale back to linear)')
 ap.add_argument('--sim_w', default=None, help='relative sampling weights of simulated structures by set, e.g. T=0.1,Tp=0.1')
+ap.add_argument('--pc_neg', default=None, help='directory of train/mine_pc_negatives.py: PubChem window negatives added to the ranking loss')
+ap.add_argument('--pc_k', type=int, default=32, help='PubChem negatives per sample (with --pc_neg)')
+ap.add_argument('--pc_hard', type=int, default=16, help='how many of them are the hard ones; the rest are random window rows')
+ap.add_argument('--pool_k', type=int, default=63, help='pool negatives per sample used in the ranking loss (63 = all)')
 ap.add_argument('--extra_sets', default=None, help='parquet (sid, set) of extra evaluation sets')
 ap.add_argument('--ranks_out', action='store_true', help='with --eval_only: write per-group ranks to <tag>_ranks.parquet')
 args = ap.parse_args()
@@ -215,6 +225,42 @@ def add_sim(D, path, sets=None, floor=0.0, power=1.0, weights=None):
     return sim_groups, prob
 
 
+class PcNeg:
+    """PubChem window negatives of train/mine_pc_negatives.py: packed fingerprints and a validity mask per sample."""
+
+    def __init__(self, path, npool, k, n_hard):
+        dirs = path.split(',')                                                   # several directories: concatenated
+        self.fps = [np.load(os.path.join(d, 'fp.npy'), mmap_mode='r') for d in dirs]   # several GB: left on disk, rows read per batch
+        self.base = np.concatenate([[0], np.cumsum([len(f) for f in self.fps])])
+        cat = lambda n: np.concatenate([np.where(x >= 0, x + b, -1) for x, b in zip((np.load(os.path.join(d, n)) for d in dirs), self.base)])
+        self.hard = cat('hard.npy'); self.rand = cat('rand.npy')
+        self.row = np.full(npool, -1, np.int64); self.row[np.concatenate([np.load(os.path.join(d, 'pid.npy')) for d in dirs])] = np.arange(len(self.hard))
+        self.k = k; self.nh = min(n_hard, k, self.hard.shape[1]); self.nr = k - self.nh
+        assert self.nr <= self.rand.shape[1], 'more random negatives asked for than were mined'
+
+    def sample(self, pos, rng):
+        idx = np.full((len(pos), self.k), -1, np.int64)
+        for r, s in enumerate(self.row[pos]):
+            if s < 0:
+                continue
+            h = self.hard[s]; h = h[h >= 0]
+            if len(h) > self.nh:
+                h = rng.choice(h, self.nh, replace=False)
+            idx[r, :len(h)] = h
+            q = self.rand[s]; q = q[q >= 0]; q = q[~np.isin(q, h)]
+            n = min(len(q), self.k - len(h))                                     # random rows also fill up missing hard ones
+            if n:
+                idx[r, len(h):len(h) + n] = rng.choice(q, n, replace=False)
+        ok = idx >= 0
+        flat = np.where(ok, idx, 0).ravel(); o = np.argsort(flat); fs = flat[o]
+        fp = np.empty((len(flat), self.fps[0].shape[1]), np.uint8)
+        cut = np.searchsorted(fs, self.base)                                     # sorted reads, one stretch per directory
+        for i, f in enumerate(self.fps):
+            if cut[i + 1] > cut[i]:
+                fp[o[cut[i]:cut[i + 1]]] = f[fs[cut[i]:cut[i + 1]] - self.base[i]]
+        return fp.reshape(len(pos), self.k, -1), ok
+
+
 def main():
     global SHARE
     SHARE = gpushare.Share(args.duty, args.game_duty, args.yield_gb, log=log)
@@ -246,6 +292,10 @@ def main():
     sim_groups, sim_prob = add_sim(D, args.sim, args.sim_sets.split(',') if args.sim_sets else None, args.sim_floor, args.sim_pow,
                                    sim_w) if args.sim and args.sim_p > 0 else (None, None)
     n_sim = int(round(args.bs * args.sim_p)) if sim_groups is not None else 0
+    pcn = PcNeg(args.pc_neg, len(D.pmass), args.pc_k, args.pc_hard) if args.pc_neg else None
+    if pcn is not None:
+        log(f'PubChem negatives: {len(pcn.hard):,} structures, {int(pcn.base[-1]):,} fingerprints; per sample {pcn.nh} hard + {pcn.nr} random, '
+            f'pool negatives {min(args.pool_k, 63)}')
 
     def sample_ids(Dw, B):
         sim = []
@@ -290,7 +340,7 @@ def main():
             ids = sample_ids(Dw, args.bs)
             items = [Dw.item(int(i), args.merge_p, True) for i in ids]
             pos = Dw.sid2pid[Dw.sid[ids]]
-            q.put((fpnet.collate(items, 'cpu'), pos, Dw.negatives(pos)))
+            q.put((fpnet.collate(items, 'cpu'), pos, Dw.negatives(pos)[:, :args.pool_k], pcn.sample(pos, Dw.rng) if pcn is not None else None))
 
     for w in range(args.threads):
         threading.Thread(target=worker, args=(w,), daemon=True).start()
@@ -309,7 +359,7 @@ def main():
             active += time.time() - t0 - share.slept; save_resume()
             log(f'YIELD: other processes hold {share.other:.1f} GB of GPU memory -> saved {rfile}, exiting')
             stop.set(); sys.stdout.flush(); os._exit(YIELD_CODE)
-        tw = time.time(); arrs, pos, negs = q.get(); wait += time.time() - tw
+        tw = time.time(); arrs, pos, negs, pcb = q.get(); wait += time.time() - tw
         inp = tuple(a.to(dev, non_blocking=True) for a in arrs)
         pos_t = torch.as_tensor(pos, device=dev)
         cand = torch.as_tensor(np.concatenate([pos[:, None], negs], 1), device=dev)
@@ -318,6 +368,10 @@ def main():
         z = z.float(); el = el.float()
         fp = fpnet.unpack_gpu(PFP[cand], D.nbits)
         sc = torch.einsum('bkn,bn->bk', fp, z)
+        if pcb is not None:                             # PubChem window negatives: extra columns of the same softmax
+            fpp = fpnet.unpack_gpu(torch.as_tensor(pcb[0], device=dev), D.nbits)
+            scp = torch.einsum('bkn,bn->bk', fpp, z).masked_fill(~torch.as_tensor(pcb[1], device=dev), -1e4)
+            sc = torch.cat([sc, scp], 1)
         l_rank = F.cross_entropy(sc, target)
         l_bce = F.binary_cross_entropy_with_logits(z, fp[:, 0])
         l_el = F.smooth_l1_loss(el, ELEM[pos_t])

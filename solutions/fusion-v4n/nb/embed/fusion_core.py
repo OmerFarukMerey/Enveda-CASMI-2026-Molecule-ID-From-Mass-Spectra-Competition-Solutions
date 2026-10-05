@@ -27,8 +27,10 @@ DEFAULTS = dict(LIB_TAU=0.9, REL_TH=600.0, SLOTS_AGG=[2, 4, 6, 8, 10], SLOTS_GEN
                 POP_LIB_OFF=False, FRAG_LIB_OFF=False, # no popularity / frag term for library hits
                 GATE_TAU=None,                         # lib_max threshold of the *_LIB gates; None = LIB_TAU
                 FUSE_MIN_LIB=None,                     # fuse engine-2 only when lib_max >= this (it needs library analogs)
-                PC_FWD_T1=None, PC_FWD_N=25)           # early PubChem slots when the best proposal beats the base
+                PC_FWD_T1=None, PC_FWD_N=25,           # early PubChem slots when the best proposal beats the base
                                                        #   candidates in the forward models by more than this; None = off
+                FUSE_INJ_CREDIT=0.0)                   # engine fusion: a joined PubChem row (pool id -2) gets this share of the
+                                                       #   engine-2 weight at its own rank, because engine-2 cannot list it
 
 
 def popularity_reorder(smis, keys, scs, forms, pids, pool_pop, mu):
@@ -76,12 +78,15 @@ def forward_margin(prop, base, scores, n=25, formula=None):
     return min(margins) if margins else None
 
 
-def fuse_rrf(v_smis, e_smis, e_keys, score_key, alpha, krr, n):
-    """sum 1/(krr + r) over the v4 list plus alpha/(krr + r) over the engine list, keyed by the metric key."""
+def fuse_rrf(v_smis, e_smis, e_keys, score_key, alpha, krr, n, credit=None, credit_w=0.0):
+    """sum 1/(krr + r) over the v4 list plus alpha/(krr + r) over the engine list, keyed by the metric key.
+    credit: SMILES of the v4 list that engine-2 could not have listed (joined PubChem rows); each gets
+    credit_w * alpha / (krr + r) on top, i.e. is treated as if engine-2 ranked it where the v4 list does."""
     sc, smi_of = {}, {}
     for r, s in enumerate(v_smis, 1):
         k = score_key(s) or s
-        sc[k] = sc.get(k, 0.0) + 1.0 / (krr + r); smi_of.setdefault(k, s)
+        w = 1.0 + (credit_w * alpha if (credit and s in credit) else 0.0)
+        sc[k] = sc.get(k, 0.0) + w / (krr + r); smi_of.setdefault(k, s)
     for r, (s, k) in enumerate(zip(e_smis, e_keys), 1):
         if not k:
             continue
@@ -148,6 +153,7 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
         return il, gll
 
     extra = {}                                   # FILL_25: re-ranked base candidates beyond position 25
+    inj_of = {}                                  # FUSE_INJ_CREDIT: joined PubChem rows (pool id -2) per molecule
     lib_of_m = {m: v[2] for m, v in base.items()}
 
     # ---- stage A: ICE (+GL) re-rank of the base lists and of the PubChem lists of gated molecules
@@ -163,6 +169,8 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
                 stats.setdefault('pop', {'molecules': 0})['molecules'] += 1
             except Exception as e:
                 log('popularity prior failed', m, repr(e))
+        if pids is not None and c['FUSE_INJ_CREDIT'] > 0:
+            inj_of[m] = {s for s, p in zip(smis, pids) if p == -2}
         ice = ice_scores.get(str(m), {}) if ice_scores else {}
         gl = gl_of(m)
         smis0, keys0, scs0, forms0 = smis, keys, scs, forms
@@ -265,7 +273,8 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
             stats['fuse']['skipped_nolib'] = stats['fuse'].get('skipped_nolib', 0) + 1
         if e and e.get('smiles'):
             K = int(c['FUSE_ENG_K'])
-            fsm, fk, fsc = fuse_rrf(vs, e['smiles'][:K], e['keys'][:K], score_key, c['FUSE_ALPHA'], c['FUSE_KRR'], c['FUSE_N'])
+            fsm, fk, fsc = fuse_rrf(vs, e['smiles'][:K], e['keys'][:K], score_key, c['FUSE_ALPHA'], c['FUSE_KRR'], c['FUSE_N'],
+                                    inj_of.get(mid), c['FUSE_INJ_CREDIT'])
             ice = ice_scores.get(str(mid), {}) if isinstance(ice_scores, dict) else {}
             fsm0, fk0, fsc0 = fsm, fk, fsc
             if ice and ice_fuse is not None:

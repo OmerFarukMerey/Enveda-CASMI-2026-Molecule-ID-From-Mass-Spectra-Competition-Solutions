@@ -489,3 +489,82 @@ models and +0.033 ± 0.014 on the ICEBERG prefix; truth in the pool without spec
 −0.005. The LB step from 50 to 100 is as large as the step from 0 to 50, which the local sets did not predict (they
 show diminishing returns): hidden answers sit deeper in the PubChem list than the local, well-documented ones.
 Next: deeper lists (N 200), the gate at 0.8, and `GL_MH_ONLY` on top; commit runs pushed, nothing submitted.
+
+## v14a result: 0.406, and the diagnosis (2026-10-03/04)
+
+v14a = v13a with `PC_JOIN_N=200` scored **0.406** against 0.431 (N 100), 0.420 (N 50) and 0.409 (no join). Predicted
+0.436; the mixed regime said +0.010 to +0.024 on PubChem-only answers and about −0.002 elsewhere.
+
+Not a silent failure. Two full-size commit runs on the 400 visible molecules with the join forced on every molecule
+(`casmi26-diag-n100`, `casmi26-diag-n200`): 0 errors and 0 join fallbacks in both, resident memory at most 10.2 GB
+(N 100) and 11.8 GB (N 200), the same run time (2.8 h), ICEBERG and GLACIER complete for all covered molecules, and
+MRR 1.000 on the visible molecules in both.
+
+So the drop is an effect of the extra candidates. `reviews/next-levers-2026-10-03.md` finds the mechanism locally at
+about a fifth of the size: on the v1 side 11 / 17 / 24 of 188 correct top-1s of answers in the pool are lost to injected
+rows at N 50 / 100 / 200, while a truth from fingerprint rank 101 to 200 is placed at reciprocal rank 0.09 by the public
+ranker (none of 13 first). Locally engine-2 repairs most of the loss after the fusion; on the hidden test it evidently
+does not. **N 100 is the best known depth; the regime cannot judge how many outside candidates should enter.**
+
+Same day, from the two finished studies (`reviews/training-plan-2026-10-03.md`, `reviews/next-levers-2026-10-03.md`):
+no model is worth GPU time now (a ranker fitted on joined lists is not distinguishable from the existing blend after
+the fusion; a retrieval model for the PubChem window does not beat the fingerprint score; the simulated-spectra
+fine-tune would cost 15 to 20 GPU hours for a feature block worth 0.015 to 0.05 MRR before the fusion). Supported small
+changes at N 100: `PC_N1=20000` (the first pass cuts the truth for 7.7% of PubChem-record molecules), an early slot or
+injection for engine-2's candidates, a 5 ppm window. Not supported: deeper N, a natural-product prior in the
+selection, the gate at 0.8.
+
+## Fusion credit for joined rows (2026-10-04): tested locally, no net gain
+
+Idea: in the engine fusion a joined PubChem row can only collect the v1 share, because engine-2 cannot list it, so a
+pool decoy that both engines list overtakes a joined truth that the v1 engine ranked first. `FUSE_INJ_CREDIT` (default
+0; joined rows carry pool id −2 in the base list) gives a joined row that share of the engine-2 weight at its own rank.
+`scratch/inj_credit_eval.py`, public ranker, N 100, gate 0.7, no forward models, paired against credit 0:
+
+| Credit | truth only in PubChem (325) | truth in the pool, no spectra (380) | class 1 (150) |
+|---|---|---|---|
+| 0.5 | +0.027 ± 0.005 (57 / 0) | −0.013 ± 0.004 (0 / 20) | +0.002 |
+| 1.0 | +0.049 ± 0.008 (71 / 0) | −0.037 ± 0.007 (0 / 37) | −0.003 |
+| 2.0 | +0.075 ± 0.011 (77 / 1) | −0.171 ± 0.013 (1 / 139) | −0.009 |
+
+The engine-2 half of the fusion is what keeps joined decoys below correct pool answers; what the credit gives to
+PubChem-only answers it takes from pool answers at about the same rate. Under the assumed mixtures the net is zero,
+and v14a showed the hidden test punishes extra decoys harder than the regime does. Not submitted; the flag stays off.
+
+## v14b 0.416, v14c 0.431, v15b 0.431, v15a 0.417 (2026-10-04): what moves the join and what does not
+
+All four are single changes on v13a (0.431, N 100, join gate `lib_max` < 0.7, public ranker).
+
+| Submission | Change | Public LB | Local regime said |
+|---|---|---|---|
+| v14c | GLACIER on [M+H]+ only | 0.431 | not replayable |
+| v15b | `PC_N1` 5,000 → 20,000 | 0.431 | +0.017 on PubChem-only answers |
+| v14b | join gate 0.7 → 0.8 | 0.416 | about +0.01 on PubChem-only answers, 0 elsewhere |
+| v15a | `RANKER='blend'` (gate 0.7) | 0.417 | +0.048 / +0.030 on PubChem-only answers, +0.017 / +0.003 on pool answers |
+| v14a | N 100 → 200 | 0.406 | +0.010 to +0.024 on PubChem-only answers |
+
+The three losses share one property: more joined rows end above pool candidates (deeper list, wider gate, a ranker
+that scores joined rows higher: a joined decoy tops 18% of pool-answer lists under the blend against 8% under the
+public ranker). The two neutral changes do not alter how many joined rows outrank pool rows. The public ranker's
+accidental penalty on joined rows (last among ties, list-relative features) is therefore not a defect to remove but
+the thing that makes N 100 work. Ranker work is closed: our ranker lost with the join (0.417) and did nothing without
+it (0.405 to 0.408 against 0.409).
+
+Same day, local studies (reports in `reviews/`): engine-2 scoring the joined rows (`eng2-join`), MIST as a second
+retrieval model (`mist`) and a calibration of the regime to the leaderboard (`lbcal`) are negative; a 5 ppm PubChem
+window with the +2 ppm [M+H]+ offset corrected (`masscal`) is a small coverage gain; a confidence gate that joins only
+when the unjoined list looks wrong (`confgate`, flag `PC_JOIN_CONF`) keeps 88 to 94% of the local gain while touching
+16 to 29% of the pool-answer lists instead of 72%. v17b (`PC_JOIN_CONF=0.7`) is submitted. `STRICT` (fail the run if
+any stage fell back) exists for a diagnostic resubmission of N 200.
+
+2026-10-05: v20a (v13a + `ICE_FT`, `STRICT`) scored **0.401** on the public leaderboard, 0.030 below v13a. The run
+completed, so with `STRICT` no stage fell back on the hidden test: the loss comes from the fine-tuned ICEBERG intensity
+model itself (ahmedberatozer/casmi26-ice-ft), not from a failure. It also shows that v13a's stages run clean on the
+hidden test. `ICE_FT` stays off; a model fine-tuned on the training spectra without a held-out check is not to be
+submitted again.
+
+v19a (`PC_JOIN_N=200`, `PC_JOIN_CONF=0.5`) scored **0.409**: the score of the pipeline without any join. N 200
+without the gate was 0.406 (v14a), N 100 with the gate at 0.7 was 0.430 (v17b). Restricting the deep join to lists
+that look wrong does not rescue it, so the loss at N 200 is in the lists that need the join, not in the pool-answer
+lists the gate protects: candidates 101 to 200 push the answer down among the first 100. N stays at 100; depth is
+closed as a lever unless the selection of the candidates improves.
