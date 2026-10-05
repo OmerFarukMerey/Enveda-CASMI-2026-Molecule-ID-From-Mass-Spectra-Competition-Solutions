@@ -568,3 +568,14 @@ without the gate was 0.406 (v14a), N 100 with the gate at 0.7 was 0.430 (v17b). 
 that look wrong does not rescue it, so the loss at N 200 is in the lists that need the join, not in the pool-answer
 lists the gate protects: candidates 101 to 200 push the answer down among the first 100. N stays at 100; depth is
 closed as a lever unless the selection of the candidates improves.
+
+v22a (v13a with the 100 joined candidates selected by the hard-negative fine-tune, `PC_MODELS='hn'`) scored **0.423**,
+0.008 below v13a; the scoring run took 4 h 50 min (second channel pass). Locally the selection holds the answer in the
+first 100 for 77.8% instead of 70.5% of unseen molecules and the v1 side gains +0.028 on answer-removed molecules
+(`reviews/hardneg-2026-10-05.md`); the full replay with real ICEBERG / GLACIER scores (`reviews/fwd-replay-2026-10-05.md`,
+finished after the submission) showed dA +0.015, dB +0.030, c2 −0.005 and a joined row on top of 8.2% instead of 6.6%
+of the pool-answer lists. The leaderboard again follows the exposure number, not the answer-removed gain: every change
+that raised the share of pool-answer lists topped by a joined row has lost (N 200, gate 0.8, ranker blend, now the
+fine-tuned selection, whose candidates look more like measured structures and are scored higher by the ranker and the
+forward models). `PC_MODELS` stays off. Rule from here on: a join variant is not submitted unless the full replay with
+real forward-model scores shows the exposure on c2 / c1 at or below v13a's.

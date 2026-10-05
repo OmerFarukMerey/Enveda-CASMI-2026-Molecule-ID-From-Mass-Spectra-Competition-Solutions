@@ -49,7 +49,7 @@ Public leaderboard (MRR@25). Best so far: **0.431** (v13a). Folders with the exa
 | 23 | 10-04 | fusion-v4n | v17b | v13a + confidence gate for the join | 0.430 | |
 | 24 | 10-04 | fusion-v4n | v20a | v13a + fine-tuned ICEBERG intensity model | 0.401 | |
 | 25 | 10-04 | fusion-v4n | v19a | 200 candidates + confidence gate | 0.409 | |
-| 26 | 10-05 | fusion-v4n | v22a | v13a, joined candidates selected by a fine-tuned FPNet | pending | |
+| 26 | 10-05 | fusion-v4n | v22a | v13a, joined candidates selected by a fine-tuned FPNet | 0.423 | |
 
 ## Where things are
 
