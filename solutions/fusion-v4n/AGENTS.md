@@ -16,6 +16,9 @@ A Kaggle notebook assembled from `nb/*.py` (cells, run in filename order) plus `
 | Add a re-scoring term | `nb/07_rescore.py` (produce `{mid: {smiles: score}}`) + `fusion_core.build_submission` (consume it) + a `CFG` flag |
 | Engine-2 behaviour | `nb/embed/eng/eng_runner.py` (knobs arrive via `$CASMI_ENG_CFG`). Leave `pv.py`, `pv_fp.py`, `casmi_engine.py` verbatim unless necessary |
 | PubChem channel | `nb/embed/pc/probe_core2.py`, `pc_runner.py` |
+| PubChem join (candidates ranked by the main engine) | `nb/embed/pc_join.py`, called from `nb/06_base_lists.py`; flags `PC_JOIN_*` |
+| The second ranker below the library gate | `nb/embed/fs_pass.py` (`RANKER='fs' / 'fs_avg'`, `RANKER_LIB_GATE`); with the flag off the code path must stay bit-identical (`tests/test_fs_pass.py`) |
+| Replay the final stages locally with real forward-model scores | `reviews/fwd-replay-2026-10-05.md` (scripts under `scratch/fwd/`, not in git) |
 | Local tooling | `tools/*.py`. Paths come from `tools/paths.py` |
 
 ## Invariants (do not break)

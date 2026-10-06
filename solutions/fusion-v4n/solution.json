@@ -1,7 +1,7 @@
 {
   "name": "fusion-v4n",
   "owner": "Hemre",
-  "status": "v13a-submitted (public LB 0.431)",
+  "status": "v33b-submitted (public LB 0.442)",
   "summary": "Public 0.399 pipeline (v1 engine + prvsiyan engine-2 + gated PubChem channel + ICEBERG/GLACIER isomer re-scoring + RRF fusion), config-driven with stage dumps and a tested fusion core.",
   "based_on": {
     "notebook": "https://www.kaggle.com/code/seyitkaangunes/casmi26-v4n-engine-fusion-union-lb-0-399",
@@ -55,14 +55,19 @@
     "meta"
   ],
   "best_lb": {
-    "public": 0.409,
-    "date": "2026-10-01",
-    "kaggle": "huseyinemreaksoy/casmi26-sub-v4b v1",
-    "submission_id": 56751042,
-    "config": "configs/v4b-libgate-pop025.json",
+    "public": 0.442,
+    "date": "2026-10-06",
+    "kaggle": "huseyinemreaksoy/casmi26-sub-v33b v1",
+    "submission_id": 56884062,
+    "config": "configs/v33b-v24a-fsranker-gate07-rankavg.json",
+    "folder": "submissions/fusion-v4n-v33b-0.442/",
     "previous": [
       0.399,
-      0.404
+      0.404,
+      0.409,
+      0.42,
+      0.431,
+      0.437
     ]
   },
   "provenance": [

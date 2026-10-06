@@ -12,7 +12,7 @@ tautomer-canonical InChIKey14. Final submission deadline: **2026-12-14**.
 
 | Solution | Owner | Idea | Public LB | Status |
 |---|---|---|---|---|
-| [`solutions/fusion-v4n`](solutions/fusion-v4n/) | Hemre | Reproduces the public 0.399 notebook (two engines + PubChem channel + ICEBERG/GLACIER isomer re-scoring + RRF fusion) with every knob in one config, stage dumps and a tested fusion core | **0.431** | v13a: v4b (popularity prior 0.25 + gap-mode MetFrag re-score + library gate) + PubChem join, 100 candidates |
+| [`solutions/fusion-v4n`](solutions/fusion-v4n/) | Hemre | The public 0.399 pipeline (two engines + PubChem channel + ICEBERG / GLACIER isomer re-scoring + rank fusion) rebuilt with every knob in one config, stage dumps, a tested fusion core and a local replay of the final stages; on top of it the PubChem join and a ranker fitted on molecules the fingerprint model has not seen | **0.442** | v33b: popularity prior + library gate (0.409) → PubChem join, 100 candidates (0.431) → forward-model weights 0.75 (0.437) → our ranker averaged in below the library gate (0.442). [How we got there](solutions/fusion-v4n/README.md#best-submission-public-lb-0442-v33b) |
 | `research/competition-analysis` (branch) | İlker | Built from scratch: leak-aware validation, library search, PubChem/COCONUT catalog, fragmentation ranking (Stage D) | 0.260 | active on its branch |
 
 See [solutions/README.md](solutions/README.md) for how a solution is laid out.
