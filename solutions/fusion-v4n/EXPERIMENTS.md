@@ -608,3 +608,14 @@ Line search on the forward-model weights (`ICE_LAM` = `GL_LAM`, everything else 
 points mostly measure the noise of a single submission, about ±0.004 here; the +0.006 of v24a is at the edge of it.
 0.75 stays as the best measured setting, and no further submissions go to this axis. Lesson for the next candidates:
 a single-knob change needs an expected effect well above 0.005 to be read off one submission.
+
+2026-10-06, evening: v33b scored **0.442**, +0.005 on v24a and the new best. v33b = v24a with, below `lib_max` 0.7, the
+base list from the rank average of the public ranker and a LightGBM ranker fitted to the fold-safe FPNet's features on
+molecules that bank has not seen (`RANKER=fs_avg`, `nb/embed/fs_pass.py`, dataset casmi26-ours-ranker-fs;
+`reviews/rankbank-2026-10-06.md`, `reviews/fsranker-2026-10-06.md`). The same day closed, all without a submission:
+adduct surrogates, fingerprint-bank ensembles, the DreaMS NP heads, the Enveda-180 Zenodo release as a library, a fix
+of the forward stage for molecules with extra adduct spectra, the generator join (reviews of 2026-10-06), and the
+teammate's fine-tuned GLACIER (0.414). What the day showed: better fingerprint models do not reach the list through
+the public ranker (it is fitted to the public models' features on molecules they memorised), but a ranker fitted in the
+unseen-molecule regime does. Found on the way: the public engine breaks merged-adduct ties by set order, so base lists
+differ between sessions for about a quarter of the molecules (a source of the ±0.004 leaderboard noise; not fixed yet).

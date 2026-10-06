@@ -5,6 +5,7 @@ te['nm'] = chem.neutral_mass(te.precursor_mz.values.astype(np.float64), te.adduc
 mols = list(te.groupby('molecule_id', sort=False))
 BASE, n_err, n_rk_err, n_rk_diff, n_join, n_join_mol, n_join_err = {}, 0, 0, 0, 0, 0, 0
 n_conf = n_conf_join = 0; CONF_P = {}
+n_fs = n_fs_used = n_fs_diff = n_fs_err = 0; t_fs = 0.0; FS_USED = {}
 for gi, (mid, sub) in enumerate(mols):
     nms = sub.nm.values[np.isfinite(sub.nm.values)]
     smis, keys, lib_max, scs, forms, pids = [], [], 0.0, [], [], []
@@ -64,7 +65,7 @@ for gi, (mid, sub) in enumerate(mols):
                             getattr(V.mods[_fm], _c).clear()
             if len(C.pid):
                 score = rank_score(np.concatenate([X, F], 1), list(FEATURES) + list(names))
-                if CFG['RANKER'] != 'public':
+                if CFG['RANKER'] != 'public' and CFG['RANKER'] not in fs_pass.MODES:
                     _a = (CFG['RANKER'], OUR_RK, C.formula, X, F, list(FEATURES), list(names), lib_max, rank_score)
                     if not IS_RERUN:      # commit runs: exercise the ungated branch on every molecule (smoke molecules
                         _dry = pc_join.choose_score(*_a, None, inj)       # are library hits); a bug must fail the commit
@@ -83,6 +84,38 @@ for gi, (mid, sub) in enumerate(mols):
                     seen.add(k); smis.append(_out.get(int(i), C.smiles[i])); keys.append(k); scs.append(float(score[i])); forms.append(C.formula[i])
                     pids.append(-2 if (inj is not None and inj[i]) else int(C.pid[i]))   # -2 = joined PubChem row, -1 = generated
                     if len(smis) >= CFG['TOPN']: break
+                # fold-safe chain (RANKER 'fs' / 'fs_avg'): a second engine pass with fpnet_fold0 and the ranker fitted to it, used
+                # below RANKER_LIB_GATE. Commit runs make the pass on every molecule (the smoke molecules are library hits): a bug
+                # must fail the commit. Scoring rerun: a failure keeps the first pass's list for that molecule.
+                if CFG['RANKER'] in fs_pass.MODES and (lib_max < CFG['RANKER_LIB_GATE'] or not (IS_RERUN or CFG['VALIDATION'])):
+                    _t2 = time.time()
+                    try:
+                        with fs_pass.swapped(E, V, FS_BANK, FS_VIEWS):
+                            C2, X2, F2, names2, _i2 = V.run(spectra, target)
+                        _n2 = len(C2.pid); rows2 = []
+                        if _n2:
+                            _ji2 = pc_join.injected_info(E) if CFG['PC_JOIN_N'] > 0 else []
+                            inj2 = np.zeros(_n2, bool); pcr2 = np.full(_n2, -1, np.int64)
+                            if _ji2:
+                                inj2[_n2 - len(_ji2):] = True; pcr2[_n2 - len(_ji2):] = [d['pc_rank'] for d in _ji2]
+                            _out2 = {_n2 - len(_ji2) + t: d['pc_smiles'] for t, d in enumerate(_ji2)}
+                            s2 = fs_pass.fs_score(OUR_RK, C2.formula, X2, F2, list(FEATURES), list(names2), inj2, pcr2)
+                            assert np.all(np.isfinite(s2)), 'fold-safe ranker returned a non-finite score'
+                            rows2 = fs_pass.entries(C2.key, [_out2.get(i, C2.smiles[i]) for i in range(_n2)], C2.formula,
+                                                    [-2 if inj2[i] else int(C2.pid[i]) for i in range(_n2)], s2)
+                            if CFG['RANKER'] == 'fs_avg':        # half weight to each chain
+                                rows2 = fs_pass.rank_average(fs_pass.entries(
+                                    C.key, [_out.get(i, C.smiles[i]) for i in range(len(C.pid))], C.formula,
+                                    [-2 if (inj is not None and inj[i]) else int(C.pid[i]) for i in range(len(C.pid))], score), rows2)
+                        n_fs += 1; _d = int(bool(rows2) and rows2[0][0] != keys[0]); n_fs_diff += _d
+                        if rows2 and lib_max < CFG['RANKER_LIB_GATE']:
+                            smis, keys, scs, forms, pids = fs_pass.to_base(rows2, CFG['TOPN']); n_fs_used += 1; FS_USED[mid] = _d
+                    except Exception as e:
+                        if not IS_RERUN:
+                            raise
+                        print('FS PASS FAILED -> first-pass list', mid, repr(e)); n_fs_err += 1
+                        FAILS.append(f'fold-safe pass failed for molecule {mid}: {e!r}'[:300])
+                    t_fs += time.time() - _t2
         except Exception as e:
             print('ERROR', mid, repr(e)); n_err += 1
     BASE[mid] = [smis, keys, lib_max, scs, forms, pids]
@@ -96,6 +129,12 @@ log('base lists done, errors', n_err, '| RANKER', CFG['RANKER'], 'gate', CFG['RA
     '| ungated top-1 differs from the public ranker (commit runs):', n_rk_diff,
     '| PC join: injected rows', n_join, 'in', n_join_mol, 'molecules, failures', n_join_err,
     '| confidence gate: lists scored', n_conf, 'joined', n_conf_join)
+if CFG['RANKER'] in fs_pass.MODES:
+    log(f"fold-safe pass ({CFG['RANKER']}, gate {CFG['RANKER_LIB_GATE']}): run on {n_fs} molecules, list used for {n_fs_used}, first place differs "
+        f"from the first pass in {n_fs_diff}, failures {n_fs_err}, {t_fs:.0f}s ({t_fs / max(1, n_fs + n_fs_err):.2f}s per pass)")
+    dump('fs_used', FS_USED)
+    if IS_RERUN and n_fs_used == 0:
+        FAILS.append('the fold-safe pass was active but no molecule used its list')
 if CONF_P:
     _cp = np.array(list(CONF_P.values()))
     log('confidence p_present quantiles 10/25/50/75/90:', np.round(np.quantile(_cp, [.1, .25, .5, .75, .9]), 3).tolist())

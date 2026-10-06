@@ -19,7 +19,7 @@ See [solutions/README.md](solutions/README.md) for how a solution is laid out.
 
 ## Submissions and scores
 
-Public leaderboard (MRR@25). Best so far: **0.437** (v24a). Folders with the exact notebook, config and a detailed
+Public leaderboard (MRR@25). Best so far: **0.442** (v33b). Folders with the exact notebook, config and a detailed
 `README.txt` are in [submissions/](submissions/); every row with its details is in [docs/experiments.md](docs/experiments.md).
 
 | # | Date | Solution | Version | Change | Public LB | Folder |
@@ -50,9 +50,11 @@ Public leaderboard (MRR@25). Best so far: **0.437** (v24a). Folders with the exa
 | 24 | 10-04 | fusion-v4n | v20a | v13a + fine-tuned ICEBERG intensity model | 0.401 | |
 | 25 | 10-04 | fusion-v4n | v19a | 200 candidates + confidence gate | 0.409 | |
 | 26 | 10-05 | fusion-v4n | v22a | v13a, joined candidates selected by a fine-tuned FPNet | 0.423 | |
-| 27 | 10-05 | fusion-v4n | **v24a** | v13a with ICEBERG / GLACIER weights 0.75 | **0.437** | [folder](submissions/fusion-v4n-v24a-0.437/) |
+| 27 | 10-05 | fusion-v4n | v24a | v13a with ICEBERG / GLACIER weights 0.75 | 0.437 | [folder](submissions/fusion-v4n-v24a-0.437/) |
 | 28 | 10-06 | fusion-v4n | v24b | v13a with ICEBERG / GLACIER weights 0.5 | 0.433 | |
 | 29 | 10-06 | fusion-v4n | v24c | v13a with ICEBERG / GLACIER weights 0.6 | 0.430 | |
+| 30 | 10-06 | fusion-v4n (teammate) | v24a-fmgl | v24a + fine-tuned GLACIER weights | 0.414 | |
+| 31 | 10-06 | fusion-v4n | **v33b** | v24a + our ranker (fitted on unseen molecules) averaged with the public one below the library gate | **0.442** | [folder](submissions/fusion-v4n-v33b-0.442/) |
 
 ## Where things are
 

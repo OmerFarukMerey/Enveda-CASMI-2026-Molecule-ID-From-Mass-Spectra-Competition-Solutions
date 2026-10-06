@@ -11,6 +11,11 @@ CFG = dict(
     RANKER='public',              # base-list score: 'public' (the public ranker as it is) | 'public_free' (public ranker,
                                   #   rank features with order-free ties) | 'ours' (casmi26-ours-ranker) | 'blend'
                                   #   (z(ours) + z(public_free)); see reviews/ranker-2026-10-02.md
+                                  #   'fs' = below RANKER_LIB_GATE a second engine pass with the fold-safe FPNet (engine bank
+                                  #   and model_views) and the ranker fitted to its features (casmi26-ours-ranker-fs) orders
+                                  #   the list; at or above the gate the first pass stays as it is | 'fs_avg' = below the gate
+                                  #   the two chains' ranks are averaged (nb/embed/fs_pass.py, reviews/fsranker-2026-10-06.md).
+                                  #   Both need RANKER_LIB_GATE; one extra engine pass per molecule below the gate
     RANKER_LIB_GATE=None,         # lib_max >= this keeps the public ranker whatever RANKER says; None = no gate
     # --- library gate + PubChem merge
     LIB_TAU=0.9,                  # lib_max >= LIB_TAU -> library hit, list left untouched

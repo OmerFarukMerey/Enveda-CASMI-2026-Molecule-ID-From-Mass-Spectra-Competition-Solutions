@@ -16,7 +16,11 @@ Feature list of the packaged model (features.json, 250 names), all computed here
   <family>__<feature>   the 158 fe_v4 family features exactly as V.run returns them;
   e__<name>   10 confidence features (confidence_features): formula-group size and share, f.z gap / z / rank / margin
               inside the candidate's formula group, library maximum of the group, number of library hits, library margin.
-Covered by test_ranker_infer.py (no competition data). Parity with the training tables: scratch/ranker/check_infer_parity.py.
+  j__<name>   5 join features (join_features; only in models fitted with joined lists, casmi26-ours-ranker-fs): injected flag,
+              PubChem rank / 50 (-1 for other rows), f.z minus the best f.z of a row that is not injected, share of injected
+              rows above that best row, log1p(number of rows that are not injected). Needs `inj` (and `pcrank`) from pc_join.
+Covered by test_ranker_infer.py (no competition data). Parity with the training tables: scratch/ranker/check_infer_parity.py;
+for the j__ features and the fold-safe model: scratch/rankbank2/r2_parity.py, tests/test_fs_pass.py.
 """
 from __future__ import annotations
 
@@ -87,6 +91,23 @@ def confidence_features(X: np.ndarray, names: Sequence[str], formulas: Sequence[
     return {k: np.asarray(v, np.float32) for k, v in E.items()}
 
 
+JFEATS = ['inj', 'pcrank', 'fz_rel_pool', 'inj_above_pool', 'n_pool']
+
+
+def join_features(X: np.ndarray, names: Sequence[str], inj: Optional[np.ndarray] = None, pcrank: Optional[np.ndarray] = None) -> Dict[str, np.ndarray]:
+    """The 5 `j__*` features of one molecule (== scratch/rankbank/rb_lib.join_features): how a row entered the list.
+    inj: True for joined PubChem rows (None = no joined row); pcrank: 0-based rank of a joined row in the PubChem list."""
+    n = len(X); inj = np.zeros(n, bool) if inj is None else np.asarray(inj).astype(bool)
+    pcrank = np.full(n, -1) if pcrank is None else np.asarray(pcrank)
+    f = X[:, list(names).index('fz')].astype(np.float64)
+    if n == 0:
+        return {k: np.zeros(0, np.float32) for k in JFEATS}
+    best_pool = f[~inj].max() if (~inj).any() else f.max()
+    J = {'inj': inj.astype(np.float64), 'pcrank': np.where(inj, np.maximum(pcrank, 0) / 50.0, -1.0), 'fz_rel_pool': f - best_pool,
+         'inj_above_pool': np.full(n, float((f[inj] > best_pool).mean()) if inj.any() else 0.0), 'n_pool': np.full(n, np.log1p((~inj).sum()))}
+    return {k: np.asarray(v, np.float32) for k, v in J.items()}
+
+
 class OurRanker:
     def __init__(self, features: Sequence[str], boosters: Sequence):
         self.features = list(features); self.boosters = list(boosters)
@@ -99,10 +120,14 @@ class OurRanker:
         assert files, f'no ranker_s*.txt in {model_dir}'
         return cls(feats, [lgb.Booster(model_file=f) for f in files])
 
-    def matrix(self, formulas, X, F, names_x, names_f) -> np.ndarray:
-        """Feature matrix of one molecule in the model's column order."""
-        Xo = order_free(X, names_x)
-        E = confidence_features(Xo, names_x, formulas)
+    def matrix(self, formulas, X, F, names_x, names_f, inj=None, pcrank=None, Xo=None) -> np.ndarray:
+        """Feature matrix of one molecule in the model's column order. Xo: engine features whose rank features are already
+        order-free (pc_join.order_free_join for lists with joined rows); inj / pcrank: for the j__ features."""
+        names_x = list(names_x); names_f = list(names_f)
+        if Xo is None:
+            Xo = order_free(X, names_x)
+        E = confidence_features(Xo, names_x, formulas) if any(f.startswith('e__') for f in self.features) else {}
+        Jf = join_features(Xo, names_x, inj, pcrank) if any(f.startswith('j__') for f in self.features) else {}
         px = {n: i for i, n in enumerate(names_x)}; pf = {n: i for i, n in enumerate(names_f)}
         cols = []
         for f in self.features:
@@ -110,12 +135,14 @@ class OurRanker:
                 cols.append(Xo[:, px[f[3:]]])
             elif f.startswith('e__'):
                 cols.append(E[f[3:]])
+            elif f.startswith('j__'):
+                cols.append(Jf[f[3:]])
             else:
                 cols.append(np.asarray(F[:, pf[f]], np.float32))
         return np.ascontiguousarray(np.stack(cols, 1), dtype=np.float32)
 
-    def score(self, formulas, X, F, names_x, names_f, threads: int = 4) -> np.ndarray:
-        M = self.matrix(formulas, X, F, names_x, names_f)
+    def score(self, formulas, X, F, names_x, names_f, threads: int = 4, inj=None, pcrank=None, Xo=None) -> np.ndarray:
+        M = self.matrix(formulas, X, F, names_x, names_f, inj=inj, pcrank=pcrank, Xo=Xo)
         return np.mean([b.predict(M, num_threads=threads) for b in self.boosters], axis=0)
 
 
