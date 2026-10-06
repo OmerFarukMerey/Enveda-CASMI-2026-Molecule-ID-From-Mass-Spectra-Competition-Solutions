@@ -602,3 +602,9 @@ signal (`reviews/param-search-2026-10-05.md`). Same-day studies that did not lea
 replay to the leaderboard (none; veto only), parameter search, joined-row verifier, their combination, the pair-tail
 ranker of engine 2, an NP-tuned engine-2 FPNet of our own, mass-window pruning, the Enveda panel regime (reviews of
 2026-10-05). Next on the same axis: weights 0.5 (replay: c2 +0.026, c1 +0.009, dA −0.004, dB −0.007, 19 exposed lists).
+
+Line search on the forward-model weights (`ICE_LAM` = `GL_LAM`, everything else v13a): 1.0 → 0.431 (v13a), 0.75 →
+**0.437** (v24a), 0.6 → 0.430 (v24c), 0.5 → 0.433 (v24b). The curve is not monotone on either side of 0.75, so the four
+points mostly measure the noise of a single submission, about ±0.004 here; the +0.006 of v24a is at the edge of it.
+0.75 stays as the best measured setting, and no further submissions go to this axis. Lesson for the next candidates:
+a single-knob change needs an expected effect well above 0.005 to be read off one submission.
