@@ -103,10 +103,13 @@ for gi, (mid, sub) in enumerate(mols):
                             assert np.all(np.isfinite(s2)), 'fold-safe ranker returned a non-finite score'
                             rows2 = fs_pass.entries(C2.key, [_out2.get(i, C2.smiles[i]) for i in range(_n2)], C2.formula,
                                                     [-2 if inj2[i] else int(C2.pid[i]) for i in range(_n2)], s2)
-                            if CFG['RANKER'] == 'fs_avg':        # half weight to each chain
+                            if CFG['RANKER'] == 'fs_avg':        # half weight to each chain (RANKER_FS_W / RANKER_FS_FADE: another weight)
+                                _wfs = fs_pass.weight(lib_max, CFG['RANKER_FS_W'], CFG['RANKER_FS_FADE'])
                                 rows2 = fs_pass.rank_average(fs_pass.entries(
                                     C.key, [_out.get(i, C.smiles[i]) for i in range(len(C.pid))], C.formula,
-                                    [-2 if (inj is not None and inj[i]) else int(C.pid[i]) for i in range(len(C.pid))], score), rows2)
+                                    [-2 if (inj is not None and inj[i]) else int(C.pid[i]) for i in range(len(C.pid))], score), rows2, w=_wfs)
+                                if _wfs <= 0:                    # faded out: the first pass's list stays as it is
+                                    rows2 = []
                         n_fs += 1; _d = int(bool(rows2) and rows2[0][0] != keys[0]); n_fs_diff += _d
                         if rows2 and lib_max < CFG['RANKER_LIB_GATE']:
                             smis, keys, scs, forms, pids = fs_pass.to_base(rows2, CFG['TOPN']); n_fs_used += 1; FS_USED[mid] = _d
@@ -135,6 +138,8 @@ if CFG['RANKER'] in fs_pass.MODES:
     dump('fs_used', FS_USED)
     if IS_RERUN and n_fs_used == 0:
         FAILS.append('the fold-safe pass was active but no molecule used its list')
+if CFG['ADDUCT_TIE'] is not None:
+    log('ADDUCT_TIE', CFG['ADDUCT_TIE'], ': merged-adduct ties broken by the rule (one per polarity group and engine pass):', determ.counts())
 if CONF_P:
     _cp = np.array(list(CONF_P.values()))
     log('confidence p_present quantiles 10/25/50/75/90:', np.round(np.quantile(_cp, [.1, .25, .5, .75, .9]), 3).tolist())

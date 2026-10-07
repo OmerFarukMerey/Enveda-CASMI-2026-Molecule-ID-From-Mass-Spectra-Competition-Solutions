@@ -29,6 +29,8 @@ def dump(name, obj):
 def log(*a):
     print(f'[{time.time()-T0:6.0f}s]', *a, flush=True)
 
+if CFG['HASHSEED'] is not None:   # inherited by every later subprocess; the kernel's own string hashing is fixed since its start
+    os.environ['PYTHONHASHSEED'] = str(int(CFG['HASHSEED']))
 tag = f'cp{sys.version_info.major}{sys.version_info.minor}'
 whl = [w for w in glob.glob('/kaggle/input/**/rdkit-*.whl', recursive=True) if tag in w]
 log('rdkit wheel:', whl)
@@ -59,5 +61,7 @@ for _rel, _src in EMBED.items():        # EMBED is injected by tools/build_noteb
     open(_p, 'w').write(_src)
 sys.path.insert(0, OURS)
 import fusion_core
+import determ
+log('hash facts of this kernel:', determ.hash_facts(), '| HASHSEED for subprocesses:', CFG['HASHSEED'], '| ADDUCT_TIE:', CFG['ADDUCT_TIE'])
 log('embedded sources:', sorted(EMBED))
 json.dump(CFG, open(os.path.join(WORK, 'cfg.json'), 'w'), indent=1)

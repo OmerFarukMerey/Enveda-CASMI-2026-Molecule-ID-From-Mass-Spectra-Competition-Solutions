@@ -17,6 +17,18 @@ CFG = dict(
                                   #   the two chains' ranks are averaged (nb/embed/fs_pass.py, reviews/fsranker-2026-10-06.md).
                                   #   Both need RANKER_LIB_GATE; one extra engine pass per molecule below the gate
     RANKER_LIB_GATE=None,         # lib_max >= this keeps the public ranker whatever RANKER says; None = no gate
+    RANKER_FS_W=None,             # 'fs_avg': weight of the fold-safe chain in the rank average; None = 0.5 (v33b)
+    RANKER_FS_FADE=None,          # 'fs_avg': [lo, hi] = that weight is full up to lib_max lo and falls linearly to 0 at hi (set
+                                  #   RANKER_LIB_GATE = hi); None = the same weight everywhere below the gate (v33b)
+    RANKER_FS_DS=None,            # dataset folder of the fitted ranker; None = 'casmi26-ours-ranker-fs' (v33b). 'casmi26-ours-ranker-fs2'
+                                  #   = the refit of reviews/fsranker2-2026-10-07.md
+    ADDUCT_TIE=None,              # the public engine labels a polarity's merged spectrum with its most frequent adduct and breaks a
+                                  #   tie by set order = the kernel's hash seed, so the base lists of tied molecules differ between
+                                  #   sessions (reviews/determ-2026-10-07.md). 'train' = upstream's own rule of v1engine.merged_adduct
+                                  #   (most frequent in the training spectra) | 'first' = first in the molecule's spectra | 'mean' =
+                                  #   logits averaged over the tied adducts (nb/embed/determ.py). None = set order, as before
+    HASHSEED=None,                # int: PYTHONHASHSEED exported before any subprocess starts (engine 2, PubChem channel, ICEBERG,
+                                  #   GLACIER). It cannot change the running kernel's own seed: that is what ADDUCT_TIE is for
     # --- library gate + PubChem merge
     LIB_TAU=0.9,                  # lib_max >= LIB_TAU -> library hit, list left untouched
     REL_TH=600.0,                 # PubChem top f.z minus best pool f.z above this -> aggressive slots
@@ -76,6 +88,8 @@ CFG = dict(
                                            #   their own rank (engine-2 cannot list them); 1.0 = as if both engines agreed
     JOIN_FWD_A=None,                       # stage A: ICEBERG / GLACIER terms of joined PubChem rows times this (0.25);
                                            #   None = off (reviews/calib-2026-10-05.md)
+    FWD_A_SCALE=None,                      # stage A, base list only: [ice, gl] factors on ICE_LAM / GL_LAM (e.g. [0.33, 0.33]); the
+                                           #   PubChem list and stage C keep the full weights; None = off (reviews/fsranker2-2026-10-07.md)
     PC_FWD_T1=None, PC_FWD_N=25,           # PubChem proposals get the early slots when the best one beats every
                                            #   same-formula base candidate in ICEBERG and GLACIER by more than this (0.0)
     # --- validation mode (commit runs only; the scoring rerun ignores it): hold out VAL_LIB structures, drop ALL

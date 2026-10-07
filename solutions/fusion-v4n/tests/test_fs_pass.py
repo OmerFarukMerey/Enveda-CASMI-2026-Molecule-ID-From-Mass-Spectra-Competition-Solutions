@@ -9,6 +9,8 @@ and the PubChem lists. What is pinned down:
   * commit runs make the pass on every molecule and still use it only below the gate; a failure raises there;
   * scoring rerun: a failing pass keeps the first-pass list of that molecule and appends to FAILS;
   * rank_average: half weight to each chain, keys of one list only, score profile non-increasing.
+  * RANKER_FS_W / RANKER_FS_FADE / RANKER_FS_DS at None == the cell of commit 7e260f0 (v33b) bit for bit for both modes (GOLDEN_V33);
+    a weight, a fade and a higher gate act only where they should (reviews/fsranker2-2026-10-07.md).
 usage: python tests/test_fs_pass.py   (or pytest)
 """
 import hashlib, json, os, sys, tempfile, time, types
@@ -17,11 +19,15 @@ SOL = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(SOL, 'nb', 'embed'))
 import numpy as np
 import pandas as pd
+import determ
 import fs_pass
 import pc_join
 import ranker_infer
 
 GOLDEN = '28d6241e6352faff5e96d6f1341d7d6215431affcb456bda6c7271d0f939d7fa'      # sha256 of BASE from the cell of commit b34236e on the stub inputs
+# sha256 of BASE from the cell of commit 7e260f0 (v33b as submitted, 0.442) with RANKER 'fs' / 'fs_avg' and gate 0.7 on the stub inputs:
+#   git show 7e260f0:solutions/fusion-v4n/nb/06_base_lists.py > old.py; python tests/test_fs_pass.py --golden old.py RANKER='"fs_avg"' RANKER_LIB_GATE=0.7
+GOLDEN_V33 = dict(fs='7697b60219978b2425a156a864512fcbb17ff5905948dad95a1fd9715baa9d1b', fs_avg='6ba4ee6017d96eccb01ef9d2e506d669987e48fa5eb523c14c025e4f7eb0d975')
 FEATURES = ['fz', 'lib_max', 'ap', 'el_sum', 'fr_int', 'sf_int', 'mass_ppm', 'fz_rank', 'lib_max_rank', 'ap_rank', 'el_rank', 'fr_rank', 'sf_rank',
             'mass_ppm_rank', 'other']
 NAMES_F = ['fam__a', 'fam__b']
@@ -91,7 +97,7 @@ def run_cell(src, cfg, rerun=True, fail_fs=()):
     chem = types.SimpleNamespace(neutral_mass=lambda mz, ad: np.asarray(mz, float) - 1.007)
     # the cell filters records by |mass - target| <= 30 ppm; the stub records carry mass 0 -> give them the target instead
     pj_build = pj.build_records
-    g = dict(os=os, sys=sys, np=np, pd=pd, time=time, json=json, CFG=cfg, COMP=tmp, chem=chem, E=E, V=V, FEATURES=list(FEATURES), pc_join=pj, fs_pass=fs_pass,
+    g = dict(os=os, sys=sys, np=np, pd=pd, time=time, json=json, CFG=cfg, COMP=tmp, chem=chem, E=E, V=V, FEATURES=list(FEATURES), pc_join=pj, fs_pass=fs_pass, determ=determ,
              conf_gate=None, PC_DEEP=PC_DEEP, PC={}, IS_RERUN=rerun, FAILS=fails, log=lambda *a: logs.append(' '.join(map(str, a))), dump=lambda *a: None,
              rank_score=lambda X, names: X[:, names.index('fz')] * 2.0 + X[:, names.index('fam__a')] - X[:, names.index('fz_rank')],
              OUR_RK=StubRanker(), FS_BANK='FS', FS_VIEWS=['fs_view'], fragmod=None, P=types.SimpleNamespace(bits=None))
@@ -182,6 +188,44 @@ def test_rank_average():
     assert [e[0] for e in tie] == ['y', 'x']                               # equal average rank: the fold-safe chain decides
 
 
+def test_new_keys_off_is_v33b_bit_for_bit():
+    """RANKER_FS_W / RANKER_FS_FADE / RANKER_FS_DS left at None: the cell's lists equal those of the cell of commit 7e260f0 (v33b, 0.442)."""
+    for mode in fs_pass.MODES:
+        base, fails, V, E, _ = run_cell(cell(), load_cfg(RANKER=mode, RANKER_LIB_GATE=0.7))
+        assert digest(base) == GOLDEN_V33[mode], (mode, digest(base))
+        assert not fails
+    cfg = load_cfg(); assert cfg['RANKER_FS_W'] is None and cfg['RANKER_FS_FADE'] is None and cfg['RANKER_FS_DS'] is None
+    base = run_cell(cell(), load_cfg(RANKER='fs_avg', RANKER_LIB_GATE=0.7, RANKER_FS_W=0.5))[0]           # the explicit default weight is the same path
+    assert digest(base) == GOLDEN_V33['fs_avg']
+
+
+def test_weight_and_fade():
+    assert fs_pass.weight(0.3) == 0.5 and fs_pass.weight(0.3, 0.7) == 0.7 and fs_pass.weight(0.99, 1.0) == 1.0
+    assert fs_pass.weight(0.2, None, (0.3, 0.7)) == 0.5 and fs_pass.weight(0.3, 0.8, (0.3, 0.7)) == 0.8
+    assert abs(fs_pass.weight(0.5, 0.8, (0.3, 0.7)) - 0.4) < 1e-12 and fs_pass.weight(0.7, 0.8, (0.3, 0.7)) == 0.0 and fs_pass.weight(0.9, 0.8, (0.3, 0.7)) == 0.0
+    ref = run_cell(cell(), load_cfg())[0]; v33b = run_cell(cell(), load_cfg(RANKER='fs_avg', RANKER_LIB_GATE=0.7))[0]
+    fs = run_cell(cell(), load_cfg(RANKER='fs', RANKER_LIB_GATE=0.7))[0]
+    # fade (0.3, 0.7): molecules up to 0.3 keep the v33b list, molecules at or above the gate the first pass; in between another average
+    base, fails, V, E, _ = run_cell(cell(), load_cfg(RANKER='fs_avg', RANKER_LIB_GATE=0.7, RANKER_FS_FADE=[0.3, 0.7]))
+    assert not fails and all(base[m] == v33b[m] for m in LIB if LIB[m] <= 0.3) and all(base[m] == ref[m] for m in LIB if LIB[m] >= 0.7)
+    assert sorted(c[0] for c in V.calls if c[1] == 'FS') == sorted(m for m in LIB if LIB[m] < 0.7) and E.bank == 'PUB'
+    # a fade that ends below the gate: weight 0 keeps the first pass's list although the pass ran
+    base = run_cell(cell(), load_cfg(RANKER='fs_avg', RANKER_LIB_GATE=0.7, RANKER_FS_FADE=[0.1, 0.5]))[0]
+    assert base['m3'] == ref['m3'] and base['m1'] != ref['m1'] and base['m0'] == ref['m0']
+    # weight 1: the fold-safe chain's order (keys only the public pass holds follow)
+    base = run_cell(cell(), load_cfg(RANKER='fs_avg', RANKER_LIB_GATE=0.7, RANKER_FS_W=1.0))[0]
+    for m in LIB:
+        if LIB[m] < 0.7:
+            k = [x for x in base[m][1] if x in set(fs[m][1])]
+            assert k == fs[m][1][:len(k)] and base[m][1][:3] == fs[m][1][:3], m
+        else:
+            assert base[m] == ref[m]
+    # weight 0.3 differs from v33b for at least one molecule below the gate and never touches the others
+    base = run_cell(cell(), load_cfg(RANKER='fs_avg', RANKER_LIB_GATE=0.9, RANKER_FS_W=0.3))[0]
+    assert base['m0'] == ref['m0'] and base['m4'] != ref['m4']                                           # gate 0.9: the molecule at 0.8 is averaged, without joined rows
+    assert -2 not in base['m4'][5]
+
+
 def test_join_features_match_the_training_definition():
     X = np.array([[3.0], [5.0], [4.0], [6.0], [1.0]], np.float32); inj = np.array([0, 0, 1, 1, 1], bool); pcr = np.array([-1, -1, 0, 1, 2])
     J = ranker_infer.join_features(X, ['fz'], inj, pcr)
@@ -206,8 +250,8 @@ def test_entries_and_swapped():
 
 
 if __name__ == '__main__':
-    if len(sys.argv) > 2 and sys.argv[1] == '--golden':
-        print(digest(run_cell(open(sys.argv[2], encoding='utf-8').read(), load_cfg())[0])); sys.exit(0)
+    if len(sys.argv) > 2 and sys.argv[1] == '--golden':            # --golden <old cell file> [KEY=json ...]: the hash of BASE for that cell and preset
+        print(digest(run_cell(open(sys.argv[2], encoding='utf-8').read(), load_cfg(**{a.split('=')[0]: json.loads(a.split('=', 1)[1]) for a in sys.argv[3:]}))[0])); sys.exit(0)
     for k, f in sorted(globals().items()):
         if k.startswith('test_') and callable(f):
             f()

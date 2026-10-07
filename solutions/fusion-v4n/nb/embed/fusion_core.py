@@ -31,8 +31,10 @@ DEFAULTS = dict(LIB_TAU=0.9, REL_TH=600.0, SLOTS_AGG=[2, 4, 6, 8, 10], SLOTS_GEN
                                                        #   candidates in the forward models by more than this; None = off
                 FUSE_INJ_CREDIT=0.0,                   # engine fusion: a joined PubChem row (pool id -2) gets this share of the
                                                        #   engine-2 weight at its own rank, because engine-2 cannot list it
-                JOIN_FWD_A=None)                       # stage A: ICEBERG / GLACIER terms of joined PubChem rows (pool id -2) times
+                JOIN_FWD_A=None,                       # stage A: ICEBERG / GLACIER terms of joined PubChem rows (pool id -2) times
                                                        #   this, other rows keep 1.0; None = off (reviews/calib-2026-10-05.md)
+                FWD_A_SCALE=None)                      # stage A, base list only: [ice, gl] factors on ICE_LAM / GL_LAM; the PubChem
+                                                       #   list and stage C keep the full weights; None = off (reviews/fsranker2-2026-10-07.md)
 
 
 def popularity_reorder(smis, keys, scs, forms, pids, pool_pop, mu):
@@ -214,6 +216,9 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
         smis, keys, lib_max, scs, forms = list(v[0][:TOPN]), list(v[1][:TOPN]), v[2], list(v[3][:TOPN]), list(v[4][:TOPN])
         pids = list(v[5][:TOPN]) if len(v) > 5 else None
         ICE_LAM, GL_LAM = lam_pair(lib_max)       # closures (gl_rerank, frag_rerank) read these per molecule
+        lam_full = (ICE_LAM, GL_LAM)
+        if c['FWD_A_SCALE'] is not None:          # the base list's re-rank with scaled forward weights
+            ICE_LAM, GL_LAM = ICE_LAM * float(c['FWD_A_SCALE'][0]), GL_LAM * float(c['FWD_A_SCALE'][1])
         pop_on = c['POP_MU'] > 0 and not (c['POP_LIB_OFF'] and lib_max >= GATE_TAU)
         if pop_on and pool_pop is not None and pids is not None and len(scs) > 1:
             try:
@@ -250,6 +255,7 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
             log('frag rerank failed', m, repr(e))
         base[m] = (smis[:25], keys[:25], lib_max)
         extra[m] = smis[25:]
+        ICE_LAM, GL_LAM = lam_full                # the PubChem list below keeps the full weights
         p = pc.get(m) if c['ICE_PC'] else None
         if ice_fuse is not None and p and p.get('pc') and lib_max < LIB_TAU and ice:
             try:

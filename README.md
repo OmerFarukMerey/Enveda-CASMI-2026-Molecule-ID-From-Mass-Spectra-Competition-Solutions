@@ -55,6 +55,8 @@ Public leaderboard (MRR@25). Best so far: **0.442** (v33b). Folders with the exa
 | 29 | 10-06 | fusion-v4n | v24c | v13a with ICEBERG / GLACIER weights 0.6 | 0.430 | |
 | 30 | 10-06 | fusion-v4n (teammate) | v24a-fmgl | v24a + fine-tuned GLACIER weights | 0.414 | |
 | 31 | 10-06 | fusion-v4n | **v33b** | v24a + our ranker (fitted on unseen molecules) averaged with the public one below the library gate | **0.442** | [folder](submissions/fusion-v4n-v33b-0.442/) |
+| 32 | 10-07 | fusion-v4n | v34a | v33b with the forward models off in the first re-rank of the base list | 0.431 | |
+| 33 | 10-07 | fusion-v4n (teammate) | – | v24a with the engine-2 fusion weight 0.6 → 0.3 | 0.406 | |
 
 ## Where things are
 

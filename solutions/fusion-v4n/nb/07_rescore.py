@@ -68,6 +68,8 @@ if CFG['USE_ICE']:
         meta_f = os.path.join(WORK, 'ice_work', 'ice_out.json.meta.json')
         if os.path.exists(meta_f):
             print('ICE meta', open(meta_f).read()[:1500])
+            if '"status": "budget"' in open(meta_f).read()[:200]:      # the wall-clock budget cut the work: which molecules are scored
+                FAILS.append('iceberg stopped at ICE_BUDGET: the last molecules have no ICEBERG score')   # then depends on the machine's speed
     except Exception as e:
         ICE_SCORES = {}
         print('ICE FAILED -> ranker order kept:', repr(e)); FAILS.append('iceberg: ' + repr(e)[:200])
@@ -87,6 +89,8 @@ if CFG['USE_GL'] and items:
                                    wheels=os.path.join(ICE_PKG, 'wheels'))
         meta_f = os.path.join(WORK, 'gl_work', 'gl_out.json.meta.json')
         print('GL meta', open(meta_f).read()[:1500] if os.path.exists(meta_f) else 'missing')
+        if os.path.exists(meta_f) and '"status": "budget"' in open(meta_f).read()[:200]:
+            FAILS.append('glacier stopped at GL_BUDGET: the last molecules have no GLACIER score')
     except Exception as e:
         GL_SCORES = {}
         print('GL FAILED -> ICE only:', repr(e)); FAILS.append('glacier: ' + repr(e)[:200])

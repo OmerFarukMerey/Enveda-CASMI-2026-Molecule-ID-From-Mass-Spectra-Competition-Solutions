@@ -619,3 +619,17 @@ teammate's fine-tuned GLACIER (0.414). What the day showed: better fingerprint m
 the public ranker (it is fitted to the public models' features on molecules they memorised), but a ranker fitted in the
 unseen-molecule regime does. Found on the way: the public engine breaks merged-adduct ties by set order, so base lists
 differ between sessions for about a quarter of the molecules (a source of the ±0.004 leaderboard noise; not fixed yet).
+
+2026-10-07: v34a (v33b with `FWD_A_SCALE=[0,0]`: no ICEBERG / GLACIER term in the first re-rank of the base list) scored
+**0.431**, 0.011 below v33b: about three public molecules, outside the noise of one submission. Locally it was the cleanest
+candidate we ever had (all eight type cells positive on two sets, exposure 23 → 20, family-wise p 0.002;
+`reviews/fsranker2-2026-10-07.md`). The local sets therefore understate what the forward models contribute on the hidden
+test, in spite of the argument that their leak should make them look better locally; the same was already visible in
+the line search (0.6 → 0.430, 0.5 → 0.433) and in both fine-tuned forward models (0.401, 0.414): the stage is far more
+sensitive on the leaderboard than in any replay. Closed: weakening or removing forward-model terms. `FWD_A_SCALE` stays
+off. A teammate's run with `FUSE_ALPHA` 0.3 on v24a scored 0.406 (−0.031): the engine fusion at 0.6 also stays. The
+same day's studies: no ranker refit beats the production recipe and more training lists help slowly
+(`fsranker2`); engine 2's ranker rows contain the Enveda panel, so panel replays are in-sample for engine 2, and
+`FUSE_KRR` 1 is the one candidate left from the audit (`regime-audit`, preset v35a, not submitted); run-to-run
+variation inside the notebook is 0.0003 on 400 molecules, and the public leaderboard has about 130 molecules, so one
+answer moving between place 1 and 2 is 0.0038 (`determ`).

@@ -80,6 +80,17 @@ def _z(v):
     return (v - v.mean()) / s if s > 1e-9 else np.zeros(len(v))
 
 
+def weight(lib_max: float, w: Optional[float] = None, fade: Optional[Sequence[float]] = None) -> float:
+    """Weight of the fold-safe chain in `rank_average` for one molecule (RANKER_FS_W, RANKER_FS_FADE; reviews/fsranker2-2026-10-07.md).
+    w None = 0.5 (v33b). fade = (lo, hi): the weight is w up to lib_max = lo and falls linearly to 0 at hi, so a molecule just
+    below the gate is moved little instead of jumping from the public list to the averaged one. Without fade the weight is w."""
+    x = 0.5 if w is None else float(w)
+    if fade is not None:
+        lo, hi = float(fade[0]), float(fade[1])
+        x *= min(1.0, max(0.0, (hi - float(lib_max)) / (hi - lo)))
+    return x
+
+
 def rank_average(pub: List[tuple], fs: List[tuple], w: float = 0.5) -> List[tuple]:
     """Half weight to each chain: a key's rank is (1 - w) x rank in the public chain's list + w x rank in the fold-safe chain's list
     (1-based; a key missing from a list gets that list's length + 1). Ties: the fold-safe rank, then the public rank. The row
