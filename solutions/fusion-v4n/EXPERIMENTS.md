@@ -633,3 +633,19 @@ same day's studies: no ranker refit beats the production recipe and more trainin
 `FUSE_KRR` 1 is the one candidate left from the audit (`regime-audit`, preset v35a, not submitted); run-to-run
 variation inside the notebook is 0.0003 on 400 molecules, and the public leaderboard has about 130 molecules, so one
 answer moving between place 1 and 2 is 0.0038 (`determ`).
+
+2026-10-07, afternoon and evening. Two more submissions on v33b, neither above it.
+- v33a (`RANKER='fs'`: our fitted ranker alone below the gate) scored **0.434** (−0.008). With v24a (weight 0, 0.437) and
+  v33b (rank average, 0.442) the axis is closed: the two rankers complement each other and the average is the point to keep.
+- v40a (v33b + `FUSE_SKIP_LIB=0.97`, `POP_LIB_OFF`, `FRAG_LIB_OFF`) scored **0.442**, the same as v33b. It was submitted on
+  outside evidence (two forks of our public notebook moved this way, one at 0.426 against 0.421); the local replay, run
+  afterwards, showed composite −0.002 ± 0.001 (`reviews/libprotect-2026-10-07.md`). Neutral on the public leaderboard.
+  From here on every candidate is replayed locally BEFORE it is submitted.
+- Not submitted: v41a (v40a + `FP_BANK='ens'`). Local replay with the true `fpnet_full1` bank: v33b, v40a and v41a are
+  indistinguishable; `ens` alone is about +0.001, the protection about −0.002 (`reviews/fpens-2026-10-07.md`).
+Studies of the day that closed a direction: more training lists for our ranker (flat curve, `fsranker3`), a coherent
+leak-free chain for engine 2 from megayak's FPNets and rows (worse; his rows carry an answer-position leak, `eng2fs`),
+a local regime with nothing seen before the forward models (does not track the leaderboard: 5 of 11 signs, `uregime`),
+molecular networking among the test molecules (too sparse, oracle ceiling +0.004, `testnet`), DreaMS embedding
+similarity for analog search (not better than the v1 kernel, `dreamsim`). Open: FIORA (open weights, MIT, MSnLib) as a
+forward model for negative-mode-only molecules (`docs/landscape/forward-models-2026-10-07.md`), not downloaded yet.
