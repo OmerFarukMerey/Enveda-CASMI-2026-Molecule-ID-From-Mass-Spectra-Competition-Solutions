@@ -2,6 +2,7 @@
 samp = pd.read_csv(os.path.join(COMP, 'sample_submission.csv'))
 MOL_ORDER = list(te.molecule_id.unique())
 dump('meta', dict(mol_order=MOL_ORDER, sample_ids=list(samp.molecule_id), is_rerun=IS_RERUN, cfg=CFG))
+assert not (CFG['NP_MU'] or CFG['NP_JOIN_MU']), 'NP_MU / NP_JOIN_MU: no NP-likeness scorer is shipped (reviews/nplike-2026-10-08.md)'
 POOL_POP = None
 if CFG['POP_MU'] > 0 or (CFG['POP_GROUP_MU'] or 0) > 0:
     try:                                  # log1p(PubChem SIDs) + log1p(PubMed ids) per v2-pool row (pid order)
@@ -11,10 +12,19 @@ if CFG['POP_MU'] > 0 or (CFG['POP_GROUP_MU'] or 0) > 0:
         log('popularity prior loaded', _pp, POOL_POP.shape)
     except Exception as e:
         print('POPULARITY PRIOR UNAVAILABLE -> off:', repr(e))
+ADD_SCORE = None
+if CFG['ADD_JOIN_MU'] > 0:
+    try:                                  # adduct-evidence scorer: models of casmi26-ours-adduct-prior + the adducts each molecule was acquired with
+        import adduct_prior
+        _ad = os.path.dirname(find('casmi26-ours-adduct-prior/**/adduct_H.txt'))
+        ADD_SCORE = adduct_prior.load(_ad, te.groupby('molecule_id').adduct.agg(lambda x: sorted(set(map(str, x)))).to_dict())
+        log('adduct-evidence scorer loaded', _ad, len(ADD_SCORE.y), 'molecules')
+    except Exception as e:
+        print('ADDUCT-EVIDENCE SCORER UNAVAILABLE -> off:', repr(e)); FAILS.append('adduct-evidence scorer: ' + repr(e)[:200])
 sub, FSTATS = fusion_core.build_submission(
     BASE, PC, ENG, ICE_SCORES, GL_SCORES, CFG, MOL_ORDER, list(samp.molecule_id),
     ice_fuse=ice_fuse, gl_fuse=gl_fuse, score_key=chem.score_key, formula=formula_of, log=print, pool_pop=POOL_POP,
-    frag_scores=FRAG)
+    frag_scores=FRAG, add_score=ADD_SCORE)
 fusion_core.validate(sub, list(samp.molecule_id))
 sub.to_csv(os.path.join(WORK, 'submission.csv'), index=False)
 json.dump(dict(version=CFG['VERSION'], secs=round(time.time() - T0), stats=FSTATS, n_errors=n_err, families=MAN['families'],

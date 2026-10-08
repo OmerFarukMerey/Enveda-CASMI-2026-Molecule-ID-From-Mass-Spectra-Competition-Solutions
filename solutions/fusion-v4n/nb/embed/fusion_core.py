@@ -38,7 +38,13 @@ DEFAULTS = dict(LIB_TAU=0.9, REL_TH=600.0, SLOTS_AGG=[2, 4, 6, 8, 10], SLOTS_GEN
                 POP_GROUP_MU=None,                     # stage A: in-group popularity term, mu x z(popularity) inside each same-formula
                                                        #   group of pool rows, added to the stage-A sum; POP_MU keeps acting across the
                                                        #   list (0 = in-group only). None = off (reviews/popgroup-2026-10-08.md)
-                POP_GROUP_MAX_LIB=None)                # ... only for molecules with lib_max below this; None = every molecule
+                POP_GROUP_MAX_LIB=None,                # ... only for molecules with lib_max below this; None = every molecule
+                NP_MU=0.0,                             # natural-product-likeness term (np_score, structure only) on pool rows, added where
+                                                       #   the popularity prior acts: f = z + POP_MU pop + NP_MU s; 0 = off
+                NP_JOIN_MU=0.0,                        # ... on joined PubChem rows (pool id -2): f = z + NP_JOIN_MU s, re-sorted among the
+                                                       #   joined rows' own slots; 0 = off (reviews/nplike-2026-10-08.md)
+                ADD_JOIN_MU=0.0)                       # adduct-evidence term (add_score, per molecule) on joined PubChem rows, same
+                                                       #   arithmetic and slots as NP_JOIN_MU; 0 = off (reviews/newinfo-2026-10-08.md)
 
 
 def popularity_reorder(smis, keys, scs, forms, pids, pool_pop, mu):
@@ -49,6 +55,24 @@ def popularity_reorder(smis, keys, scs, forms, pids, pool_pop, mu):
     f = z + mu * np.where(isg, 0.0, pool_pop[np.maximum(pid, 0)])
     pool_i = np.where(~isg)[0]; o = np.empty(len(pid), np.int64)
     o[isg] = np.where(isg)[0]; o[~isg] = pool_i[np.argsort(-f[pool_i], kind='stable')]
+    return ([smis[i] for i in o], [keys[i] for i in o], [float(f[i]) for i in o],
+            [forms[i] + ('|gen' if isg[i] else '') for i in o], [int(pid[i]) for i in o])
+
+
+def np_reorder(smis, keys, scs, forms, pids, pool_pop, mu, np_vals, np_mu, np_join_mu):
+    """popularity_reorder with a natural-product-likeness term s (np_vals, one value per row, 0 = unknown): pool rows
+    f = z + mu * pop + np_mu * s, re-sorted among the pool slots; joined PubChem rows (pid == -2) f = z + np_join_mu * s,
+    re-sorted among the joined rows' slots, so a joined row never passes a pool row here; generator products (pid == -1)
+    keep their slots. Tags as in popularity_reorder. mu = 0 or pool_pop None: no popularity term."""
+    s = np.asarray(scs, np.float64); z = (s - s.mean()) / (s.std() + 1e-9)
+    pid = np.asarray(pids); isg = pid < 0; isj = pid == -2
+    v = np.nan_to_num(np.asarray(np_vals, np.float64), nan=0.0, posinf=0.0, neginf=0.0)
+    pop = pool_pop[np.maximum(pid, 0)] if (mu and pool_pop is not None) else np.zeros(len(pid))
+    f = z + np.where(isg, 0.0, mu * pop + np_mu * v) + np.where(isj, np_join_mu * v, 0.0)
+    o = np.arange(len(pid), dtype=np.int64)
+    pool_i = np.where(~isg)[0]; o[pool_i] = pool_i[np.argsort(-f[pool_i], kind='stable')]
+    if np_join_mu:
+        j_i = np.where(isj)[0]; o[j_i] = j_i[np.argsort(-f[j_i], kind='stable')]
     return ([smis[i] for i in o], [keys[i] for i in o], [float(f[i]) for i in o],
             [forms[i] + ('|gen' if isg[i] else '') for i in o], [int(pid[i]) for i in o])
 
@@ -189,7 +213,7 @@ def fuse_rrf(v_smis, e_smis, e_keys, score_key, alpha, krr, n, credit=None, cred
 
 def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sample_ids,
                      ice_fuse=None, gl_fuse=None, score_key=None, formula=None, log=print, pool_pop=None,
-                     frag_scores=None):
+                     frag_scores=None, np_score=None, add_score=None):
     """Returns (submission DataFrame in sample order, stats dict). Inputs are not mutated."""
     c = dict(DEFAULTS); c.update({k: v for k, v in cfg.items() if k in DEFAULTS})
     base = copy.deepcopy(base); pc = copy.deepcopy(pc) if isinstance(pc, dict) else {}
@@ -260,7 +284,28 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
         pop_on = c['POP_MU'] > 0 and not (c['POP_LIB_OFF'] and lib_max >= GATE_TAU)
         pg_on = (c['POP_GROUP_MU'] is not None and c['POP_GROUP_MU'] > 0 and pool_pop is not None and pids is not None and len(scs) > 1
                  and not (c['POP_GROUP_MAX_LIB'] is not None and lib_max >= c['POP_GROUP_MAX_LIB']))
-        if (pop_on or pg_on) and pool_pop is not None and pids is not None and len(scs) > 1:
+        np_on = (c['NP_MU'] > 0 or c['NP_JOIN_MU'] > 0) and np_score is not None and pids is not None and len(scs) > 1
+        if np_on:                                 # NP-likeness term; carries the popularity term as well when that is on
+            try:
+                nv = np_score(smis) if callable(np_score) else [np_score.get(x) for x in smis]
+                nv = [0.0 if x is None else float(x) for x in nv]
+                smis, keys, scs, forms, pids = np_reorder(smis, keys, scs, forms, pids, pool_pop,
+                                                          c['POP_MU'] if (pop_on and pool_pop is not None) else 0.0, nv, c['NP_MU'], c['NP_JOIN_MU'])
+                stats.setdefault('nplike', {'molecules': 0})['molecules'] += 1
+            except Exception as e:
+                log('NP-likeness term failed', m, repr(e)); np_on = False
+        if (not np_on and c['ADD_JOIN_MU'] > 0 and add_score is not None and pids is not None and len(scs) > 1
+                and sum(1 for x in pids if x == -2) > 1):
+            try:                                  # adduct evidence on joined rows; add_score(m, smis) -> one value per row, or None
+                av = add_score(m, smis)
+                if av is not None:
+                    av = [0.0 if x is None else float(x) for x in av]
+                    smis, keys, scs, forms, pids = np_reorder(smis, keys, scs, forms, pids, pool_pop,
+                                                              c['POP_MU'] if (pop_on and pool_pop is not None) else 0.0, av, 0.0, c['ADD_JOIN_MU'])
+                    stats.setdefault('adduct', {'molecules': 0})['molecules'] += 1; np_on = True
+            except Exception as e:
+                log('adduct-evidence term failed', m, repr(e))
+        if not np_on and (pop_on or pg_on) and pool_pop is not None and pids is not None and len(scs) > 1:
             try:                                  # pg_on without POP_MU: weight 0, the rows still get their '|gen' tags
                 smis, keys, scs, forms, pids = popularity_reorder(smis, keys, scs, forms, pids, pool_pop, c['POP_MU'] if pop_on else 0.0)
                 stats.setdefault('pop', {'molecules': 0})['molecules'] += 1

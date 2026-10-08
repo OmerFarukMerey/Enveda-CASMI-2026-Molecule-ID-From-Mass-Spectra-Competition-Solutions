@@ -663,3 +663,21 @@ anything is proposed. Studies of the day before: fitted popularity model (its ga
 replay), availability / vendor signal (adds nothing over the substance count), FIORA for negative mode (at chance on
 natural products), a third ranker in the average (no diversity beyond reweighting), inference of the hidden fame
 profile from past scores (not identifiable).
+
+2026-10-08, after the two popularity losses: six studies, no candidate. None was submitted.
+- `poplow`: a weaker prior (`POP_MU` 0.15, preset v47a) loses locally (−0.004 ± 0.002 on both sets); it gains only when
+  the answer's own fame is masked. `obscure`: restricting or reweighting the local sets to little-documented answers does
+  not make them track the leaderboard better (8 and 5 of 14 signs on the full sets; no subset interval excludes zero), so
+  fame is not the one variable, and v47a stays unsupported (−0.004 on every real stratum).
+- `nplike`: structure-only natural-product-likeness (RDKit NP_Score, own COCONUT-against-PubChem model, leak closed) is at
+  chance on pool rows and weak on joined rows; 16 replay cells, none passes. Flags `NP_MU` / `NP_JOIN_MU` stay, default off.
+- `newinfo`: the data has no CCS, retention time, MS1 or batch id; row order, isotope peaks, base-peak intensity and a
+  source-organism prior carry nothing; the adduct set is real chemistry but too weak (`ADD_JOIN_MU`, preset v50a, not
+  recommended).
+- `metafit`: a final combiner fitted in the unseen regime (606 molecules) gains locally only by widening the join
+  (exposure 24 → 42 lists) or by picking constants that already lost on the leaderboard (forward weights 0.5, `POP_MU`
+  0.35); without those levers +0.002 ± 0.005. The hand-set constants are not measurably wrong.
+- `rankobs`: ranker variants that lean less on fame (inverse-fame weights, obscure-only training, dropped or residualised
+  feature families) do not beat a reseed of the production recipe on the obscure tercile; inverse-fame weights gain only
+  on answers without a PubChem record (+0.0085 ± 0.0039, four seeds) and are neutral in the full replay (preset v48a,
+  dataset not uploaded).

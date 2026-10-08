@@ -93,6 +93,12 @@ CFG = dict(
     POP_GROUP_MU=None,                     # stage A: in-group popularity term, mu x z(popularity) inside each same-formula group of
                                            #   pool rows (POP_MU keeps acting across the list; 0 = in-group only); None = off
     POP_GROUP_MAX_LIB=None,                #   ... only for molecules with lib_max below this (reviews/popgroup-2026-10-08.md)
+    NP_MU=0.0, NP_JOIN_MU=0.0,             # natural-product-likeness term on pool rows / joined PubChem rows (fusion_core.np_reorder).
+                                           #   Replayed locally, lost; NO scorer is shipped with the notebook, so cell 08 refuses
+                                           #   non-zero values (reviews/nplike-2026-10-08.md)
+    ADD_JOIN_MU=0.0,                       # adduct-evidence term on joined PubChem rows: Bernoulli log-likelihood of the molecule's
+                                           #   observed adduct set under seven LightGBM models (nb/embed/adduct_prior.py, dataset
+                                           #   casmi26-ours-adduct-prior), standardised over the list; 0 = off (reviews/newinfo-2026-10-08.md)
     PC_FWD_T1=None, PC_FWD_N=25,           # PubChem proposals get the early slots when the best one beats every
                                            #   same-formula base candidate in ICEBERG and GLACIER by more than this (0.0)
     # --- validation mode (commit runs only; the scoring rerun ignores it): hold out VAL_LIB structures, drop ALL
