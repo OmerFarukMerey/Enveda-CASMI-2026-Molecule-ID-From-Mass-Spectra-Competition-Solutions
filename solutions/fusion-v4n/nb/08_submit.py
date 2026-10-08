@@ -3,7 +3,7 @@ samp = pd.read_csv(os.path.join(COMP, 'sample_submission.csv'))
 MOL_ORDER = list(te.molecule_id.unique())
 dump('meta', dict(mol_order=MOL_ORDER, sample_ids=list(samp.molecule_id), is_rerun=IS_RERUN, cfg=CFG))
 POOL_POP = None
-if CFG['POP_MU'] > 0:
+if CFG['POP_MU'] > 0 or (CFG['POP_GROUP_MU'] or 0) > 0:
     try:                                  # log1p(PubChem SIDs) + log1p(PubMed ids) per v2-pool row (pid order)
         _pp = os.path.dirname(find('casmi26-pubchem-popularity-prior/**/pool_lsid.npy'))
         POOL_POP = np.load(os.path.join(_pp, 'pool_lsid.npy')).astype(np.float64) + \

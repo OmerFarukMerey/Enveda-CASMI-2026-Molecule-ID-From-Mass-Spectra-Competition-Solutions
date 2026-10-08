@@ -649,3 +649,17 @@ a local regime with nothing seen before the forward models (does not track the l
 molecular networking among the test molecules (too sparse, oracle ceiling +0.004, `testnet`), DreaMS embedding
 similarity for analog search (not better than the v1 kernel, `dreamsim`). Open: FIORA (open weights, MIT, MSnLib) as a
 forward model for negative-mode-only molecules (`docs/landscape/forward-models-2026-10-07.md`), not downloaded yet.
+
+2026-10-08: more popularity loses. v44a (`POP_MU` 0.35) scored **0.432** (−0.010 on v33b) and v46c (v44a + in-group
+prior below the library gate) **0.426** (−0.016). Both were replayed locally first: v44a +0.0035 ± 0.0016 on the Enveda
+panel and +0.0008 on the mixed natural products; v46c +0.016 on the panel, +0.002 mixed, −0.003 on the less famous half,
+pooled null p 0.0008 (`reviews/popmu-2026-10-07.md`, `popgroup-2026-10-08.md`). The leaderboard is monotone the other way
+(0.25: 0.442, 0.35: 0.432, plus in-group: 0.426), each step well outside one answer (0.0038): the hidden answers are far
+less famous than any local set, as the circularity check had warned (in the bottom count quartile 45 to 78% of the
+prior's signal comes from the library deposit itself, `reviews/popmodel-2026-10-08.md`). Closed: strengthening the
+popularity prior in any form. Open question raised by the size of the loss: whether 0.25, chosen on an earlier chain
+without the join and without our ranker (0.15 → 0.25 gave +0.005 then), is now too high; to be replayed locally before
+anything is proposed. Studies of the day before: fitted popularity model (its gain is one membership flag; loses in the
+replay), availability / vendor signal (adds nothing over the substance count), FIORA for negative mode (at chance on
+natural products), a third ranker in the average (no diversity beyond reweighting), inference of the hidden fame
+profile from past scores (not identifiable).

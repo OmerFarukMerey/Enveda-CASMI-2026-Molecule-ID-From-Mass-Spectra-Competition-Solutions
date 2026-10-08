@@ -90,6 +90,9 @@ CFG = dict(
                                            #   None = off (reviews/calib-2026-10-05.md)
     FWD_A_SCALE=None,                      # stage A, base list only: [ice, gl] factors on ICE_LAM / GL_LAM (e.g. [0.33, 0.33]); the
                                            #   PubChem list and stage C keep the full weights; None = off (reviews/fsranker2-2026-10-07.md)
+    POP_GROUP_MU=None,                     # stage A: in-group popularity term, mu x z(popularity) inside each same-formula group of
+                                           #   pool rows (POP_MU keeps acting across the list; 0 = in-group only); None = off
+    POP_GROUP_MAX_LIB=None,                #   ... only for molecules with lib_max below this (reviews/popgroup-2026-10-08.md)
     PC_FWD_T1=None, PC_FWD_N=25,           # PubChem proposals get the early slots when the best one beats every
                                            #   same-formula base candidate in ICEBERG and GLACIER by more than this (0.0)
     # --- validation mode (commit runs only; the scoring rerun ignores it): hold out VAL_LIB structures, drop ALL

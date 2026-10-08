@@ -59,6 +59,8 @@ Public leaderboard (MRR@25). Best so far: **0.442** (v33b). Folders with the exa
 | 33 | 10-07 | fusion-v4n (teammate) | – | v24a with the engine-2 fusion weight 0.6 → 0.3 | 0.406 | |
 | 34 | 10-07 | fusion-v4n | v33a | v33b with our ranker alone (no average) below the library gate | 0.434 | |
 | 35 | 10-07 | fusion-v4n | v40a | v33b + wider protection of library hits (no engine-2 fusion at lib_max ≥ 0.97, no popularity / fragment term) | 0.442 | |
+| 36 | 10-08 | fusion-v4n | v44a | v33b with the popularity prior at 0.35 | 0.432 | |
+| 37 | 10-08 | fusion-v4n | v46c | v44a + popularity prior inside same-formula groups below the library gate | 0.426 | |
 
 ## Where things are
 

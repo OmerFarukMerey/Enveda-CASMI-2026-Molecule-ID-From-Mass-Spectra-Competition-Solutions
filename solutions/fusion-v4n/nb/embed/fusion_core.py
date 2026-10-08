@@ -33,8 +33,12 @@ DEFAULTS = dict(LIB_TAU=0.9, REL_TH=600.0, SLOTS_AGG=[2, 4, 6, 8, 10], SLOTS_GEN
                                                        #   engine-2 weight at its own rank, because engine-2 cannot list it
                 JOIN_FWD_A=None,                       # stage A: ICEBERG / GLACIER terms of joined PubChem rows (pool id -2) times
                                                        #   this, other rows keep 1.0; None = off (reviews/calib-2026-10-05.md)
-                FWD_A_SCALE=None)                      # stage A, base list only: [ice, gl] factors on ICE_LAM / GL_LAM; the PubChem
+                FWD_A_SCALE=None,                      # stage A, base list only: [ice, gl] factors on ICE_LAM / GL_LAM; the PubChem
                                                        #   list and stage C keep the full weights; None = off (reviews/fsranker2-2026-10-07.md)
+                POP_GROUP_MU=None,                     # stage A: in-group popularity term, mu x z(popularity) inside each same-formula
+                                                       #   group of pool rows, added to the stage-A sum; POP_MU keeps acting across the
+                                                       #   list (0 = in-group only). None = off (reviews/popgroup-2026-10-08.md)
+                POP_GROUP_MAX_LIB=None)                # ... only for molecules with lib_max below this; None = every molecule
 
 
 def popularity_reorder(smis, keys, scs, forms, pids, pool_pop, mu):
@@ -47,6 +51,40 @@ def popularity_reorder(smis, keys, scs, forms, pids, pool_pop, mu):
     o[isg] = np.where(isg)[0]; o[~isg] = pool_i[np.argsort(-f[pool_i], kind='stable')]
     return ([smis[i] for i in o], [keys[i] for i in o], [float(f[i]) for i in o],
             [forms[i] + ('|gen' if isg[i] else '') for i in o], [int(pid[i]) for i in o])
+
+
+def pop_group_rerank(order_std, smis, keys, scores, formulas, pids, score_dicts, lams, pool_pop, mu, top_n, tie_eps=1e-9):
+    """POP_GROUP_MU: every same-formula group of pool rows (pid >= 0, two or more) among the first top_n rows is re-sorted by
+    z(score) + sum_k lam_k z(forward_k) + mu z(popularity), all z inside the group (the arithmetic of gl_fuse.rerank_multi
+    with the popularity as one more re-scorer), and put back into the slots of the group. order_std = the standard stage-A
+    order (indices into smis); groups without two pool rows keep it. Returns the new order."""
+    def num(v):
+        try:
+            v = float(v)
+        except (TypeError, ValueError):
+            return None
+        return v if np.isfinite(v) else None
+
+    n = len(smis); order = list(order_std); use = [(d, float(l)) for d, l in zip(score_dicts, lams) if d]
+    groups = {}
+    for i in range(min(int(top_n), n)):
+        groups.setdefault(formulas[i], []).append(i)
+    for idx in groups.values():
+        pv = [float(pool_pop[pids[i]]) if pids[i] >= 0 else None for i in idx]
+        if len(idx) < 2 or sum(x is not None for x in pv) < 2:
+            continue
+        fused = _zs([float(scores[i]) for i in idx]); n_act = 1
+        for d, lam in use:
+            v = [num(d.get(smis[i]) if d.get(smis[i]) is not None else (d.get(keys[i]) if keys is not None else None)) for i in idx]
+            if sum(x is not None for x in v) >= 2:
+                fused = [a + lam * b for a, b in zip(fused, _zs(v))]; n_act += 1
+        fused = [a + mu * b for a, b in zip(fused, _zs(pv))]
+        if n_act >= 2 and tie_eps > 0:
+            fused = [round(x / tie_eps) for x in fused]
+        new = [idx[k] for k in sorted(range(len(idx)), key=lambda k: (-fused[k], k))]
+        for slot, src in zip(idx, new):
+            order[slot] = src
+    return order
 
 
 def merge(base, base_keys, pc, pc_keys, slots, n=25):
@@ -220,9 +258,11 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
         if c['FWD_A_SCALE'] is not None:          # the base list's re-rank with scaled forward weights
             ICE_LAM, GL_LAM = ICE_LAM * float(c['FWD_A_SCALE'][0]), GL_LAM * float(c['FWD_A_SCALE'][1])
         pop_on = c['POP_MU'] > 0 and not (c['POP_LIB_OFF'] and lib_max >= GATE_TAU)
-        if pop_on and pool_pop is not None and pids is not None and len(scs) > 1:
-            try:
-                smis, keys, scs, forms, pids = popularity_reorder(smis, keys, scs, forms, pids, pool_pop, c['POP_MU'])
+        pg_on = (c['POP_GROUP_MU'] is not None and c['POP_GROUP_MU'] > 0 and pool_pop is not None and pids is not None and len(scs) > 1
+                 and not (c['POP_GROUP_MAX_LIB'] is not None and lib_max >= c['POP_GROUP_MAX_LIB']))
+        if (pop_on or pg_on) and pool_pop is not None and pids is not None and len(scs) > 1:
+            try:                                  # pg_on without POP_MU: weight 0, the rows still get their '|gen' tags
+                smis, keys, scs, forms, pids = popularity_reorder(smis, keys, scs, forms, pids, pool_pop, c['POP_MU'] if pop_on else 0.0)
                 stats.setdefault('pop', {'molecules': 0})['molecules'] += 1
             except Exception as e:
                 log('popularity prior failed', m, repr(e))
@@ -253,6 +293,28 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
                 smis, keys = [smis0[i] for i in o], [keys0[i] for i in o]
         except Exception as e:
             log('frag rerank failed', m, repr(e))
+        if pg_on:                                 # in-group popularity term on top of the standard stage-A order
+            try:
+                ix = {s_: i_ for i_, s_ in enumerate(smis0)}
+                fr = (frag_scores or {}).get(str(m), {})
+                fr_on = (c['FRAG_LAM'] > 0 and covered(fr) and gl_fuse is not None
+                         and not (c['FRAG_LIB_OFF'] and lib_max >= GATE_TAU))
+                if fr_on and c['FRAG_MODE'] != 'gap':
+                    terms = [d for d in (ice, gl) if covered(d)] + [fr]
+                    lams = [l for d, l in ((ice, ICE_LAM), (gl, GL_LAM)) if covered(d)] + [c['FRAG_LAM']]
+                elif fr_on and not covered(ice):
+                    terms, lams = [fr], [c['FRAG_LAM']]
+                elif ice_fuse is not None and covered(ice):
+                    terms, lams = [ice] + ([gl] if gl and gl_fuse is not None else []), [ICE_LAM, GL_LAM]
+                else:
+                    terms, lams = [], []
+                if len(ix) == len(smis0) and len(smis) == len(smis0):
+                    o = pop_group_rerank([ix[s_] for s_ in smis], smis0, keys0, scs0, forms0, pids, terms, lams, pool_pop,
+                                         float(c['POP_GROUP_MU']), TOPN)
+                    smis, keys = [smis0[i] for i in o], [keys0[i] for i in o]
+                    stats.setdefault('pop_group', {'molecules': 0})['molecules'] += 1
+            except Exception as e:
+                log('in-group popularity term failed', m, repr(e))
         base[m] = (smis[:25], keys[:25], lib_max)
         extra[m] = smis[25:]
         ICE_LAM, GL_LAM = lam_full                # the PubChem list below keeps the full weights
