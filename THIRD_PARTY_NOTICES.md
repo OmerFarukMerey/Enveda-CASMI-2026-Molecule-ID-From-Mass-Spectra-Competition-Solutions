@@ -21,3 +21,11 @@ Kaggle datasets used at runtime are **not** redistributed here. Each keeps its o
 ahmedberatozer (casmi26-v2-pool, v3-models, v4b-models, fpnet-full1, iceberg, glacier, pubchem-tier; ICEBERG / GLACIER
 are ms-pred MassSpecGym checkpoints, MIT), prvsiyan (fp-models-v2, ranker-features, COCONUT and ChEBI+LIPID MAPS
 candidates), megayak (simulated ranker rows), metric (rdkit wheel).
+
+Preset `configs/v53a-v33b-popsplit.json` (flag `POP_SPLIT`, off by default) reads our dataset `casmi26-pop-split`, a
+derived table of [sergiomalv/casmi-pubchem-popularity](https://www.kaggle.com/datasets/sergiomalv/casmi-pubchem-popularity)
+(**CC0 1.0**; counts of PubChem substance records per InChIKey first block from the public PubChem FTP files of
+2026-10-01; PubChem data are in the public domain, cite Kim S. et al., Nucleic Acids Res. 53:D1516, 2025). Only
+`sid - spec` enters the notebook: the substance records that were *not* deposited by MassBank Europe, MoNA, the NIST
+Mass Spectrometry Data Center or RIKEN NPDepo. No spectra and no NIST data are involved
+(`solutions/fusion-v4n/reviews/popsplit-2026-10-08.md`).

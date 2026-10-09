@@ -85,6 +85,8 @@ def main():
         datasets.append((user or 'YOUR_KAGGLE_USERNAME') + '/casmi26-fpnet-pc-hn')
     if over_all.get('ADD_JOIN_MU'):                         # models of the adduct-evidence term (private dataset, nb/embed/adduct_prior.py)
         datasets.append((user or 'YOUR_KAGGLE_USERNAME') + '/casmi26-ours-adduct-prior')
+    if over_all.get('POP_SPLIT'):                           # substance / spectral-library deposit counts (our dataset, nb/embed/pop_split.py)
+        datasets.append((user or 'YOUR_KAGGLE_USERNAME') + '/casmi26-pop-split')
     if over_all.get('ICE_FT'):
         datasets.append('ahmedberatozer/casmi26-ice-ft')
     if over_all.get('ENG_EXTRA_FPNET'):

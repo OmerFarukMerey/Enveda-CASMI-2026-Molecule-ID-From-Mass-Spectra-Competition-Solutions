@@ -681,3 +681,17 @@ profile from past scores (not identifiable).
   feature families) do not beat a reseed of the production recipe on the obscure tercile; inverse-fame weights gain only
   on answers without a PubChem record (+0.0085 ± 0.0039, four seeds) and are neutral in the full replay (preset v48a,
   dataset not uploaded).
+
+2026-10-08, evening: three single-change probes on v33b, all below it. v35a (`FUSE_KRR` 1) **0.437**, v47a (`POP_MU` 0.15)
+**0.426**, v48a (inverse-fame ranker) **0.436**. Caveat that governs the reading: Kaggle changed the scoring on 2026-10-07
+(stereo stripped before the tautomer key at 21:32 UTC, one-electron fix of the hidden test's peak masses at 23:49 UTC;
+`docs/landscape/update-2026-10-08.md`) and announced a rerun of all submissions that had not landed by 2026-10-09 18:00
+UTC. v33b's 0.442 is from before the change; all five submissions since (0.432, 0.426, 0.437, 0.426, 0.436) are from
+after it, and every one is lower, including v48a, which is neutral locally. The popularity axis is non-monotone across
+the change (0.15: 0.426, 0.25: 0.442 old regime, 0.35: 0.432), which a regime offset of about −0.005 to −0.010 on v33b
+explains more simply than a sharp optimum at 0.25. Until v33b has a score in the new regime, none of the five deltas is
+interpretable; the next submission is v33b itself, unchanged. Other studies of the day (no candidate): the one-electron
+shift moves v33b by at most one or two answers locally and needs no correction (`emass`); stereo-collapsed rows 0 of 400
+(`KEY_NOSTEREO`, off); engine 2 with 4 seeds and `N_ANALOG` 250 is flat; a library-split popularity count is inert
+(`popsplit`, `POP_SPLIT`, off); `FUSE_KRR` is monotone locally and moves the same lists as v34a and `FUSE_ALPHA` 0.3
+(`combo2`).

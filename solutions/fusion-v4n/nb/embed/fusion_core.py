@@ -24,6 +24,7 @@ DEFAULTS = dict(LIB_TAU=0.9, REL_TH=600.0, SLOTS_AGG=[2, 4, 6, 8, 10], SLOTS_GEN
                 FUSE_SKIP_LIB=None,                    # skip engine-2 fusion when lib_max >= this; None = never
                 ICE_LAM_LIB=None, GL_LAM_LIB=None,     # ICE/GL weights for library hits (lib_max >= LIB_TAU); None = same
                 FILL_25=False,                         # top up lists shorter than 25 from the other channels
+                KEY_NOSTEREO=False,                    # de-duplicate the final list by the metric key of 2026-10-07 (stereo stripped first)
                 POP_LIB_OFF=False, FRAG_LIB_OFF=False, # no popularity / frag term for library hits
                 GATE_TAU=None,                         # lib_max threshold of the *_LIB gates; None = LIB_TAU
                 FUSE_MIN_LIB=None,                     # fuse engine-2 only when lib_max >= this (it needs library analogs)
@@ -213,7 +214,7 @@ def fuse_rrf(v_smis, e_smis, e_keys, score_key, alpha, krr, n, credit=None, cred
 
 def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sample_ids,
                      ice_fuse=None, gl_fuse=None, score_key=None, formula=None, log=print, pool_pop=None,
-                     frag_scores=None, np_score=None, add_score=None):
+                     frag_scores=None, np_score=None, add_score=None, nostereo_key=None):
     """Returns (submission DataFrame in sample order, stats dict). Inputs are not mutated."""
     c = dict(DEFAULTS); c.update({k: v for k, v in cfg.items() if k in DEFAULTS})
     base = copy.deepcopy(base); pc = copy.deepcopy(pc) if isinstance(pc, dict) else {}
@@ -407,14 +408,24 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
     v4 = [(mid, rows.get(mid, c['FALLBACK'])) for mid in sample_ids]
     lib_of = {m: v[2] for m, v in base.items()}
 
+    NSK = nostereo_key if (c['KEY_NOSTEREO'] and nostereo_key is not None) else None
+
+    def ns_cut(full):
+        """KEY_NOSTEREO: rows that share the stereo-stripped metric key with an earlier row are dropped BEFORE the cut to 25."""
+        d = dedup_by(full, NSK)
+        st = stats.setdefault('nostereo', {'molecules': 0, 'removed': 0, 'removed_top25': 0})
+        st['molecules'] += int(len(d) < len(full)); st['removed'] += len(full) - len(d); st['removed_top25'] += len(full[:25]) - len(dedup_by(full[:25], NSK))
+        return d
+
     def fill(mid, lst):
         """FILL_25: append engine-2, PubChem and deeper base candidates (metric-key dedup) until 25."""
         if not c['FILL_25'] or len(lst) >= 25:
             return lst
-        seen = {score_key(x) or x for x in lst}; out = list(lst)
+        fk_ = NSK or score_key
+        seen = {fk_(x) or x for x in lst}; out = list(lst)
         pool = list((eng.get(str(mid)) or {}).get('smiles', [])) + list((pc.get(mid) or {}).get('pc', [])) + list(extra.get(mid, []))
         for x in pool:
-            k = score_key(x) or x
+            k = fk_(x) or x
             if k not in seen:
                 seen.add(k); out.append(x)
                 if len(out) >= 25:
@@ -428,6 +439,8 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
         if c['FILL_25']:
             v4 = [(mid, ';'.join(fill(mid, [x for x in s.split(';') if x and x != c['FALLBACK']])) or c['FALLBACK'])
                   for mid, s in v4]
+        if NSK is not None:
+            v4 = [(mid, ';'.join(fill(mid, ns_cut([x for x in s.split(';') if x and x != c['FALLBACK']]))[:25]) or c['FALLBACK']) for mid, s in v4]
         return pd.DataFrame(v4, columns=['molecule_id', 'smiles']), stats
     out = []
     for mid, s in v4:
@@ -467,10 +480,49 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
                 except Exception as ex:
                     log('fused frag rerank failed', mid, repr(ex))
             stats['fuse']['top1_changed'] += int(bool(vs) and fsm[:1] != vs[:1])
-            vs = fsm[:25]
+            vs = fsm[:25] if NSK is None else ns_cut(fsm)[:25]
+        elif NSK is not None:
+            vs = ns_cut(vs)
         vs = fill(mid, vs[:25])
         out.append((mid, ';'.join(vs[:25]) if vs else c['FALLBACK']))
     return pd.DataFrame(out, columns=['molecule_id', 'smiles']), stats
+
+
+def make_nostereo_key(score_key):
+    """The metric's key since 2026-10-07: RemoveStereochemistry, then the tautomer canonicalisation, then InChIKey14.
+    A SMILES without a stereo mark has nothing to strip, so it keeps `score_key` (no second canonicalisation)."""
+    cache = {}; rd = {}; bs = chr(92)                  # the three stereo marks of SMILES: @, / and the backslash
+
+    def key(s):
+        if not isinstance(s, str) or not ('@' in s or '/' in s or bs in s):
+            return score_key(s)
+        if s not in cache:
+            try:
+                if not rd:
+                    from rdkit import Chem
+                    from rdkit.Chem.MolStandardize import rdMolStandardize
+                    rd['Chem'] = Chem; rd['taut'] = rdMolStandardize.TautomerEnumerator()
+                mol = rd['Chem'].MolFromSmiles(s)
+                if mol is None:
+                    cache[s] = None
+                else:
+                    rd['Chem'].RemoveStereochemistry(mol)
+                    ik = rd['Chem'].MolToInchiKey(rd['taut'].Canonicalize(mol))
+                    cache[s] = ik[:14] if ik else None
+            except Exception:
+                cache[s] = None
+        return cache[s]
+    return key
+
+
+def dedup_by(smis, key):
+    """First row of every key, order kept (a row without a key is its own key)."""
+    seen = set(); out = []
+    for s in smis:
+        k = key(s) or s
+        if k not in seen:
+            seen.add(k); out.append(s)
+    return out
 
 
 def validate(sub, sample_ids, max_rank=25):

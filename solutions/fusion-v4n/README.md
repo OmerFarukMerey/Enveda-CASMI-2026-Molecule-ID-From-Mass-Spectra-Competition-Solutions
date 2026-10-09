@@ -110,6 +110,7 @@ All 31 submissions are in [../../docs/experiments.md](../../docs/experiments.md)
 | `PC_MODELS`, `PC_PPM`, `MASS_OFFSET_BY_ADDUCT`, `PC_N1` | other selection model, mass window, shortlist of the PubChem channel | not better |
 | `ICE_FT`, `ICE_SURROGATE`, `GL_SURROGATE`, `GL_MH_ONLY`, `JOIN_FWD_A` | forward-model variants | not better |
 | `ENG_EXTRA_FPNET`, `FUSE_INJ_CREDIT`, `PC_FWD_T1`, `FUSE_*` | engine 2 and fusion variants | not better |
+| `POP_SPLIT` | popularity prior without the substance records deposited by spectral libraries (dataset `casmi26-pop-split`) | inert in the local replay (`reviews/popsplit-2026-10-08.md`); not submitted |
 | `STRICT` | fail the run if any stage fell back (diagnostic submissions) | tool |
 
 Reproduce the best version: see the `README.txt` in its folder. The current code with the v2 config still reproduces
@@ -151,6 +152,15 @@ PubChem structures of the same mass window as negatives (`train/mine_pc_negative
 `reviews/hardneg-2026-10-05.md`). Inputs: competition training data, public weights trained on it, PubChem (public
 domain). No NIST, nothing keyed to `test.parquet`. To be made public if the rules or the hosts require external
 artefacts to be public.
+
+`huseyinemreaksoy/casmi26-pop-split` (flag `POP_SPLIT`, off by default; preset `v53a-v33b-popsplit`; not uploaded yet,
+local folder `kaggle_ds/casmi26-pop-split`, 5.7 MB): PubChem substance counts with the records deposited by spectral
+libraries separated, for the 59,225 pool rows (and 1,159,324 PubChem-tier rows, unused) that have such a record.
+Derived from `sergiomalv/casmi-pubchem-popularity` (public, CC0 1.0; PubChem FTP files of 2026-10-01, public domain;
+its build notebook is not public). The notebook uses `sid - spec` only, i.e. the records that were not deposited by
+MassBank Europe, MoNA, the NIST Mass Spectrometry Data Center or RIKEN NPDepo; counts of public PubChem records, no
+spectra, no NIST data. The source does not separate the four depositors per structure
+(`reviews/popsplit-2026-10-08.md`).
 
 `goooman/casmi26-fp-npx4-soup` (flag `ENG_EXTRA_FPNET`, off by default; preset `v25a-v13a-np-eng2`): one file,
 `fp_single_npx4soup.pt` (144 MB, sha256 `4f4c090a…`), Apache-2.0 (licence field of the dataset). Card: an FPNet of

@@ -12,6 +12,14 @@ if CFG['POP_MU'] > 0 or (CFG['POP_GROUP_MU'] or 0) > 0:
         log('popularity prior loaded', _pp, POOL_POP.shape)
     except Exception as e:
         print('POPULARITY PRIOR UNAVAILABLE -> off:', repr(e))
+    if CFG['POP_SPLIT'] and POOL_POP is not None:
+        try:                              # substance count without spectral-library deposits on the rows of casmi26-pop-split
+            import pop_split
+            _ps = os.path.dirname(find('casmi26-pop-split/**/pool_split.parquet'))
+            POOL_POP, _n = pop_split.pool_pop(np.load(os.path.join(_pp, 'pool_lsid.npy')), np.load(os.path.join(_pp, 'pool_lpmid.npy')), _ps)
+            log('popularity prior: library deposits removed on', _n, 'pool rows', _ps)
+        except Exception as e:
+            print('POP_SPLIT UNAVAILABLE -> standard prior:', repr(e)); FAILS.append('pop split: ' + repr(e)[:200])
 ADD_SCORE = None
 if CFG['ADD_JOIN_MU'] > 0:
     try:                                  # adduct-evidence scorer: models of casmi26-ours-adduct-prior + the adducts each molecule was acquired with
@@ -24,7 +32,8 @@ if CFG['ADD_JOIN_MU'] > 0:
 sub, FSTATS = fusion_core.build_submission(
     BASE, PC, ENG, ICE_SCORES, GL_SCORES, CFG, MOL_ORDER, list(samp.molecule_id),
     ice_fuse=ice_fuse, gl_fuse=gl_fuse, score_key=chem.score_key, formula=formula_of, log=print, pool_pop=POOL_POP,
-    frag_scores=FRAG, add_score=ADD_SCORE)
+    frag_scores=FRAG, add_score=ADD_SCORE,
+    nostereo_key=fusion_core.make_nostereo_key(chem.score_key) if CFG['KEY_NOSTEREO'] else None)
 fusion_core.validate(sub, list(samp.molecule_id))
 sub.to_csv(os.path.join(WORK, 'submission.csv'), index=False)
 json.dump(dict(version=CFG['VERSION'], secs=round(time.time() - T0), stats=FSTATS, n_errors=n_err, families=MAN['families'],

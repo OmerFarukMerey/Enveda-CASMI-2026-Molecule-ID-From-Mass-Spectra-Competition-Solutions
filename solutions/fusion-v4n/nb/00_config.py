@@ -74,6 +74,9 @@ CFG = dict(
     FUSE_ALPHA=0.6, FUSE_KRR=3.0, FUSE_N=40, FUSE_ENG_K=40,   # FUSE_ENG_K: engine-2 depth used in the fusion
     # --- PubChem popularity prior on pool candidates (bobthebot369 v10, LB 0.401 used 0.15); 0 = off
     POP_MU=0.0,
+    POP_SPLIT=False,              # the prior's substance count without the records deposited by spectral libraries (MassBank Europe,
+                                  #   MoNA, NIST MSDC, RIKEN NPDepo), for the pool rows listed in <user>/casmi26-pop-split; every other
+                                  #   row keeps today's value (nb/embed/pop_split.py, reviews/popsplit-2026-10-08.md)
     # --- MetFrag-parsimony re-score (nb/embed/frag_rescore.py); 0 = off. 'gap' = only molecules ICE cannot score
     FRAG_LAM=0.0, FRAG_MODE='all',
     # --- more fusion knobs (fusion_core.DEFAULTS); None = same as the base weight / off
@@ -81,6 +84,7 @@ CFG = dict(
     ICE_LAM_LIB=None, GL_LAM_LIB=None,     # weights for library hits (lib_max >= LIB_TAU)
     FUSE_SKIP_LIB=None,                    # skip the engine-2 fusion when lib_max >= this
     FILL_25=False,                         # top up lists shorter than 25 from the other channels
+    KEY_NOSTEREO=False,                    # final list de-duplicated by the metric key of 2026-10-07 (stereo stripped before the tautomer step) before the cut to 25 (reviews/emass-2026-10-08.md)
     POP_LIB_OFF=False, FRAG_LIB_OFF=False, # no popularity / frag term for library hits
     GATE_TAU=None,                         # lib_max threshold of the *_LIB gates; None = LIB_TAU
     FUSE_MIN_LIB=None,                     # fuse engine-2 only when lib_max >= this (it needs library analogs)
