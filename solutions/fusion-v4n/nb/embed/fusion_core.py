@@ -25,6 +25,10 @@ DEFAULTS = dict(LIB_TAU=0.9, REL_TH=600.0, SLOTS_AGG=[2, 4, 6, 8, 10], SLOTS_GEN
                 ICE_LAM_LIB=None, GL_LAM_LIB=None,     # ICE/GL weights for library hits (lib_max >= LIB_TAU); None = same
                 FILL_25=False,                         # top up lists shorter than 25 from the other channels
                 KEY_NOSTEREO=False,                    # de-duplicate the final list by the metric key of 2026-10-07 (stereo stripped first)
+                FUSE_KEY_VOTE=None,                    # engine fusion keyed by that metric key, one vote per key and engine: 'best' = a key
+                                                       #   votes at its first rank in each list, later rows of the key are skipped; 'compact' =
+                                                       #   the skipped rows do not consume a rank either (flexonafft v80). None = off
+                                                       #   (reviews/keyvote-2026-10-09.md)
                 POP_LIB_OFF=False, FRAG_LIB_OFF=False, # no popularity / frag term for library hits
                 GATE_TAU=None,                         # lib_max threshold of the *_LIB gates; None = LIB_TAU
                 FUSE_MIN_LIB=None,                     # fuse engine-2 only when lib_max >= this (it needs library analogs)
@@ -195,11 +199,35 @@ def rerank_joined(smis, keys, scores, formulas, score_dicts, lams, top_n, joined
     return order
 
 
-def fuse_rrf(v_smis, e_smis, e_keys, score_key, alpha, krr, n, credit=None, credit_w=0.0):
+def _marked(s):
+    return isinstance(s, str) and ('@' in s or '/' in s or chr(92) in s)
+
+
+def fuse_rrf(v_smis, e_smis, e_keys, score_key, alpha, krr, n, credit=None, credit_w=0.0, key_fn=None, compact=False):
     """sum 1/(krr + r) over the v4 list plus alpha/(krr + r) over the engine list, keyed by the metric key.
     credit: SMILES of the v4 list that engine-2 could not have listed (joined PubChem rows); each gets
-    credit_w * alpha / (krr + r) on top, i.e. is treated as if engine-2 ranked it where the v4 list does."""
+    credit_w * alpha / (krr + r) on top, i.e. is treated as if engine-2 ranked it where the v4 list does.
+    key_fn (FUSE_KEY_VOTE): the stereo-free metric key; every key gets ONE vote per list, at its first rank there (compact: at
+    its rank among the list's distinct keys). An engine row without a stereo mark keeps its delivered key (the same function)."""
     sc, smi_of = {}, {}
+    if key_fn is not None:
+        seen = set()
+        for r, s in enumerate(v_smis, 1):
+            k = key_fn(s) or s
+            if k in seen:
+                continue
+            seen.add(k)
+            w = 1.0 + (credit_w * alpha if (credit and s in credit) else 0.0)
+            sc[k] = sc.get(k, 0.0) + w / (krr + (len(seen) if compact else r)); smi_of.setdefault(k, s)
+        seen = set()
+        for r, (s, k) in enumerate(zip(e_smis, e_keys), 1):
+            k = (key_fn(s) or k) if _marked(s) else k
+            if not k or k in seen:
+                continue
+            seen.add(k)
+            sc[k] = sc.get(k, 0.0) + alpha / (krr + (len(seen) if compact else r)); smi_of.setdefault(k, s)
+        order = sorted(sc, key=lambda k: -sc[k])[:n]
+        return [smi_of[k] for k in order], order, [sc[k] for k in order]
     for r, s in enumerate(v_smis, 1):
         k = score_key(s) or s
         w = 1.0 + (credit_w * alpha if (credit and s in credit) else 0.0)
@@ -409,6 +437,10 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
     lib_of = {m: v[2] for m, v in base.items()}
 
     NSK = nostereo_key if (c['KEY_NOSTEREO'] and nostereo_key is not None) else None
+    KVF = None                                   # FUSE_KEY_VOTE: the key function of the engine fusion
+    if c['FUSE_KEY_VOTE'] is not None:
+        assert c['FUSE_KEY_VOTE'] in ('best', 'compact'), c['FUSE_KEY_VOTE']
+        KVF = nostereo_key if nostereo_key is not None else make_nostereo_key(score_key)
 
     def ns_cut(full):
         """KEY_NOSTEREO: rows that share the stereo-stripped metric key with an earlier row are dropped BEFORE the cut to 25."""
@@ -458,7 +490,7 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
         if e and e.get('smiles'):
             K = int(c['FUSE_ENG_K'])
             fsm, fk, fsc = fuse_rrf(vs, e['smiles'][:K], e['keys'][:K], score_key, c['FUSE_ALPHA'], c['FUSE_KRR'], c['FUSE_N'],
-                                    inj_of.get(mid), c['FUSE_INJ_CREDIT'])
+                                    inj_of.get(mid), c['FUSE_INJ_CREDIT'], *(() if KVF is None else (KVF, c['FUSE_KEY_VOTE'] == 'compact')))
             ice = ice_scores.get(str(mid), {}) if isinstance(ice_scores, dict) else {}
             fsm0, fk0, fsc0 = fsm, fk, fsc
             if ice and ice_fuse is not None:

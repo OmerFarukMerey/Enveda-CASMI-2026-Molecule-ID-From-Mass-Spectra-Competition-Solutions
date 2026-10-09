@@ -65,6 +65,8 @@ CFG = dict(
     GL_SURROGATE=False,           # hand the surrogate spectra to GLACIER as well (untested)
     # --- engine-2 (prvsiyan two-ranker, BIO + AFIX) and its fusion
     USE_ENG=True, ENG_W_PV=0.88, ENG_W_A=[0.35, 0.55], ENG_SEEDS=[0, 1], ENG_N_ANALOG=200, ENG_ORDER_K=80, ENG_TOPK=40,
+    ENG_REPS=1,                   # engine-2 analog search: representative spectra per library structure (1 = the reference's one;
+                                  #   k > 1 = the first k by its own order, best similarity per structure; reviews/keyvote-2026-10-09.md)
     ENG_EXTRA_FPNET=None,         # 'owner/slug' of a dataset with an FPNet of prvsiyan's architecture (fp_*.pt, 6,930 bits)
                                   #   that is averaged into engine-2's fingerprint logits (a file without 'merged' in its
                                   #   name joins the per-spectrum group). 'goooman/casmi26-fp-npx4-soup' = the teammate's
@@ -83,8 +85,12 @@ CFG = dict(
     POST_ICE_LAM=None, POST_GL_LAM=None,   # stage-C (post-fusion) re-rank weights
     ICE_LAM_LIB=None, GL_LAM_LIB=None,     # weights for library hits (lib_max >= LIB_TAU)
     FUSE_SKIP_LIB=None,                    # skip the engine-2 fusion when lib_max >= this
+    OUT_TOPK=None,                         # diagnostic: write only the first k rows per molecule (leaderboard probe of rank-1 / rank-2 mass)
     FILL_25=False,                         # top up lists shorter than 25 from the other channels
     KEY_NOSTEREO=False,                    # final list de-duplicated by the metric key of 2026-10-07 (stereo stripped before the tautomer step) before the cut to 25 (reviews/emass-2026-10-08.md)
+    FUSE_KEY_VOTE=None,                    # engine fusion keyed by the stereo-free metric key, one vote per key and engine: 'best' (first
+                                           #   rank of the key in each list) | 'compact' (ranks counted over distinct keys, flexonafft v80);
+                                           #   None = off (reviews/keyvote-2026-10-09.md)
     POP_LIB_OFF=False, FRAG_LIB_OFF=False, # no popularity / frag term for library hits
     GATE_TAU=None,                         # lib_max threshold of the *_LIB gates; None = LIB_TAU
     FUSE_MIN_LIB=None,                     # fuse engine-2 only when lib_max >= this (it needs library analogs)

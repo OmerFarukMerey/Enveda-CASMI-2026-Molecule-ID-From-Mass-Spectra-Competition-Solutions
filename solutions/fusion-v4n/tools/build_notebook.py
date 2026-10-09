@@ -19,7 +19,7 @@ DATASETS = [   # the reference notebook's inputs, in its order
     'prvsiyan/casmi26-fp-models-v2', 'prvsiyan/casmi26-ranker-features', 'megayak/casmi26-simulated-ranker-rows',
     'ahmedberatozer/casmi26-fpnet-full1', 'ahmedberatozer/casmi26-glacier', 'ahmedberatozer/casmi26-iceberg',
     'ahmedberatozer/casmi26-pubchem-tier', 'ahmedberatozer/casmi26-v2-pool', 'ahmedberatozer/casmi26-v3-models',
-    'ahmedberatozer/casmi26-v4b-models', 'prvsiyan/chebi-lipidmaps-casmi26', 'prvsiyan/coconut-casmi26-candidates',
+    'ahmedberatozer/casmi26-v4b-models', 'sergiomalv/casmi-chebi-lmsd-structures', 'prvsiyan/coconut-casmi26-candidates',
     'metric/rdkit-2026-3-3-wheel',
     'dmitriigluzdov/casmi26-pubchem-popularity-prior',   # POP_MU (off by default)
     'dmitriigluzdov/casmi26-fold-safe-fpnet',            # validation only: FP_BANK='fold0', VAL_SET='fold0_np'

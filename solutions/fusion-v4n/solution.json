@@ -38,7 +38,7 @@
       "ahmedberatozer/casmi26-v2-pool",
       "ahmedberatozer/casmi26-v3-models",
       "ahmedberatozer/casmi26-v4b-models",
-      "prvsiyan/chebi-lipidmaps-casmi26",
+      "sergiomalv/casmi-chebi-lmsd-structures",
       "prvsiyan/coconut-casmi26-candidates",
       "metric/rdkit-2026-3-3-wheel"
     ],

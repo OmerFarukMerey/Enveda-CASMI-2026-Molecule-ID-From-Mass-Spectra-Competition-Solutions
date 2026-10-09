@@ -33,8 +33,11 @@ sub, FSTATS = fusion_core.build_submission(
     BASE, PC, ENG, ICE_SCORES, GL_SCORES, CFG, MOL_ORDER, list(samp.molecule_id),
     ice_fuse=ice_fuse, gl_fuse=gl_fuse, score_key=chem.score_key, formula=formula_of, log=print, pool_pop=POOL_POP,
     frag_scores=FRAG, add_score=ADD_SCORE,
-    nostereo_key=fusion_core.make_nostereo_key(chem.score_key) if CFG['KEY_NOSTEREO'] else None)
+    nostereo_key=fusion_core.make_nostereo_key(chem.score_key) if (CFG['KEY_NOSTEREO'] or CFG['FUSE_KEY_VOTE']) else None)
 fusion_core.validate(sub, list(samp.molecule_id))
+if CFG['OUT_TOPK']:                        # diagnostic probe: keep only the first k rows of every list
+    sub['smiles'] = [';'.join(x.split(';')[:int(CFG['OUT_TOPK'])]) for x in sub.smiles]
+    log('OUT_TOPK: lists cut to', CFG['OUT_TOPK'])
 sub.to_csv(os.path.join(WORK, 'submission.csv'), index=False)
 json.dump(dict(version=CFG['VERSION'], secs=round(time.time() - T0), stats=FSTATS, n_errors=n_err, families=MAN['families'],
                gpu=torch.cuda.get_device_name(0) if dev == 'cuda' else None, cfg=CFG),

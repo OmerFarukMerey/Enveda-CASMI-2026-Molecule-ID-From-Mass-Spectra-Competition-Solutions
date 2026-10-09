@@ -13,7 +13,7 @@ if CFG['USE_ENG']:
         _t0 = time.time()
         _env = dict(os.environ, CASMI_ENG_CFG=json.dumps(dict(
             W_A=CFG['ENG_W_A'], SEEDS=CFG['ENG_SEEDS'], N_ANALOG=CFG['ENG_N_ANALOG'], W_PV=CFG['ENG_W_PV'],
-            ORDER_K=CFG['ENG_ORDER_K'], TOPK=CFG['ENG_TOPK'], EXTRA_FP=_extra)))
+            ORDER_K=CFG['ENG_ORDER_K'], TOPK=CFG['ENG_TOPK'], EXTRA_FP=_extra, REPS=CFG['ENG_REPS'])))
         rr = subprocess.run([sys.executable, os.path.join(OURS, 'eng', 'eng_runner.py'), os.path.join(COMP, 'test.parquet'),
                              os.path.join(COMP, 'train.parquet'), os.path.join(COMP, 'sample_submission.csv'),
                              os.path.join(WORK, 'eng_lists.json')], capture_output=True, text=True,
