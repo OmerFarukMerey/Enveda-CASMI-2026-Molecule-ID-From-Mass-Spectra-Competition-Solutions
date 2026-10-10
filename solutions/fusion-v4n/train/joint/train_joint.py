@@ -52,6 +52,7 @@ def args():
     ap.add_argument('--d', type=int, default=256); ap.add_argument('--layers', type=int, default=6); ap.add_argument('--hidden', default='1024,512')
     ap.add_argument('--loss', default='nce', choices=['nce', 'list', 'margin']); ap.add_argument('--temp', type=float, default=0.07); ap.add_argument('--fix_temp', action='store_true')
     ap.add_argument('--w_m2s', type=float, default=0.25); ap.add_argument('--margin', type=float, default=0.2); ap.add_argument('--w_aux', type=float, default=0.0)
+    ap.add_argument('--fp_drop', type=float, default=0.0); ap.add_argument('--aug', type=float, default=0.0); ap.add_argument('--dropout', type=float, default=0.1); ap.add_argument('--wd', type=float, default=0.01)
     ap.add_argument('--mine_m', type=int, default=32); ap.add_argument('--mine_cap', type=int, default=200)
     return ap.parse_args()
 
@@ -117,7 +118,7 @@ def build(a, dev):
     meta = json.load(open(JD.IDX + '/meta.json')); nb = int(np.load(P.WORK + '/fp_bits.npy').shape[0])
     m = JM.Joint(a.variant, nbits=nb, n_adduct=max(64, meta['adducts']), n_instr=max(8, meta['instr']), d=a.d, layers=a.layers, hidden=tuple(int(x) for x in a.hidden.split(',')), loss=a.loss,
                  temp=a.temp, fix_temp=a.fix_temp, w_m2s=a.w_m2s, margin=a.margin, w_aux=a.w_aux, mz_embed=a.mz_embed, use_nl=not a.no_nl, use_meta=not a.no_meta, int_tf=a.int_tf,
-                 pool='mean' if a.agg == 'merged' else a.agg).to(dev)
+                 pool='mean' if a.agg == 'merged' else a.agg, fp_drop=getattr(a, 'fp_drop', 0.0), aug=getattr(a, 'aug', 0.0), dropout=getattr(a, 'dropout', 0.1)).to(dev)
     return m, dict(total=JM.n_params(m), spec=JM.n_params(m.spec), struct=JM.n_params(m.struct))
 
 
@@ -199,7 +200,7 @@ def mode_train(a):
     M = pd.read_parquet(P.BENCH + '/mols.parquet'); M.attrs['spec_rows'] = pd.read_parquet(P.BENCH + '/spectra.parquet').row.values
     print('leak-safety:', end=' ', flush=True); JD.assert_leak_safe(M, log=lambda x: print(x, flush=True))        # dies unless 0 identifiers are shared
     out = f'{run_root(a)}/{a.tag}'; os.makedirs(out, exist_ok=True); share = setup_gpu(a); dev = 'cuda'; amp = not a.no_amp; t_gpu = time.time()
-    torch.manual_seed(a.seed); m, npar = build(a, dev); opt = torch.optim.AdamW(m.parameters(), lr=a.lr, weight_decay=0.01); scaler = torch.amp.GradScaler('cuda', enabled=amp)
+    torch.manual_seed(a.seed); m, npar = build(a, dev); opt = torch.optim.AdamW(m.parameters(), lr=a.lr, weight_decay=a.wd); scaler = torch.amp.GradScaler('cuda', enabled=amp)
     step = 0; spent = 0.0; hist = []; comp_tot = 0.0; n_oom = 0; budget = a.comp_minutes * 60.0
     if a.resume and os.path.exists(out + '/last.pt'):
         ck = torch.load(out + '/last.pt', map_location=dev, weights_only=False); m.load_state_dict(ck['model']); opt.load_state_dict(ck['opt']); scaler.load_state_dict(ck['scaler'])

@@ -64,6 +64,11 @@ Public leaderboard (MRR@25). Best so far: **0.442** (v33b). Folders with the exa
 | 38 | 10-08 | fusion-v4n | v35a | v33b with the engine-2 rank fusion constant 3 → 1 | 0.437 | |
 | 39 | 10-08 | fusion-v4n | v47a | v33b with the popularity prior at 0.15 | 0.426 | |
 | 40 | 10-08 | fusion-v4n | v48a | v33b with our ranker refitted with inverse-fame weights | 0.436 | |
+| 41 | 10-09 | fusion-v4n | v33b again | row 31 unchanged, scored after Kaggle's scoring change of 10-07 | 0.433 | new-regime baseline |
+| 42 | 10-09 | fusion-v4n | v59a | v33b with the CC BY ChEBI / LIPID MAPS set (licence fix) | 0.434 | current reference |
+| 43 | 10-09 | fusion-v4n | v60a | probe: first row only | 0.377 | |
+| 44 | 10-09 | fusion-v4n | v60b | probe: first two rows only | 0.413 | |
+| 45 | 10-09 | fusion-v4n | v54a | v59a with fusion constant 1 and fragment weight 0.25 | 0.431 | |
 
 ## Where things are
 

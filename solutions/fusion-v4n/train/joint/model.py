@@ -27,9 +27,9 @@ class SpecEncoder(nn.Module):
     int_tf 'both' | 'sqrt' | 'raw', use_meta (adduct / polarity / collision energy / instrument; the precursor always stays),
     pool 'mean' | 'attn' | 'max' over the spectra of a molecule."""
 
-    def __init__(self, d=256, layers=6, heads=8, ff=None, out=256, n_freq=32, n_adduct=64, n_instr=8, dropout=0.1, mz_embed='fourier', use_nl=True, int_tf='both', use_meta=True, pool='mean'):
+    def __init__(self, d=256, layers=6, heads=8, ff=None, out=256, n_freq=32, n_adduct=64, n_instr=8, dropout=0.1, mz_embed='fourier', use_nl=True, int_tf='both', use_meta=True, pool='mean', aug=0.0):
         super().__init__()
-        self.n_freq = n_freq; self.mz_embed = mz_embed; self.use_nl = use_nl; self.int_tf = int_tf; self.use_meta = use_meta; self.pool = pool; ff = ff or 4 * d
+        self.aug = aug; self.n_freq = n_freq; self.mz_embed = mz_embed; self.use_nl = use_nl; self.int_tf = int_tf; self.use_meta = use_meta; self.pool = pool; ff = ff or 4 * d
         if mz_embed == 'bin':
             self.mzb = nn.Embedding(20001, d); self.nlb = nn.Embedding(20001, d); self.peak = nn.Sequential(nn.Linear(2, d), nn.GELU(), nn.Linear(d, d))
         else:
@@ -46,6 +46,8 @@ class SpecEncoder(nn.Module):
         """Per-spectrum vectors [T, d] (before pooling over the spectra of a molecule)."""
         mz, it = b['mz'], b['it']; T, Pk = mz.shape; prec = b['prec']
         pad = torch.arange(Pk, device=mz.device)[None, :] >= b['n_peaks'][:, None]
+        if self.training and self.aug > 0:                                        # augmentation: drop peaks (never the first), jitter intensities
+            drop = torch.rand_like(mz) < self.aug; drop[:, 0] = False; pad = pad | drop; it = (it * torch.exp(0.3 * torch.randn_like(it))).clamp(max=1.0)
         nl = (prec[:, None] - mz).clamp(min=0)
         iv = {'both': (it.sqrt(), torch.log10(it.clamp(min=1e-4)) / 4), 'sqrt': (it.sqrt(), torch.zeros_like(it)), 'raw': (it, torch.zeros_like(it))}[self.int_tf]
         if self.mz_embed == 'bin':
@@ -95,15 +97,17 @@ def unpack_bits(packed, nbits):
 
 
 class FpEncoder(nn.Module):
-    def __init__(self, nbits=10226, hidden=(1024, 512), out=256, dropout=0.1):
+    def __init__(self, nbits=10226, hidden=(1024, 512), out=256, dropout=0.1, in_drop=0.0):
         super().__init__()
-        self.nbits = nbits; dims = (nbits,) + tuple(hidden); layers = []
+        self.in_drop = in_drop; self.nbits = nbits; dims = (nbits,) + tuple(hidden); layers = []
         for a, b in zip(dims[:-1], dims[1:]):
             layers += [nn.Linear(a, b), nn.GELU(), nn.Dropout(dropout)]
         self.net = nn.Sequential(*layers, nn.Linear(dims[-1], out))
 
     def forward(self, packed):
         x = unpack_bits(packed, self.nbits).to(self.net[0].weight.dtype)
+        if self.training and self.in_drop > 0:
+            x = F.dropout(x, self.in_drop)
         return F.normalize(self.net(x).float(), dim=-1)
 
 
@@ -133,10 +137,10 @@ class Joint(nn.Module):
     pooled spectrum vector (BCE + 1 - cosine), the public recipe's objective, as a multi-task term."""
 
     def __init__(self, variant='fp', nbits=10226, d=256, layers=6, out=256, n_adduct=64, n_instr=8, temp=0.07, hidden=(1024, 512), loss='nce', w_m2s=0.25, margin=0.2, fix_temp=False,
-                 w_aux=0.0, **spec_kw):
+                 w_aux=0.0, fp_drop=0.0, **spec_kw):
         super().__init__()
         self.variant = variant; self.spec = SpecEncoder(d=d, layers=layers, out=out, n_adduct=n_adduct, n_instr=n_instr, **spec_kw)
-        self.struct = FpEncoder(nbits, hidden=tuple(hidden), out=out) if variant == 'fp' else GraphEncoder(out=out)
+        self.struct = FpEncoder(nbits, hidden=tuple(hidden), out=out, in_drop=fp_drop, dropout=spec_kw.get('dropout', 0.1)) if variant == 'fp' else GraphEncoder(out=out)
         self.loss = loss; self.w_m2s = w_m2s; self.margin = margin; self.w_aux = w_aux; self.nbits = nbits
         ls = torch.tensor(math.log(1.0 / temp))
         if fix_temp:

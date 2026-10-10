@@ -695,3 +695,21 @@ shift moves v33b by at most one or two answers locally and needs no correction (
 (`KEY_NOSTEREO`, off); engine 2 with 4 seeds and `N_ANALOG` 250 is flat; a library-split popularity count is inert
 (`popsplit`, `POP_SPLIT`, off); `FUSE_KRR` is monotone locally and moves the same lists as v34a and `FUSE_ALPHA` 0.3
 (`combo2`).
+
+2026-10-09: the new scoring regime, measured. v33b resubmitted unchanged scores **0.433** (0.442 before Kaggle's change of
+2026-10-07; the announced rerun of old submissions never landed). Against that baseline the probes of 10-08 read: v35a
++0.004, v48a +0.003, v44a −0.001, v47a −0.007, v46c −0.007; one answer between place 1 and 2 is 0.004 on the public
+part (about 124 molecules), so nothing there is distinguishable from v33b, and the reading "hidden answers are
+obscure" drawn from v44a / v46c is withdrawn. v59a (licence fix: CC BY ChEBI / LIPID MAPS set) **0.434**, the new
+reference; v54a (`FUSE_KRR` 1 + `FRAG_LAM` 0.25) **0.431**: the locally additive +0.011 does not show.
+Two diagnostic submissions of v59a: first row only **0.377**, first two rows **0.413**. So on the public part 37.7% of
+the answers are at rank 1, 7.2% at rank 2, ranks 3–25 carry 0.021 in total (about 10% of the molecules at the local
+mean reciprocal rank of such answers), and roughly 45% of the molecules have NO answer among our 25 rows (bounds 3% to
+49%). Where we list the answer at all we are right at rank 1 in about two cases of three; the loss is coverage, not
+ranking. Class fit with local profiles (`reviews/budget-2026-10-10.md`, `scratch/budget/b6_mix.py`): about 44% of the
+hidden answers behave like "in none of our candidate sources or never listed". Consequences: constants around the
+reference are closed for good; the open work is candidate coverage for answers outside the pool and the joint
+spectrum–structure model as selector (`train/joint/`, phase 1 running). Other studies of the day without a candidate:
+open MS/MS spectra dataset (93% already in train, `extlib`), metric-key votes and tail fill (answer affected in 0 lists,
+`keyvote`), more engine-2 representatives (flat), public 0.436 / 0.433 notebooks (nothing we lack, `pubdiff`), fewer
+spectra per molecule ("low-observation" means a small sample; no second regime mismatch, `lowobs`).
