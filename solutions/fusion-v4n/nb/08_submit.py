@@ -35,6 +35,29 @@ sub, FSTATS = fusion_core.build_submission(
     frag_scores=FRAG, add_score=ADD_SCORE,
     nostereo_key=fusion_core.make_nostereo_key(chem.score_key) if (CFG['KEY_NOSTEREO'] or CFG['FUSE_KEY_VOTE']) else None)
 fusion_core.validate(sub, list(samp.molecule_id))
+if CFG['GEN_ANALOG']:                      # analog generator channel: new structures placed into the final lists (slots or gated merge)
+    try:
+        _gp = gen_analog.PoolIndex(P.smiles, P.key, P.formula, P.fp_packed)
+        _gk = {}                           # SMILES -> metric key where a stage already computed it
+        for _b in BASE.values():
+            _gk.update(zip(_b[0], _b[1]))
+        for _p in list(PC.values()) + list(PC_DEEP.values()):
+            _gk.update(zip(_p.get('pc') or [], _p.get('pc_keys') or []))
+        for _e in ENG.values():
+            _gk.update(zip(_e.get('smiles') or [], _e.get('keys') or []))
+        _gl, GEN_STATS = gen_analog.run_channel(
+            list(sub.molecule_id), {m: [x for x in s.split(';') if x] for m, s in zip(sub.molecule_id, sub.smiles)}, BASE, GEN_Z, GEN_S1, _gp,
+            CFG['GEN_ANALOG'], pos=CFG['GEN_ANALOG_POS'], k=CFG['GEN_ANALOG_K'], fp_fn=lambda s: (lambda f: None if f is None else f[P.bits])(chem.raw_fingerprint(s)),
+            key_fn=chem.score_key, known_keys=_gk, strict=not IS_RERUN, force_gate=not (IS_RERUN or CFG['VALIDATION']), log=print)
+        _gs = sub.copy(); _gs['smiles'] = [';'.join(_gl[m]) for m in _gs.molecule_id]
+        fusion_core.validate(_gs, list(samp.molecule_id)); sub = _gs
+        log('GEN_ANALOG', GEN_STATS); FSTATS['gen_analog'] = GEN_STATS; dump('gen_analog', GEN_STATS)
+        if IS_RERUN and (GEN_STATS['failed'] > max(2, 0.02 * len(sub)) or (CFG['GEN_ANALOG'] == 'slots' and GEN_STATS['changed'] == 0)):
+            FAILS.append(f'analog generator: {GEN_STATS}'[:300])
+    except Exception as e:                 # scoring rerun: the fused lists stay as they are
+        if not IS_RERUN:
+            raise
+        print('GEN_ANALOG CHANNEL FAILED -> lists unchanged', repr(e)); FAILS.append('analog generator channel: ' + repr(e)[:200])
 if CFG['OUT_TOPK']:                        # diagnostic probe: keep only the first k rows of every list
     sub['smiles'] = [';'.join(x.split(';')[:int(CFG['OUT_TOPK'])]) for x in sub.smiles]
     log('OUT_TOPK: lists cut to', CFG['OUT_TOPK'])

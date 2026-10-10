@@ -56,7 +56,7 @@ FS_BANK = FS_VIEWS = None
 if CFG['RANKER'] in fs_pass.MODES:           # second engine pass below RANKER_LIB_GATE: fold-safe FPNet + the ranker fitted to it
     assert CFG['RANKER_LIB_GATE'] is not None, "RANKER 'fs' / 'fs_avg' needs RANKER_LIB_GATE (0.7)"
     from casmi import fpnet6
-    _fs = find('casmi26-fold-safe-fpnet/**/fpnet_fold0.pt')
+    _fs = find(CFG['RANKER_FS_NET'] or 'casmi26-fold-safe-fpnet/**/fpnet_fold0.pt')
     FS_BANK = fpnet.ModelBank([_fs], device=dev); FS_VIEWS = [fpnet6.ModelBank([_fs], device=dev)]
     OUR_RK = ranker_infer.OurRanker.load(os.path.dirname(find((CFG['RANKER_FS_DS'] or 'casmi26-ours-ranker-fs') + '/**/ranker_s0.txt')))
     _miss = [f for f in OUR_RK.features if not f.startswith(('x__', 'j__')) and f not in MAN['family_features']] +             [f for f in OUR_RK.features if f.startswith('x__') and f[3:] not in FEATURES]

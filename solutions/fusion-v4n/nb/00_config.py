@@ -22,6 +22,9 @@ CFG = dict(
                                   #   RANKER_LIB_GATE = hi); None = the same weight everywhere below the gate (v33b)
     RANKER_FS_DS=None,            # dataset folder of the fitted ranker; None = 'casmi26-ours-ranker-fs' (v33b). 'casmi26-ours-ranker-fs2'
                                   #   = the refit of reviews/fsranker2-2026-10-07.md
+    RANKER_FS_NET=None,           # glob (below /kaggle/input) of the fold-safe FPNet of the second pass; None = the public
+                                  #   'casmi26-fold-safe-fpnet/**/fpnet_fold0.pt' (v33b / v59a). 'casmi26-ours-fpnet-fs/**/fpnet_own_fs.pt' = our own
+                                  #   network (clean/train_fpnet.py, reviews/ownfp-2026-10-10.md); set RANKER_FS_DS to the ranker fitted on it
     ADDUCT_TIE=None,              # the public engine labels a polarity's merged spectrum with its most frequent adduct and breaks a
                                   #   tie by set order = the kernel's hash seed, so the base lists of tied molecules differ between
                                   #   sessions (reviews/determ-2026-10-07.md). 'train' = upstream's own rule of v1engine.merged_adduct
@@ -111,6 +114,16 @@ CFG = dict(
                                            #   casmi26-ours-adduct-prior), standardised over the list; 0 = off (reviews/newinfo-2026-10-08.md)
     PC_FWD_T1=None, PC_FWD_N=25,           # PubChem proposals get the early slots when the best one beats every
                                            #   same-formula base candidate in ICEBERG and GLACIER by more than this (0.0)
+    FWD_GL_ALONE=False,                    # robustness: a molecule without an ICEBERG score but with GLACIER scores (ICEBERG crashed or
+                                           #   hit ICE_BUDGET) is re-ranked by GLACIER alone instead of losing both models and falling to
+                                           #   the fragment 'gap' term; changes nothing while ICEBERG is healthy
+                                           #   (docs/landscape/canqiang-e006-2026-10-10.md)
+    # --- analog generator channel (nb/embed/gen_analog.py, reviews/gen3-2026-10-10.md); None = off
+    GEN_ANALOG=None,              # 'slots' = up to GEN_ANALOG_K new structures (one rule step from the best fingerprint-ranked pool
+                                  #   parents, formulas of the base list) take the positions from GEN_ANALOG_POS of the final list |
+                                  #   'gate' = they compete by a fitted probability, only below lib_max 0.7 and below a top score of the
+                                  #   fold-safe ranker (needs RANKER 'fs' / 'fs_avg'). After the fusion; one CPU core, about 1 s per molecule
+    GEN_ANALOG_POS=6, GEN_ANALOG_K=5,
     # --- validation mode (commit runs only; the scoring rerun ignores it): hold out VAL_LIB structures, drop ALL
     #     their spectra from the library, score them as the test set -> stage_cache/val_labels.csv
     VALIDATION=False, VAL_LIB='enveda-np-examples', VAL_N=250, VAL_SEED=0, VAL_MAX_SPEC=16,

@@ -1,0 +1,3 @@
+{
+  "VERSION": "v62b-v59a-gen-analog-pos11", "POP_MU": 0.25, "FRAG_LAM": 0.5, "FRAG_MODE": "gap", "ICE_LAM_LIB": 0.0, "GL_LAM_LIB": 0.0, "PC_JOIN_N": 100, "PC_JOIN_MAX_LIB": 0.7, "ICE_LAM": 0.75, "GL_LAM": 0.75, "RANKER": "fs_avg", "RANKER_LIB_GATE": 0.7, "GEN_ANALOG": "slots", "GEN_ANALOG_POS": 11, "GEN_ANALOG_K": 5
+}

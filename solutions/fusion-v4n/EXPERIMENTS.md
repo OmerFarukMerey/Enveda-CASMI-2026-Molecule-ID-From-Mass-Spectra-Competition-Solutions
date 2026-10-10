@@ -713,3 +713,16 @@ spectrum–structure model as selector (`train/joint/`, phase 1 running). Other 
 open MS/MS spectra dataset (93% already in train, `extlib`), metric-key votes and tail fill (answer affected in 0 lists,
 `keyvote`), more engine-2 representatives (flat), public 0.436 / 0.433 notebooks (nothing we lack, `pubdiff`), fewer
 spectra per molecule ("low-observation" means a small sample; no second regime mismatch, `lowobs`).
+
+2026-10-10: coverage, first leaderboard test. v62a (generated one-step analogs, five rows from position 6) **0.433** and
+v62b (from position 11) **0.434**, against v59a 0.434: no answer gained on the public part, none lost. The hidden
+answers that we do not list are not one biotransformation away from our best-ranked parents (the F-like end of
+`reviews/gen3-2026-10-10.md`), or the five slots are too few. Same day, without a candidate: our PubChem source is
+complete inside its filter and other catalogues add nothing (`coverage2`); a joint spectrum–structure model adds
++0.013 ± 0.004 to our ranker on DEV but nothing or less on Enveda spectra, gate failed (`joint1`); the public 0.440
+notebook (canqiang e006 = flexonafft v80 + ICEBERG-only re-rank where [M+H]+ is missing) has nothing we lack, and
+showed a hole of ours: GLACIER's scores are dropped when ICEBERG returns nothing (`FWD_GL_ALONE`, off; `canqiang-e006`).
+Licences: the host cleared datasets that are non-commercial only by inheritance from train.parquet, PubChem and COCONUT
+(thread 745072, 2026-10-09); open: code without a licence, training-code delivery, prvsiyan's CC BY-NC-SA sets
+(`docs/competition/clean-chain-plan-2026-10-10.md`). Running: own fold-safe fingerprint nets (`clean/`), an ensemble
+with the e006 pipeline.

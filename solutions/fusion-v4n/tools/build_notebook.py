@@ -81,6 +81,8 @@ def main():
         datasets.append(OUR_RANKER.format(user=user or 'YOUR_KAGGLE_USERNAME'))
     if over_all.get('RANKER') in ('fs', 'fs_avg'):          # the ranker fitted to the fold-safe FPNet's features (private dataset)
         datasets.append((user or 'YOUR_KAGGLE_USERNAME') + '/' + (over_all.get('RANKER_FS_DS') or 'casmi26-ours-ranker-fs'))
+    if over_all.get('RANKER') in ('fs', 'fs_avg') and over_all.get('RANKER_FS_NET'):     # our own fold-safe network (private dataset)
+        datasets.append((user or 'YOUR_KAGGLE_USERNAME') + '/' + str(over_all['RANKER_FS_NET']).split('/')[0])
     if over_all.get('PC_MODELS') == 'hn':
         datasets.append((user or 'YOUR_KAGGLE_USERNAME') + '/casmi26-fpnet-pc-hn')
     if over_all.get('ADD_JOIN_MU'):                         # models of the adduct-evidence term (private dataset, nb/embed/adduct_prior.py)

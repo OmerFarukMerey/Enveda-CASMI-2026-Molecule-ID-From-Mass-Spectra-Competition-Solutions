@@ -69,6 +69,8 @@ Public leaderboard (MRR@25). Best so far: **0.442** (v33b). Folders with the exa
 | 43 | 10-09 | fusion-v4n | v60a | probe: first row only | 0.377 | |
 | 44 | 10-09 | fusion-v4n | v60b | probe: first two rows only | 0.413 | |
 | 45 | 10-09 | fusion-v4n | v54a | v59a with fusion constant 1 and fragment weight 0.25 | 0.431 | |
+| 46 | 10-10 | fusion-v4n | v62a | v59a + generated analogs, 5 rows from position 6 | 0.433 | |
+| 47 | 10-10 | fusion-v4n | v62b | v59a + generated analogs, 5 rows from position 11 | 0.434 | |
 
 ## Where things are
 

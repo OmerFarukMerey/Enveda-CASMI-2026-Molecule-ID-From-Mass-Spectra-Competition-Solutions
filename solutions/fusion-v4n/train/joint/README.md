@@ -5,7 +5,7 @@ Our own model of a different kind from the fingerprint network: spectra and stru
 trained contrastively with same-formula isomers as negatives; its score is meant to enter the fold-safe ranker
 (`RANKER 'fs_avg'`, v33b) as new features. This folder holds the benchmark every run is judged on, the data plumbing
 and a small reference model. Nothing here runs on Kaggle yet. Only `train.parquet`, the public pool tables and the
-PubChem tier are read (no NIST). Report of phase 0: `reviews/joint0-2026-10-09.md`.
+PubChem tier are read (no NIST). Report of phase 0: `reviews/joint0-2026-10-09.md`; of phase 1 (ablations, gate failed on DEV): `reviews/joint1-2026-10-10.md`.
 
 ## Files
 | File | What it is |
@@ -18,6 +18,10 @@ PubChem tier are read (no NIST). Report of phase 0: `reviews/joint0-2026-10-09.m
 | `graphs.py` | SMILES to graph arrays for the GNN variant (no torch-geometric) |
 | `model.py` | peak-set transformer, fingerprint MLP, GNN, InfoNCE |
 | `train_joint.py` | modes `load` / `bench` / `train` / `score`; shared GPU through `../gpushare.py`, resume, GPU ledger |
+| `eval_feature.py` | phase 1: ranks under every order stored per run, primary metric (added-feature gain, mean of c2J and dropJ) with molecule-bootstrap SE, run-to-run comparison, strata |
+| `run_queue.py` | phase 1: detached queue (train with resume and yield, score DEV, evaluate), ledger, budget guard, `--status` |
+| `selbench.py` | the model as selector of PubChem-only candidates: R@k when it re-ranks the stored deep PubChem lists of DEV (CPU) |
+| `selwin.py` | the same over whole PubChem mass windows on a sub-sample (fingerprints every window row; CPU) |
 
 Tests (no competition data): `tests/test_joint_bench.py`, `tests/test_joint_data.py`.
 
@@ -72,3 +76,14 @@ $P $J/bench.py --scores $CASMI_DATA/joint/runs/abl_x/scores_dev.parquet --as_fea
 yielded (wrap with `../guard_run.py`). `--frac` trains on a fixed subset of the molecules. Every GPU process appends
 its wall seconds to `joint/gpu_ledger.jsonl`. Batch 256 with K 15 needs up to 7.9 GB under the 8 GB cap; batch 384
 does not fit (GNN: batch 128).
+
+## Phase 1 (ablation loop)
+`train_joint.py` gained the ablation flags (`--neg_mode`, `--mined`, `--loss`, `--temp/--fix_temp`, `--agg`, `--mz_embed`, `--no_nl`,
+`--no_meta`, `--hidden`, `--layers`, `--w_aux`, `--fp_drop`, `--aug`, `--dropout`), `--comp_minutes` (a run is defined by GPU-busy
+time, so game mode and yields change the wall time only), `--out_root`, mode `mine`, and prints the leak-safety counts at the start
+of every training process. Defaults are the phase-0 reference.
+```bash
+$P $J/run_queue.py --root scratch/joint1 --start      # queue = scratch/joint1/queue.json; state per run in scratch/joint1/runs/<tag>
+$P $J/run_queue.py --root scratch/joint1 --status
+$P $J/selbench.py --ckpt <run>/last.pt --dir scratch/joint1/sel
+```

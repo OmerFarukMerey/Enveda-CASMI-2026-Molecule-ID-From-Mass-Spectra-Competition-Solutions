@@ -59,16 +59,18 @@ def recall(T, score, n_rec, by=None):
 def score(ckpt, d, threads=2, out=''):
     import torch
     import data as JD, train_joint as TJ
-    torch.set_num_threads(threads); ck = torch.load(ckpt, map_location='cpu', weights_only=False); a = argparse.Namespace(**ck['args']); TJ.model_args_from(a, ck['args'])
-    m, _ = TJ.build(a, 'cpu'); m.load_state_dict(ck['model']); m.eval(); T = pd.read_parquet(d + '/sel_dev.parquet'); fp = np.load(d + '/sel_fp.npy', mmap_mode='r')
+    torch.set_num_threads(threads); T = pd.read_parquet(d + '/sel_dev.parquet'); fp = np.load(d + '/sel_fp.npy', mmap_mode='r'); ckpts = ckpt.split(','); ckpt = ckpts[0]
     import bench
     DD = pd.read_parquet(P.DATA + '/budget/dev_drop.parquet').reset_index(); rec = DD[DD.in_tier.astype(bool)]; n_rec = len(rec)
     S = pd.read_parquet(P.BENCH + '/spectra.parquet'); mids = np.array(sorted(T.mid.unique())); mix = {x: i for i, x in enumerate(mids)}; S = S[S.mid.isin(mix)]
     rows = S.row.values; own = S.mid.map(mix).values; o = np.argsort(own, kind='stable'); D = JD.JointData(); t0 = time.time()
-    with torch.no_grad():
-        zm = TJ.embed_molecules(m, D, rows[o], own[o], len(mids), a, 'cpu'); E = torch.cat([m.struct(torch.as_tensor(np.asarray(fp[s:s + 8192]))) for s in range(0, len(fp), 8192)])
-        sc = (zm[torch.as_tensor(T.mid.map(mix).values)] * E[torch.as_tensor(T.ci.values)]).sum(1).numpy()
-    res = dict(n_record_answers=n_rec, molecules_with_list=int(len(mids)), step=ck['step'], s=time.time() - t0)
+    sc = 0.0
+    for c in ckpts:                                                              # several checkpoints: the mean of their scores
+        ck = torch.load(c, map_location='cpu', weights_only=False); a = argparse.Namespace(**ck['args']); TJ.model_args_from(a, ck['args']); m, _ = TJ.build(a, 'cpu'); m.load_state_dict(ck['model']); m.eval()
+        with torch.no_grad():
+            zm = TJ.embed_molecules(m, D, rows[o], own[o], len(mids), a, 'cpu'); E = torch.cat([m.struct(torch.as_tensor(np.array(fp[s:s + 8192]))) for s in range(0, len(fp), 8192)])
+            sc = sc + (zm[torch.as_tensor(T.mid.map(mix).values)] * E[torch.as_tensor(T.ci.values)]).sum(1).numpy() / len(ckpts)
+    res = dict(n_record_answers=n_rec, molecules_with_list=int(len(mids)), step=ck['step'], checkpoints=len(ckpts), s=time.time() - t0)
     res['stored_selection'], r0 = recall(T, -T.pos.values.astype(float), n_rec); res['model'], r1 = recall(T, sc, n_rec)
     T2 = T.assign(s=sc); rk = T2.groupby('mid').s.rank(ascending=False, method='first').values; res['rank_average'], r2 = recall(T, -(rk + T.pos.values + 1.0), n_rec)
     for lab, col in (('timsTOF', 'tims'), ('panel', 'panel'), ('nitrogen-free', 'nfree'), ('gate open (lib_max < 0.7)', None)):

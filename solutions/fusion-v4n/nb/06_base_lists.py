@@ -1,5 +1,11 @@
 # all molecules -> base lists: BASE[mid] = [smiles, keys, lib_max, ranker scores, formulas, pool ids] (top TOPN, key-deduped;
 # pool id < 0 = generated candidate)
+GEN_Z, GEN_S1 = {}, {}                       # GEN_ANALOG: FPNet logits and the fold-safe ranker's top score per molecule (empty when off)
+if CFG['GEN_ANALOG']:
+    import gen_analog
+    from casmi.spectra import merge_spectra as _gen_merge
+    assert CFG['GEN_ANALOG'] in gen_analog.MODES, CFG['GEN_ANALOG']
+    assert CFG['GEN_ANALOG'] != 'gate' or CFG['RANKER'] in fs_pass.MODES, "GEN_ANALOG 'gate' needs the fold-safe pass (RANKER 'fs' / 'fs_avg')"
 te = pd.read_parquet(os.path.join(COMP, 'test.parquet'))
 te['nm'] = chem.neutral_mass(te.precursor_mz.values.astype(np.float64), te.adduct.values)
 mols = list(te.groupby('molecule_id', sort=False))
@@ -101,6 +107,8 @@ for gi, (mid, sub) in enumerate(mols):
                             _out2 = {_n2 - len(_ji2) + t: d['pc_smiles'] for t, d in enumerate(_ji2)}
                             s2 = fs_pass.fs_score(OUR_RK, C2.formula, X2, F2, list(FEATURES), list(names2), inj2, pcr2)
                             assert np.all(np.isfinite(s2)), 'fold-safe ranker returned a non-finite score'
+                            if CFG['GEN_ANALOG']:
+                                GEN_S1[mid] = float(np.max(s2))
                             rows2 = fs_pass.entries(C2.key, [_out2.get(i, C2.smiles[i]) for i in range(_n2)], C2.formula,
                                                     [-2 if inj2[i] else int(C2.pid[i]) for i in range(_n2)], s2)
                             if CFG['RANKER'] == 'fs_avg':        # half weight to each chain (RANKER_FS_W / RANKER_FS_FADE: another weight)
@@ -122,6 +130,13 @@ for gi, (mid, sub) in enumerate(mols):
         except Exception as e:
             print('ERROR', mid, repr(e)); n_err += 1
     BASE[mid] = [smis, keys, lib_max, scs, forms, pids]
+    if CFG['GEN_ANALOG'] and smis:               # logits for the generator's parent ranking (the fold-safe model when it is loaded)
+        try:
+            GEN_Z[mid] = gen_analog.spectrum_logits(spectra, FS_BANK if FS_BANK is not None else bank, fpnet, chem, _gen_merge)
+        except Exception as e:
+            if not IS_RERUN:
+                raise
+            print('GEN_ANALOG LOGITS FAILED -> no generated rows', mid, repr(e))
     if (gi + 1) % 25 == 0 or gi == len(mols) - 1:
         try:                                  # resident memory: the join's per-SMILES caches grow with PC_JOIN_N
             import psutil; _rss = psutil.Process().memory_info().rss / 2 ** 30

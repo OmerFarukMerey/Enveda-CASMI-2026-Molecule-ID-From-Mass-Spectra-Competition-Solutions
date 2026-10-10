@@ -48,8 +48,12 @@ DEFAULTS = dict(LIB_TAU=0.9, REL_TH=600.0, SLOTS_AGG=[2, 4, 6, 8, 10], SLOTS_GEN
                                                        #   the popularity prior acts: f = z + POP_MU pop + NP_MU s; 0 = off
                 NP_JOIN_MU=0.0,                        # ... on joined PubChem rows (pool id -2): f = z + NP_JOIN_MU s, re-sorted among the
                                                        #   joined rows' own slots; 0 = off (reviews/nplike-2026-10-08.md)
-                ADD_JOIN_MU=0.0)                       # adduct-evidence term (add_score, per molecule) on joined PubChem rows, same
+                ADD_JOIN_MU=0.0,                       # adduct-evidence term (add_score, per molecule) on joined PubChem rows, same
                                                        #   arithmetic and slots as NP_JOIN_MU; 0 = off (reviews/newinfo-2026-10-08.md)
+                FWD_GL_ALONE=False)                    # robustness: a molecule WITHOUT an ICEBERG score but WITH GLACIER scores (ICEBERG crashed
+                                                       #   or stopped at its budget) is re-ranked by GLACIER alone in all three re-ranks and keeps
+                                                       #   the fragment 'gap' term out; off = the reference: no forward re-rank at all for it
+                                                       #   (docs/landscape/canqiang-e006-2026-10-10.md)
 
 
 def popularity_reorder(smis, keys, scs, forms, pids, pool_pop, mu):
@@ -280,7 +284,7 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
         if c['FRAG_LIB_OFF'] and lib_of_m.get(m, lib_of_m.get(str(m), 0.0)) >= GATE_TAU:
             return None
         if c['FRAG_MODE'] == 'gap':
-            if covered(ice):
+            if covered(ice) or (c['FWD_GL_ALONE'] and covered(gl)):
                 return None
             terms, lams = [fr], [c['FRAG_LAM']]
         else:
@@ -361,6 +365,19 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
                 smis, keys = s2, k2
             except Exception as e:
                 log('rerank failed', m, repr(e))
+        elif c['FWD_GL_ALONE'] and gl and gl_fuse is not None:   # no ICEBERG score for this molecule: GLACIER alone
+            try:
+                jrow = [p == -2 for p in pids] if (c['JOIN_FWD_A'] is not None and pids is not None) else None
+                if jrow and any(jrow):
+                    order = rerank_joined(smis, keys, scs, forms, [{}, gl], [ICE_LAM, GL_LAM], TOPN, jrow, float(c['JOIN_FWD_A']))
+                else:
+                    order = gl_fuse.rerank_multi(smis, keys, scs, forms, [{}, gl], [ICE_LAM, GL_LAM], top_n=TOPN)
+                s2 = [smis[i] for i in order]; k2 = [keys[i] for i in order]
+                st = stats.setdefault('gl_alone', {'molecules': 0, 'changed_top1': 0, 'pc': 0, 'fused': 0})
+                st['molecules'] += 1; st['changed_top1'] += int(bool(s2) and s2[0] != smis[0])
+                smis, keys = s2, k2
+            except Exception as e:
+                log('GLACIER-alone rerank failed', m, repr(e))
         try:
             o = frag_rerank(m, smis0, keys0, scs0, forms0, ice, gl, TOPN)
             if o is not None:
@@ -393,7 +410,8 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
         extra[m] = smis[25:]
         ICE_LAM, GL_LAM = lam_full                # the PubChem list below keeps the full weights
         p = pc.get(m) if c['ICE_PC'] else None
-        if ice_fuse is not None and p and p.get('pc') and lib_max < LIB_TAU and ice:
+        gl_alone = bool(c['FWD_GL_ALONE'] and gl and gl_fuse is not None and not covered(ice))
+        if ice_fuse is not None and p and p.get('pc') and lib_max < LIB_TAU and (ice or gl_alone):
             try:
                 if not p.get('pc_form'):
                     p['pc_form'] = [formula(x) for x in p['pc']]
@@ -403,6 +421,8 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
                 p['pc'] = [p['pc'][i] for i in o]; p['pc_keys'] = [p['pc_keys'][i] for i in o]
                 p['pc_fz'] = [fz0] + [p['pc_fz'][i] for i in o][1:]
                 stats['ice']['pc_changed'] = stats['ice'].get('pc_changed', 0) + int(o[:1] != [0])
+                if gl_alone:
+                    stats.setdefault('gl_alone', {'molecules': 0, 'changed_top1': 0, 'pc': 0, 'fused': 0})['pc'] += 1
             except Exception as e:
                 log('pc rerank failed', m, repr(e))
 
@@ -493,7 +513,8 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
                                     inj_of.get(mid), c['FUSE_INJ_CREDIT'], *(() if KVF is None else (KVF, c['FUSE_KEY_VOTE'] == 'compact')))
             ice = ice_scores.get(str(mid), {}) if isinstance(ice_scores, dict) else {}
             fsm0, fk0, fsc0 = fsm, fk, fsc
-            if ice and ice_fuse is not None:
+            gl_alone = bool(c['FWD_GL_ALONE'] and gl_fuse is not None and not covered(ice) and gl_of(mid))
+            if (ice or gl_alone) and ice_fuse is not None:
                 try:
                     forms = [formula(x) for x in fsm]
                     o = ice_fuse.rerank(fsm, fk, fsc, forms, ice, lam=P_ICE, top_n=len(fsm))
@@ -501,6 +522,8 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
                     if g and gl_fuse is not None:
                         o = gl_fuse.rerank_multi(fsm, fk, fsc, forms, [ice, g], [P_ICE, P_GL], top_n=len(fsm))
                     stats['fuse']['ice_reordered'] += int(o[:25] != list(range(min(25, len(o)))))
+                    if gl_alone:
+                        stats.setdefault('gl_alone', {'molecules': 0, 'changed_top1': 0, 'pc': 0, 'fused': 0})['fused'] += 1
                     fsm = [fsm[i] for i in o]
                 except Exception as ex:
                     log('fused ICE rerank failed', mid, repr(ex))
