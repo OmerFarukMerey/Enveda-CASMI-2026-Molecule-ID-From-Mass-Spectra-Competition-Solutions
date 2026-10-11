@@ -77,6 +77,8 @@ Public leaderboard (MRR@25). Best in the scoring regime in force since 2026-10-0
 | 51 | 10-11 | public rerun | **e006r** | public e006 notebook unchanged, CC BY ChEBI set | **0.443** | [folder](submissions/e006r-0.443/) |
 | 52 | 10-11 | fusion-v4n | v67a | e006's chain fed with our base list (join + rank average) | pending | |
 | 53 | 10-11 | fusion-v4n | v67b | v67a + promoted row kept first | pending | |
+| 54 | 10-11 | fusion-v4n | v67d | e006's chain + our PubChem join only | pending | |
+| 55 | 10-11 | fusion-v4n | v67e | e006's chain + our rank average only | pending | |
 
 ## Where things are
 
