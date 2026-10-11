@@ -19,7 +19,7 @@ See [solutions/README.md](solutions/README.md) for how a solution is laid out.
 
 ## Submissions and scores
 
-Public leaderboard (MRR@25). Best so far: **0.442** (v33b). Folders with the exact notebook, config and a detailed
+Public leaderboard (MRR@25). Best in the scoring regime in force since 2026-10-07: **0.443** (e006r, a rerun of the best public notebook with a licence-clean input; our own pipeline: v59a 0.434). Before the change: 0.442 (v33b). Folders with the exact notebook, config and a detailed
 `README.txt` are in [submissions/](submissions/); every row with its details is in [docs/experiments.md](docs/experiments.md).
 
 | # | Date | Solution | Version | Change | Public LB | Folder |
@@ -74,7 +74,9 @@ Public leaderboard (MRR@25). Best so far: **0.442** (v33b). Folders with the exa
 | 48 | 10-10 | fusion-v4n | v65c | v59a fused with the public e006 pipeline (weight 0.3) | 0.430 | |
 | 49 | 10-10 | fusion-v4n | v66a | v59a + e006's strong-branch promotion | 0.434 | |
 | 50 | 10-10 | fusion-v4n | v66c | v66a + popularity 0.10 on joined rows | 0.428 | |
-| 51 | 10-11 | public rerun | e006r | public e006 notebook unchanged, CC BY ChEBI set | pending | |
+| 51 | 10-11 | public rerun | **e006r** | public e006 notebook unchanged, CC BY ChEBI set | **0.443** | [folder](submissions/e006r-0.443/) |
+| 52 | 10-11 | fusion-v4n | v67a | e006's chain fed with our base list (join + rank average) | pending | |
+| 53 | 10-11 | fusion-v4n | v67b | v67a + promoted row kept first | pending | |
 
 ## Where things are
 

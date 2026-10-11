@@ -738,3 +738,8 @@ submitted on 10-11 to measure that. Prepared, not submitted: v67a / b / c (e006'
 the third-party net on all 11 hold-out subsets and on DEV / FINAL; the natural-product weakness is not the instrument
 (same structures on timsTOF and elsewhere: −0.019 ± 0.022) but isomer density among catalogue structures
 (`reviews/ownfp-2026-10-10.md`).
+
+2026-10-11: e006r, the public e006 notebook rerun unchanged with the CC BY ChEBI set, scores **0.443** (its page: 0.440;
+v59a 0.434). It is the baseline from here on (`submissions/e006r-0.443/`). Submitted on top of it the same day: v67a
+(its chain fed with our base list), v67b (plus the final promotion), and the two halves of v67a, v67d (join only) and
+v67e (rank average only), if their commit runs pass.
