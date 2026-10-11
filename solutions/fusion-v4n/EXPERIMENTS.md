@@ -602,3 +602,144 @@ signal (`reviews/param-search-2026-10-05.md`). Same-day studies that did not lea
 replay to the leaderboard (none; veto only), parameter search, joined-row verifier, their combination, the pair-tail
 ranker of engine 2, an NP-tuned engine-2 FPNet of our own, mass-window pruning, the Enveda panel regime (reviews of
 2026-10-05). Next on the same axis: weights 0.5 (replay: c2 +0.026, c1 +0.009, dA −0.004, dB −0.007, 19 exposed lists).
+
+Line search on the forward-model weights (`ICE_LAM` = `GL_LAM`, everything else v13a): 1.0 → 0.431 (v13a), 0.75 →
+**0.437** (v24a), 0.6 → 0.430 (v24c), 0.5 → 0.433 (v24b). The curve is not monotone on either side of 0.75, so the four
+points mostly measure the noise of a single submission, about ±0.004 here; the +0.006 of v24a is at the edge of it.
+0.75 stays as the best measured setting, and no further submissions go to this axis. Lesson for the next candidates:
+a single-knob change needs an expected effect well above 0.005 to be read off one submission.
+
+2026-10-06, evening: v33b scored **0.442**, +0.005 on v24a and the new best. v33b = v24a with, below `lib_max` 0.7, the
+base list from the rank average of the public ranker and a LightGBM ranker fitted to the fold-safe FPNet's features on
+molecules that bank has not seen (`RANKER=fs_avg`, `nb/embed/fs_pass.py`, dataset casmi26-ours-ranker-fs;
+`reviews/rankbank-2026-10-06.md`, `reviews/fsranker-2026-10-06.md`). The same day closed, all without a submission:
+adduct surrogates, fingerprint-bank ensembles, the DreaMS NP heads, the Enveda-180 Zenodo release as a library, a fix
+of the forward stage for molecules with extra adduct spectra, the generator join (reviews of 2026-10-06), and the
+teammate's fine-tuned GLACIER (0.414). What the day showed: better fingerprint models do not reach the list through
+the public ranker (it is fitted to the public models' features on molecules they memorised), but a ranker fitted in the
+unseen-molecule regime does. Found on the way: the public engine breaks merged-adduct ties by set order, so base lists
+differ between sessions for about a quarter of the molecules (a source of the ±0.004 leaderboard noise; not fixed yet).
+
+2026-10-07: v34a (v33b with `FWD_A_SCALE=[0,0]`: no ICEBERG / GLACIER term in the first re-rank of the base list) scored
+**0.431**, 0.011 below v33b: about three public molecules, outside the noise of one submission. Locally it was the cleanest
+candidate we ever had (all eight type cells positive on two sets, exposure 23 → 20, family-wise p 0.002;
+`reviews/fsranker2-2026-10-07.md`). The local sets therefore understate what the forward models contribute on the hidden
+test, in spite of the argument that their leak should make them look better locally; the same was already visible in
+the line search (0.6 → 0.430, 0.5 → 0.433) and in both fine-tuned forward models (0.401, 0.414): the stage is far more
+sensitive on the leaderboard than in any replay. Closed: weakening or removing forward-model terms. `FWD_A_SCALE` stays
+off. A teammate's run with `FUSE_ALPHA` 0.3 on v24a scored 0.406 (−0.031): the engine fusion at 0.6 also stays. The
+same day's studies: no ranker refit beats the production recipe and more training lists help slowly
+(`fsranker2`); engine 2's ranker rows contain the Enveda panel, so panel replays are in-sample for engine 2, and
+`FUSE_KRR` 1 is the one candidate left from the audit (`regime-audit`, preset v35a, not submitted); run-to-run
+variation inside the notebook is 0.0003 on 400 molecules, and the public leaderboard has about 130 molecules, so one
+answer moving between place 1 and 2 is 0.0038 (`determ`).
+
+2026-10-07, afternoon and evening. Two more submissions on v33b, neither above it.
+- v33a (`RANKER='fs'`: our fitted ranker alone below the gate) scored **0.434** (−0.008). With v24a (weight 0, 0.437) and
+  v33b (rank average, 0.442) the axis is closed: the two rankers complement each other and the average is the point to keep.
+- v40a (v33b + `FUSE_SKIP_LIB=0.97`, `POP_LIB_OFF`, `FRAG_LIB_OFF`) scored **0.442**, the same as v33b. It was submitted on
+  outside evidence (two forks of our public notebook moved this way, one at 0.426 against 0.421); the local replay, run
+  afterwards, showed composite −0.002 ± 0.001 (`reviews/libprotect-2026-10-07.md`). Neutral on the public leaderboard.
+  From here on every candidate is replayed locally BEFORE it is submitted.
+- Not submitted: v41a (v40a + `FP_BANK='ens'`). Local replay with the true `fpnet_full1` bank: v33b, v40a and v41a are
+  indistinguishable; `ens` alone is about +0.001, the protection about −0.002 (`reviews/fpens-2026-10-07.md`).
+Studies of the day that closed a direction: more training lists for our ranker (flat curve, `fsranker3`), a coherent
+leak-free chain for engine 2 from megayak's FPNets and rows (worse; his rows carry an answer-position leak, `eng2fs`),
+a local regime with nothing seen before the forward models (does not track the leaderboard: 5 of 11 signs, `uregime`),
+molecular networking among the test molecules (too sparse, oracle ceiling +0.004, `testnet`), DreaMS embedding
+similarity for analog search (not better than the v1 kernel, `dreamsim`). Open: FIORA (open weights, MIT, MSnLib) as a
+forward model for negative-mode-only molecules (`docs/landscape/forward-models-2026-10-07.md`), not downloaded yet.
+
+2026-10-08: more popularity loses. v44a (`POP_MU` 0.35) scored **0.432** (−0.010 on v33b) and v46c (v44a + in-group
+prior below the library gate) **0.426** (−0.016). Both were replayed locally first: v44a +0.0035 ± 0.0016 on the Enveda
+panel and +0.0008 on the mixed natural products; v46c +0.016 on the panel, +0.002 mixed, −0.003 on the less famous half,
+pooled null p 0.0008 (`reviews/popmu-2026-10-07.md`, `popgroup-2026-10-08.md`). The leaderboard is monotone the other way
+(0.25: 0.442, 0.35: 0.432, plus in-group: 0.426), each step well outside one answer (0.0038): the hidden answers are far
+less famous than any local set, as the circularity check had warned (in the bottom count quartile 45 to 78% of the
+prior's signal comes from the library deposit itself, `reviews/popmodel-2026-10-08.md`). Closed: strengthening the
+popularity prior in any form. Open question raised by the size of the loss: whether 0.25, chosen on an earlier chain
+without the join and without our ranker (0.15 → 0.25 gave +0.005 then), is now too high; to be replayed locally before
+anything is proposed. Studies of the day before: fitted popularity model (its gain is one membership flag; loses in the
+replay), availability / vendor signal (adds nothing over the substance count), FIORA for negative mode (at chance on
+natural products), a third ranker in the average (no diversity beyond reweighting), inference of the hidden fame
+profile from past scores (not identifiable).
+
+2026-10-08, after the two popularity losses: six studies, no candidate. None was submitted.
+- `poplow`: a weaker prior (`POP_MU` 0.15, preset v47a) loses locally (−0.004 ± 0.002 on both sets); it gains only when
+  the answer's own fame is masked. `obscure`: restricting or reweighting the local sets to little-documented answers does
+  not make them track the leaderboard better (8 and 5 of 14 signs on the full sets; no subset interval excludes zero), so
+  fame is not the one variable, and v47a stays unsupported (−0.004 on every real stratum).
+- `nplike`: structure-only natural-product-likeness (RDKit NP_Score, own COCONUT-against-PubChem model, leak closed) is at
+  chance on pool rows and weak on joined rows; 16 replay cells, none passes. Flags `NP_MU` / `NP_JOIN_MU` stay, default off.
+- `newinfo`: the data has no CCS, retention time, MS1 or batch id; row order, isotope peaks, base-peak intensity and a
+  source-organism prior carry nothing; the adduct set is real chemistry but too weak (`ADD_JOIN_MU`, preset v50a, not
+  recommended).
+- `metafit`: a final combiner fitted in the unseen regime (606 molecules) gains locally only by widening the join
+  (exposure 24 → 42 lists) or by picking constants that already lost on the leaderboard (forward weights 0.5, `POP_MU`
+  0.35); without those levers +0.002 ± 0.005. The hand-set constants are not measurably wrong.
+- `rankobs`: ranker variants that lean less on fame (inverse-fame weights, obscure-only training, dropped or residualised
+  feature families) do not beat a reseed of the production recipe on the obscure tercile; inverse-fame weights gain only
+  on answers without a PubChem record (+0.0085 ± 0.0039, four seeds) and are neutral in the full replay (preset v48a,
+  dataset not uploaded).
+
+2026-10-08, evening: three single-change probes on v33b, all below it. v35a (`FUSE_KRR` 1) **0.437**, v47a (`POP_MU` 0.15)
+**0.426**, v48a (inverse-fame ranker) **0.436**. Caveat that governs the reading: Kaggle changed the scoring on 2026-10-07
+(stereo stripped before the tautomer key at 21:32 UTC, one-electron fix of the hidden test's peak masses at 23:49 UTC;
+`docs/landscape/update-2026-10-08.md`) and announced a rerun of all submissions that had not landed by 2026-10-09 18:00
+UTC. v33b's 0.442 is from before the change; all five submissions since (0.432, 0.426, 0.437, 0.426, 0.436) are from
+after it, and every one is lower, including v48a, which is neutral locally. The popularity axis is non-monotone across
+the change (0.15: 0.426, 0.25: 0.442 old regime, 0.35: 0.432), which a regime offset of about −0.005 to −0.010 on v33b
+explains more simply than a sharp optimum at 0.25. Until v33b has a score in the new regime, none of the five deltas is
+interpretable; the next submission is v33b itself, unchanged. Other studies of the day (no candidate): the one-electron
+shift moves v33b by at most one or two answers locally and needs no correction (`emass`); stereo-collapsed rows 0 of 400
+(`KEY_NOSTEREO`, off); engine 2 with 4 seeds and `N_ANALOG` 250 is flat; a library-split popularity count is inert
+(`popsplit`, `POP_SPLIT`, off); `FUSE_KRR` is monotone locally and moves the same lists as v34a and `FUSE_ALPHA` 0.3
+(`combo2`).
+
+2026-10-09: the new scoring regime, measured. v33b resubmitted unchanged scores **0.433** (0.442 before Kaggle's change of
+2026-10-07; the announced rerun of old submissions never landed). Against that baseline the probes of 10-08 read: v35a
++0.004, v48a +0.003, v44a −0.001, v47a −0.007, v46c −0.007; one answer between place 1 and 2 is 0.004 on the public
+part (about 124 molecules), so nothing there is distinguishable from v33b, and the reading "hidden answers are
+obscure" drawn from v44a / v46c is withdrawn. v59a (licence fix: CC BY ChEBI / LIPID MAPS set) **0.434**, the new
+reference; v54a (`FUSE_KRR` 1 + `FRAG_LAM` 0.25) **0.431**: the locally additive +0.011 does not show.
+Two diagnostic submissions of v59a: first row only **0.377**, first two rows **0.413**. So on the public part 37.7% of
+the answers are at rank 1, 7.2% at rank 2, ranks 3–25 carry 0.021 in total (about 10% of the molecules at the local
+mean reciprocal rank of such answers), and roughly 45% of the molecules have NO answer among our 25 rows (bounds 3% to
+49%). Where we list the answer at all we are right at rank 1 in about two cases of three; the loss is coverage, not
+ranking. Class fit with local profiles (`reviews/budget-2026-10-10.md`, `scratch/budget/b6_mix.py`): about 44% of the
+hidden answers behave like "in none of our candidate sources or never listed". Consequences: constants around the
+reference are closed for good; the open work is candidate coverage for answers outside the pool and the joint
+spectrum–structure model as selector (`train/joint/`, phase 1 running). Other studies of the day without a candidate:
+open MS/MS spectra dataset (93% already in train, `extlib`), metric-key votes and tail fill (answer affected in 0 lists,
+`keyvote`), more engine-2 representatives (flat), public 0.436 / 0.433 notebooks (nothing we lack, `pubdiff`), fewer
+spectra per molecule ("low-observation" means a small sample; no second regime mismatch, `lowobs`).
+
+2026-10-10: coverage, first leaderboard test. v62a (generated one-step analogs, five rows from position 6) **0.433** and
+v62b (from position 11) **0.434**, against v59a 0.434: no answer gained on the public part, none lost. The hidden
+answers that we do not list are not one biotransformation away from our best-ranked parents (the F-like end of
+`reviews/gen3-2026-10-10.md`), or the five slots are too few. Same day, without a candidate: our PubChem source is
+complete inside its filter and other catalogues add nothing (`coverage2`); a joint spectrum–structure model adds
++0.013 ± 0.004 to our ranker on DEV but nothing or less on Enveda spectra, gate failed (`joint1`); the public 0.440
+notebook (canqiang e006 = flexonafft v80 + ICEBERG-only re-rank where [M+H]+ is missing) has nothing we lack, and
+showed a hole of ours: GLACIER's scores are dropped when ICEBERG returns nothing (`FWD_GL_ALONE`, off; `canqiang-e006`).
+Licences: the host cleared datasets that are non-commercial only by inheritance from train.parquet, PubChem and COCONUT
+(thread 745072, 2026-10-09); open: code without a licence, training-code delivery, prvsiyan's CC BY-NC-SA sets
+(`docs/competition/clean-chain-plan-2026-10-10.md`). Running: own fold-safe fingerprint nets (`clean/`), an ensemble
+with the e006 pipeline.
+
+2026-10-10, evening: three probes built on the public 0.440 notebook (canqiang e006), none above v59a (0.434).
+v65c (our list fused with e006's at weight 0.3) **0.430**; v66a (our pipeline + its strong-branch promotion) **0.434**:
+the promotion changed nothing, as with popularity masked locally; v66c (v66a + popularity 0.10 on joined rows)
+**0.428**: the joined-row popularity term costs. All differences are below one answer at rank 1 (0.008). A fusion
+scoring below both parents (0.434 and 0.440) says the two lists are not complementary on the public part, or that the
+public notebook's 0.440 is itself within noise of 0.434. e006r (the public notebook unchanged, CC BY ChEBI set) was
+submitted on 10-11 to measure that. Prepared, not submitted: v67a / b / c (e006's chain fed with our base list,
+`reviews/e006imp-2026-10-10.md`). Own fold-safe fingerprint net and refitted ranker (`clean/`, preset v63a): level with
+the third-party net on all 11 hold-out subsets and on DEV / FINAL; the natural-product weakness is not the instrument
+(same structures on timsTOF and elsewhere: −0.019 ± 0.022) but isomer density among catalogue structures
+(`reviews/ownfp-2026-10-10.md`).
+
+2026-10-11: e006r, the public e006 notebook rerun unchanged with the CC BY ChEBI set, scores **0.443** (its page: 0.440;
+v59a 0.434). It is the baseline from here on (`submissions/e006r-0.443/`). Submitted on top of it the same day: v67a
+(its chain fed with our base list), v67b (plus the final promotion), and the two halves of v67a, v67d (join only) and
+v67e (rank average only), if their commit runs pass.

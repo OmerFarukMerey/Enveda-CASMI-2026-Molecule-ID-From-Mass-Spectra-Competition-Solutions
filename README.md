@@ -12,14 +12,14 @@ tautomer-canonical InChIKey14. Final submission deadline: **2026-12-14**.
 
 | Solution | Owner | Idea | Public LB | Status |
 |---|---|---|---|---|
-| [`solutions/fusion-v4n`](solutions/fusion-v4n/) | Hemre | Reproduces the public 0.399 notebook (two engines + PubChem channel + ICEBERG/GLACIER isomer re-scoring + RRF fusion) with every knob in one config, stage dumps and a tested fusion core | **0.431** | v13a: v4b (popularity prior 0.25 + gap-mode MetFrag re-score + library gate) + PubChem join, 100 candidates |
+| [`solutions/fusion-v4n`](solutions/fusion-v4n/) | Hemre | The public 0.399 pipeline (two engines + PubChem channel + ICEBERG / GLACIER isomer re-scoring + rank fusion) rebuilt with every knob in one config, stage dumps, a tested fusion core and a local replay of the final stages; on top of it the PubChem join and a ranker fitted on molecules the fingerprint model has not seen | **0.442** | v33b: popularity prior + library gate (0.409) → PubChem join, 100 candidates (0.431) → forward-model weights 0.75 (0.437) → our ranker averaged in below the library gate (0.442). [How we got there](solutions/fusion-v4n/README.md#best-submission-public-lb-0442-v33b) |
 | `research/competition-analysis` (branch) | İlker | Built from scratch: leak-aware validation, library search, PubChem/COCONUT catalog, fragmentation ranking (Stage D) | 0.260 | active on its branch |
 
 See [solutions/README.md](solutions/README.md) for how a solution is laid out.
 
 ## Submissions and scores
 
-Public leaderboard (MRR@25). Best so far: **0.437** (v24a). Folders with the exact notebook, config and a detailed
+Public leaderboard (MRR@25). Best in the scoring regime in force since 2026-10-07: **0.443** (e006r, a rerun of the best public notebook with a licence-clean input; our own pipeline: v59a 0.434). Before the change: 0.442 (v33b). Folders with the exact notebook, config and a detailed
 `README.txt` are in [submissions/](submissions/); every row with its details is in [docs/experiments.md](docs/experiments.md).
 
 | # | Date | Solution | Version | Change | Public LB | Folder |
@@ -50,7 +50,33 @@ Public leaderboard (MRR@25). Best so far: **0.437** (v24a). Folders with the exa
 | 24 | 10-04 | fusion-v4n | v20a | v13a + fine-tuned ICEBERG intensity model | 0.401 | |
 | 25 | 10-04 | fusion-v4n | v19a | 200 candidates + confidence gate | 0.409 | |
 | 26 | 10-05 | fusion-v4n | v22a | v13a, joined candidates selected by a fine-tuned FPNet | 0.423 | |
-| 27 | 10-05 | fusion-v4n | **v24a** | v13a with ICEBERG / GLACIER weights 0.75 | **0.437** | [folder](submissions/fusion-v4n-v24a-0.437/) |
+| 27 | 10-05 | fusion-v4n | v24a | v13a with ICEBERG / GLACIER weights 0.75 | 0.437 | [folder](submissions/fusion-v4n-v24a-0.437/) |
+| 28 | 10-06 | fusion-v4n | v24b | v13a with ICEBERG / GLACIER weights 0.5 | 0.433 | |
+| 29 | 10-06 | fusion-v4n | v24c | v13a with ICEBERG / GLACIER weights 0.6 | 0.430 | |
+| 30 | 10-06 | fusion-v4n (teammate) | v24a-fmgl | v24a + fine-tuned GLACIER weights | 0.414 | |
+| 31 | 10-06 | fusion-v4n | **v33b** | v24a + our ranker (fitted on unseen molecules) averaged with the public one below the library gate | **0.442** | [folder](submissions/fusion-v4n-v33b-0.442/) |
+| 32 | 10-07 | fusion-v4n | v34a | v33b with the forward models off in the first re-rank of the base list | 0.431 | |
+| 33 | 10-07 | fusion-v4n (teammate) | – | v24a with the engine-2 fusion weight 0.6 → 0.3 | 0.406 | |
+| 34 | 10-07 | fusion-v4n | v33a | v33b with our ranker alone (no average) below the library gate | 0.434 | |
+| 35 | 10-07 | fusion-v4n | v40a | v33b + wider protection of library hits (no engine-2 fusion at lib_max ≥ 0.97, no popularity / fragment term) | 0.442 | |
+| 36 | 10-08 | fusion-v4n | v44a | v33b with the popularity prior at 0.35 | 0.432 | |
+| 37 | 10-08 | fusion-v4n | v46c | v44a + popularity prior inside same-formula groups below the library gate | 0.426 | |
+| 38 | 10-08 | fusion-v4n | v35a | v33b with the engine-2 rank fusion constant 3 → 1 | 0.437 | |
+| 39 | 10-08 | fusion-v4n | v47a | v33b with the popularity prior at 0.15 | 0.426 | |
+| 40 | 10-08 | fusion-v4n | v48a | v33b with our ranker refitted with inverse-fame weights | 0.436 | |
+| 41 | 10-09 | fusion-v4n | v33b again | row 31 unchanged, scored after Kaggle's scoring change of 10-07 | 0.433 | new-regime baseline |
+| 42 | 10-09 | fusion-v4n | v59a | v33b with the CC BY ChEBI / LIPID MAPS set (licence fix) | 0.434 | current reference |
+| 43 | 10-09 | fusion-v4n | v60a | probe: first row only | 0.377 | |
+| 44 | 10-09 | fusion-v4n | v60b | probe: first two rows only | 0.413 | |
+| 45 | 10-09 | fusion-v4n | v54a | v59a with fusion constant 1 and fragment weight 0.25 | 0.431 | |
+| 46 | 10-10 | fusion-v4n | v62a | v59a + generated analogs, 5 rows from position 6 | 0.433 | |
+| 47 | 10-10 | fusion-v4n | v62b | v59a + generated analogs, 5 rows from position 11 | 0.434 | |
+| 48 | 10-10 | fusion-v4n | v65c | v59a fused with the public e006 pipeline (weight 0.3) | 0.430 | |
+| 49 | 10-10 | fusion-v4n | v66a | v59a + e006's strong-branch promotion | 0.434 | |
+| 50 | 10-10 | fusion-v4n | v66c | v66a + popularity 0.10 on joined rows | 0.428 | |
+| 51 | 10-11 | public rerun | **e006r** | public e006 notebook unchanged, CC BY ChEBI set | **0.443** | [folder](submissions/e006r-0.443/) |
+| 52 | 10-11 | fusion-v4n | v67a | e006's chain fed with our base list (join + rank average) | pending | |
+| 53 | 10-11 | fusion-v4n | v67b | v67a + promoted row kept first | pending | |
 
 ## Where things are
 

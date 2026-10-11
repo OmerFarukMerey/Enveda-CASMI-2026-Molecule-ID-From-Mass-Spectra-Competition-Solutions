@@ -5,7 +5,7 @@ One self-contained approach per folder. Each approach can be copied to Kaggle on
 
 | Folder | Owner | Summary | Best public LB |
 |---|---|---|---|
-| [fusion-v4n/](fusion-v4n/) | Hemre | Public 0.399 notebook restructured: config-driven, stage dumps, tested fusion core; PubChem candidates ranked by the main engine | **0.431** |
+| [fusion-v4n/](fusion-v4n/) | Hemre | Public 0.399 notebook restructured: config-driven, stage dumps, tested fusion core; PubChem candidates ranked by the main engine; a ranker fitted on unseen molecules | **0.442** |
 | *(branch `research/competition-analysis`)* | İlker | From-scratch pipeline + leak-aware validation. Suggested home when merged: `solutions/research-pipeline/` | 0.260 |
 
 ## Layout contract (every solution)

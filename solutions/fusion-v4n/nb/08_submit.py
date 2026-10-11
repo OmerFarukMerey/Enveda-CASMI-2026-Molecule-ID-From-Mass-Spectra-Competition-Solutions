@@ -2,8 +2,9 @@
 samp = pd.read_csv(os.path.join(COMP, 'sample_submission.csv'))
 MOL_ORDER = list(te.molecule_id.unique())
 dump('meta', dict(mol_order=MOL_ORDER, sample_ids=list(samp.molecule_id), is_rerun=IS_RERUN, cfg=CFG))
+assert not (CFG['NP_MU'] or CFG['NP_JOIN_MU']), 'NP_MU / NP_JOIN_MU: no NP-likeness scorer is shipped (reviews/nplike-2026-10-08.md)'
 POOL_POP = None
-if CFG['POP_MU'] > 0:
+if CFG['POP_MU'] > 0 or (CFG['POP_GROUP_MU'] or 0) > 0:
     try:                                  # log1p(PubChem SIDs) + log1p(PubMed ids) per v2-pool row (pid order)
         _pp = os.path.dirname(find('casmi26-pubchem-popularity-prior/**/pool_lsid.npy'))
         POOL_POP = np.load(os.path.join(_pp, 'pool_lsid.npy')).astype(np.float64) + \
@@ -11,11 +12,74 @@ if CFG['POP_MU'] > 0:
         log('popularity prior loaded', _pp, POOL_POP.shape)
     except Exception as e:
         print('POPULARITY PRIOR UNAVAILABLE -> off:', repr(e))
+    if CFG['POP_SPLIT'] and POOL_POP is not None:
+        try:                              # substance count without spectral-library deposits on the rows of casmi26-pop-split
+            import pop_split
+            _ps = os.path.dirname(find('casmi26-pop-split/**/pool_split.parquet'))
+            POOL_POP, _n = pop_split.pool_pop(np.load(os.path.join(_pp, 'pool_lsid.npy')), np.load(os.path.join(_pp, 'pool_lpmid.npy')), _ps)
+            log('popularity prior: library deposits removed on', _n, 'pool rows', _ps)
+        except Exception as e:
+            print('POP_SPLIT UNAVAILABLE -> standard prior:', repr(e)); FAILS.append('pop split: ' + repr(e)[:200])
+ADD_SCORE = None
+if CFG['ADD_JOIN_MU'] > 0:
+    try:                                  # adduct-evidence scorer: models of casmi26-ours-adduct-prior + the adducts each molecule was acquired with
+        import adduct_prior
+        _ad = os.path.dirname(find('casmi26-ours-adduct-prior/**/adduct_H.txt'))
+        ADD_SCORE = adduct_prior.load(_ad, te.groupby('molecule_id').adduct.agg(lambda x: sorted(set(map(str, x)))).to_dict())
+        log('adduct-evidence scorer loaded', _ad, len(ADD_SCORE.y), 'molecules')
+    except Exception as e:
+        print('ADDUCT-EVIDENCE SCORER UNAVAILABLE -> off:', repr(e)); FAILS.append('adduct-evidence scorer: ' + repr(e)[:200])
+JOIN_POP, PC_POP_IN = None, None
+if CFG['JOIN_POP_MU'] > 0 or CFG['PC_PROMOTE'] is not None:
+    try:                                  # popularity of PubChem-tier rows (joined rows; first row of the popularity-ordered list)
+        import pc_pop_side
+        _tp = pc_pop_side.TierPop(PC_DIR, os.path.dirname(find('casmi26-pubchem-popularity-prior/**/pc_lsid.npy')))
+        _tg = {m: p.get('target') for m, p in PC.items()}
+        if CFG['JOIN_POP_MU'] > 0:
+            JOIN_POP, _st = pc_pop_side.join_pop_table(BASE, _tg, _tp)
+            log('JOIN_POP_MU', CFG['JOIN_POP_MU'], 'free' if CFG['JOIN_POP_FREE'] else 'slots', _st)
+            if _st['rows'] and _st['found'] < 0.9 * _st['rows']:
+                FAILS.append(f'joined-row popularity: {_st}'[:200])
+        if CFG['PC_PROMOTE'] is not None:
+            PC_POP_IN, _st = pc_pop_side.prep_pc_pop(PC_POP, _tp)
+            log('PC_PROMOTE', CFG['PC_PROMOTE'], CFG['PROM_STAGE'], _st)
+            if (IS_RERUN or CFG['VALIDATION']) and not PC_POP_IN:
+                FAILS.append('promotion: no popularity-ordered PubChem list')
+    except Exception as e:
+        JOIN_POP, PC_POP_IN = None, None
+        print('TIER POPULARITY UNAVAILABLE -> JOIN_POP_MU / PC_PROMOTE off:', repr(e)); FAILS.append('tier popularity: ' + repr(e)[:200])
 sub, FSTATS = fusion_core.build_submission(
     BASE, PC, ENG, ICE_SCORES, GL_SCORES, CFG, MOL_ORDER, list(samp.molecule_id),
     ice_fuse=ice_fuse, gl_fuse=gl_fuse, score_key=chem.score_key, formula=formula_of, log=print, pool_pop=POOL_POP,
-    frag_scores=FRAG)
+    frag_scores=FRAG, add_score=ADD_SCORE, join_pop=JOIN_POP, pc_pop=PC_POP_IN,
+    nostereo_key=fusion_core.make_nostereo_key(chem.score_key) if (CFG['KEY_NOSTEREO'] or CFG['FUSE_KEY_VOTE']) else None)
 fusion_core.validate(sub, list(samp.molecule_id))
+if CFG['GEN_ANALOG']:                      # analog generator channel: new structures placed into the final lists (slots or gated merge)
+    try:
+        _gp = gen_analog.PoolIndex(P.smiles, P.key, P.formula, P.fp_packed)
+        _gk = {}                           # SMILES -> metric key where a stage already computed it
+        for _b in BASE.values():
+            _gk.update(zip(_b[0], _b[1]))
+        for _p in list(PC.values()) + list(PC_DEEP.values()):
+            _gk.update(zip(_p.get('pc') or [], _p.get('pc_keys') or []))
+        for _e in ENG.values():
+            _gk.update(zip(_e.get('smiles') or [], _e.get('keys') or []))
+        _gl, GEN_STATS = gen_analog.run_channel(
+            list(sub.molecule_id), {m: [x for x in s.split(';') if x] for m, s in zip(sub.molecule_id, sub.smiles)}, BASE, GEN_Z, GEN_S1, _gp,
+            CFG['GEN_ANALOG'], pos=CFG['GEN_ANALOG_POS'], k=CFG['GEN_ANALOG_K'], fp_fn=lambda s: (lambda f: None if f is None else f[P.bits])(chem.raw_fingerprint(s)),
+            key_fn=chem.score_key, known_keys=_gk, strict=not IS_RERUN, force_gate=not (IS_RERUN or CFG['VALIDATION']), log=print)
+        _gs = sub.copy(); _gs['smiles'] = [';'.join(_gl[m]) for m in _gs.molecule_id]
+        fusion_core.validate(_gs, list(samp.molecule_id)); sub = _gs
+        log('GEN_ANALOG', GEN_STATS); FSTATS['gen_analog'] = GEN_STATS; dump('gen_analog', GEN_STATS)
+        if IS_RERUN and (GEN_STATS['failed'] > max(2, 0.02 * len(sub)) or (CFG['GEN_ANALOG'] == 'slots' and GEN_STATS['changed'] == 0)):
+            FAILS.append(f'analog generator: {GEN_STATS}'[:300])
+    except Exception as e:                 # scoring rerun: the fused lists stay as they are
+        if not IS_RERUN:
+            raise
+        print('GEN_ANALOG CHANNEL FAILED -> lists unchanged', repr(e)); FAILS.append('analog generator channel: ' + repr(e)[:200])
+if CFG['OUT_TOPK']:                        # diagnostic probe: keep only the first k rows of every list
+    sub['smiles'] = [';'.join(x.split(';')[:int(CFG['OUT_TOPK'])]) for x in sub.smiles]
+    log('OUT_TOPK: lists cut to', CFG['OUT_TOPK'])
 sub.to_csv(os.path.join(WORK, 'submission.csv'), index=False)
 json.dump(dict(version=CFG['VERSION'], secs=round(time.time() - T0), stats=FSTATS, n_errors=n_err, families=MAN['families'],
                gpu=torch.cuda.get_device_name(0) if dev == 'cuda' else None, cfg=CFG),

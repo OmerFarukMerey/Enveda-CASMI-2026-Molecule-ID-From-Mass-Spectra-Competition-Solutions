@@ -51,6 +51,26 @@ OUR_RK = None
 if CFG['RANKER'] in ('ours', 'blend'):
     OUR_RK = ranker_infer.OurRanker.load(os.path.dirname(find('casmi26-ours-ranker/**/features.json')))
     log('our ranker:', len(OUR_RK.features), 'features,', len(OUR_RK.boosters), 'boosters')
+import fs_pass
+FS_BANK = FS_VIEWS = None
+if CFG['RANKER'] in fs_pass.MODES:           # second engine pass below RANKER_LIB_GATE: fold-safe FPNet + the ranker fitted to it
+    assert CFG['RANKER_LIB_GATE'] is not None, "RANKER 'fs' / 'fs_avg' needs RANKER_LIB_GATE (0.7)"
+    from casmi import fpnet6
+    _fs = find(CFG['RANKER_FS_NET'] or 'casmi26-fold-safe-fpnet/**/fpnet_fold0.pt')
+    FS_BANK = fpnet.ModelBank([_fs], device=dev); FS_VIEWS = [fpnet6.ModelBank([_fs], device=dev)]
+    OUR_RK = ranker_infer.OurRanker.load(os.path.dirname(find((CFG['RANKER_FS_DS'] or 'casmi26-ours-ranker-fs') + '/**/ranker_s0.txt')))
+    _miss = [f for f in OUR_RK.features if not f.startswith(('x__', 'j__')) and f not in MAN['family_features']] +             [f for f in OUR_RK.features if f.startswith('x__') and f[3:] not in FEATURES]
+    assert not _miss, f'fold-safe ranker features the engine does not produce: {_miss}'
+    log('fold-safe pass:', CFG['RANKER'], 'below lib_max', CFG['RANKER_LIB_GATE'], '|', _fs, '| ranker', len(OUR_RK.features), 'features,',
+        len(OUR_RK.boosters), 'boosters')
+if CFG['ADDUCT_TIE'] is not None:            # merged-adduct tie of casmi/engine.py by an explicit key instead of set order (hash seed)
+    import casmi.engine as _engmod
+    determ.install(_engmod, E, CFG['ADDUCT_TIE'], merged=v1engine.merged_adduct)
+    if CFG['ADDUCT_TIE'] == 'mean':
+        for _b in (bank, FS_BANK):
+            if _b is not None:
+                determ.wrap_bank(_b, chem.adduct_index)
+    log('ADDUCT_TIE:', CFG['ADDUCT_TIE'], '| the engine holds the set-order expression exactly once')
 import pc_join
 if CFG['PC_JOIN_N'] > 0:
     from casmi import frag as fragmod

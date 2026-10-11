@@ -1,4 +1,4 @@
-fusion-v4n v24a: public LB 0.437 (team best on 2026-10-06)
+fusion-v4n v24a: public LB 0.437
 ==========================================================
 
 Submission

@@ -148,7 +148,8 @@ def build_pool(L, workers):
     cm = pickle.load(open(os.path.join(d, "coco_meta.pkl"), "rb"))
     co_fp = np.load(os.path.join(d, "coco_fp.npy")); co_mass = np.load(os.path.join(d, "coco_mass.npy"))
     co_keys = np.asarray(cm["keys"], dtype=object); co_smi = np.asarray(cm["smiles"], dtype=object)
-    # ADDED: ChEBI + LIPID MAPS (prvsiyan/chebi-lipidmaps-casmi26), same 6,930-bit packed fingerprints
+    # ADDED: ChEBI + LIPID MAPS (sergiomalv/casmi-chebi-lmsd-structures, CC BY 4.0; replaces the CC BY-NC-SA
+    # prvsiyan/chebi-lipidmaps-casmi26 since 2026-10-10), same 6,930-bit packed fingerprints
     bd = os.path.dirname(find("bio_fp.npy")); bm = pickle.load(open(os.path.join(bd, "bio_meta.pkl"), "rb"))
     bkeys = np.asarray(bm["keys"], dtype=object); bnew = ~pd.Series(bkeys).isin(set(co_keys)).values
     co_fp = np.vstack([co_fp, np.load(os.path.join(bd, "bio_fp.npy"))[bnew]])

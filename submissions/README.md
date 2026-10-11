@@ -11,7 +11,9 @@ One folder per submission worth keeping, named `<solution>-<version>-<public LB>
 
 | Folder | Public LB | Date | Change |
 |---|---|---|---|
-| [fusion-v4n-v24a-0.437](fusion-v4n-v24a-0.437/) | **0.437** | 2026-10-05 | v13a with ICEBERG / GLACIER weights 0.75 instead of 1.0 |
+| [e006r-0.443](e006r-0.443/) | **0.443** (new scoring regime) | 2026-10-11 | public notebook canqiang e006 rerun unchanged with the CC BY ChEBI / LIPID MAPS set; baseline from here on |
+| [fusion-v4n-v33b-0.442](fusion-v4n-v33b-0.442/) | **0.442** (old regime; 0.433 in the new one) | 2026-10-06 | v24a + a ranker fitted on unseen molecules, rank-averaged with the public one below the library gate |
+| [fusion-v4n-v24a-0.437](fusion-v4n-v24a-0.437/) | 0.437 | 2026-10-05 | v13a with ICEBERG / GLACIER weights 0.75 instead of 1.0 |
 | [fusion-v4n-v13a-0.431](fusion-v4n-v13a-0.431/) | 0.431 | 2026-10-03 | v12a with 100 PubChem candidates in the join |
 | [fusion-v4n-v12a-0.420](fusion-v4n-v12a-0.420/) | 0.420 | 2026-10-03 | v4b + PubChem join (50 candidates, `lib_max` < 0.7) |
 
