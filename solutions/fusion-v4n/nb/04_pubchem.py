@@ -45,6 +45,22 @@ if CFG['PC_JOIN_N'] > 0:                     # the join (nb/06) reads the deep l
     dump('pc_deep', PC_DEEP)
 log('pubchem lists', len(PC), '| deep lists for the join', len(PC_DEEP))
 dump('pc', PC)
+PC_POP = {}                                  # PC_PROMOTE: the popularity-ordered channel of the public line next to ours (own file)
+if CFG['PC_PROMOTE'] is not None and CFG['USE_PC']:
+    try:
+        _env3 = dict(_pc_env, CASMI_POP_DIR=os.path.dirname(find('casmi26-pubchem-popularity-prior/**/pc_lsid.npy')),
+                     CASMI_POP_LAM='0.25', CASMI_POP_UNION='200', CASMI_PC_K='25')
+        rr = subprocess.run([sys.executable, os.path.join(OURS, 'pc', 'pc_runner.py'), V3CODE, PCMOD, POOL_DIR, PC_DIR,
+                             os.path.join(COMP, 'test.parquet'), os.path.join(WORK, 'pc_lists_promote.json'), str(CFG['PC_WORKERS'])],
+                            capture_output=True, text=True, timeout=CFG['STAGE_TIMEOUT_S'], env=_env3)
+        print(rr.stdout[-1500:]); print(rr.stderr[-1500:])
+        PC_POP = json.load(open(os.path.join(WORK, 'pc_lists_promote.json')))
+        assert len(PC_POP) >= 0.9 * len(PC), (len(PC_POP), len(PC))
+    except Exception as e:
+        PC_POP = {}
+        print('PC PROMOTE CHANNEL FAILED -> no promotion:', repr(e)); FAILS.append('pc promote pass: ' + repr(e)[:200])
+    log('PC_PROMOTE: popularity-ordered lists', len(PC_POP))
+    dump('pc_promote', PC_POP)
 PC_ALT = {}                                  # VAL_EXTRAS: the same channel with the popularity prior, for local replay
 if CFG['VALIDATION'] and CFG['VAL_EXTRAS'] and CFG['USE_PC'] and not CFG['PC_POP_LAM'] > 0 and not IS_RERUN:
     try:
@@ -59,3 +75,5 @@ if CFG['VALIDATION'] and CFG['VAL_EXTRAS'] and CFG['USE_PC'] and not CFG['PC_POP
         print('PC ALT (popularity) FAILED:', repr(e))
     log('pubchem lists with popularity (extras)', len(PC_ALT))
     dump('pc_pop', PC_ALT)
+if PC_POP and not PC_ALT:                    # PC_PROMOTE: cell 07 sends the rows of PC_ALT to the forward models (its VAL_EXTRAS loop)
+    PC_ALT = PC_POP

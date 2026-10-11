@@ -30,3 +30,28 @@ derived table of [sergiomalv/casmi-pubchem-popularity](https://www.kaggle.com/da
 `sid - spec` enters the notebook: the substance records that were *not* deposited by MassBank Europe, MoNA, the NIST
 Mass Spectrometry Data Center or RIKEN NPDepo. No spectra and no NIST data are involved
 (`solutions/fusion-v4n/reviews/popsplit-2026-10-08.md`).
+
+Option `E006_FUSE` (off by default; presets `configs/v65a-v59a-e006-rrf.json`, `configs/v65b-v59a-e006-fill.json`) runs a second,
+complete public notebook inside ours and fuses the two submission tables
+(`solutions/fusion-v4n/reviews/e006-2026-10-10.md`):
+
+| Files | Origin |
+|---|---|
+| `solutions/fusion-v4n/reference/e006/casmi26-e006-window-40-ice-fallback-true.ipynb`, `kernel-metadata.json` (verbatim, as pulled on 2026-10-10; sha256 of the .ipynb `ee55b55c…9ad7e53`); its 30 code cells are embedded unchanged by `tools/build_notebook.py` when the option is set | [CASMI26 E006 Window 40 ICE Fallback True](https://www.kaggle.com/code/canqiang/casmi26-e006-window-40-ice-fallback-true), canqiang, version 1, **Apache License 2.0**. It is flexonafft's "public baseline adaptation experiments" v80 reproduced, on obstacledeveloper's "V1.1 metric audit and safe tail", bobthebot369's v18, wangpenghua's v29, ahmedberatozer's v3 / v4 inference notebooks and prvsiyan's analog-propagation pipeline, with the rule "ICEBERG where GLACIER has no score" from samanyu1808 (all public Apache-2.0 notebooks; the notebook's own credit cells are kept in the snapshot). Its copy of the official metric helpers comes from [metric/casmi-mean-reciprocal-rank](https://www.kaggle.com/code/metric/casmi-mean-reciprocal-rank) (Apache-2.0) |
+| `solutions/fusion-v4n/nb/embed/e006_stage.py`, `nb/09_e006.py` (ours) | our own code. At run time `e006_stage.script_from_cells` applies three marked text patches to the cells above (work folder `/kaggle/working/e006`; engine-2 lists handed over from our own run instead of a second engine-2 run; full run on request) and defines a no-op `display`. Stated here as the notice of modification that the licence asks for |
+
+Inputs: the snapshot's input `prvsiyan/chebi-lipidmaps-casmi26` (CC BY-NC-SA 4.0) is **not** used; the second pipeline reads
+`sergiomalv/casmi-chebi-lmsd-structures` (CC BY 4.0), as our own engine 2 does since v59a. `hengck23/hengck23-dreams-enveda-casmi26`
+(MIT) and `eveliaveldrine/rdkit-wheels` (Apache-2.0), attached by the original, are not attached to our combined notebook (never read
+on the pinned Python 3.12 image); the private stand-alone rerun `casmi26-e006r` (`scratch/e006/e006r/`) keeps them attached.
+A third preset of the same option, `configs/v65c-v59a-e006-rrf-w03.json` (the second table at weight 0.3, `E006_RRF_W`), uses the
+same snapshot and code path; nothing else is added.
+
+
+Option `E006_BASE` (off by default; presets `configs/v67a-e006-ours-base.json` and the other `v67*` files; `reviews/e006imp-2026-10-10.md`) runs
+the same embedded cells as the main pipeline with our own base lists. `e006_stage.script_improved` applies four more marked text patches to the
+cells at run time, each tagged `# ours: patch N` on the changed line and inert unless its environment variable is set: (4) our base list in
+place of the notebook's engine call for molecules handed over, (5) another threshold for the `rel > 250` branch of its promotion rule,
+(6) GLACIER on every covered spectrum instead of [M+H]+ only, (7) a row promoted by its popularity branch also leads the final list. This
+paragraph is the notice of modification for those patches (Apache License 2.0, section 4(b)); no file of the snapshot is changed on disk, and
+no dataset is added (the notebook's inputs are those of `configs/v59a-v33b-ccby.json`).

@@ -50,6 +50,17 @@ DEFAULTS = dict(LIB_TAU=0.9, REL_TH=600.0, SLOTS_AGG=[2, 4, 6, 8, 10], SLOTS_GEN
                                                        #   joined rows' own slots; 0 = off (reviews/nplike-2026-10-08.md)
                 ADD_JOIN_MU=0.0,                       # adduct-evidence term (add_score, per molecule) on joined PubChem rows, same
                                                        #   arithmetic and slots as NP_JOIN_MU; 0 = off (reviews/newinfo-2026-10-08.md)
+                JOIN_POP_MU=0.0,                       # popularity term on joined PubChem rows (pool id -2): f = z + JOIN_POP_MU x popularity of the
+                                                       #   row's PubChem-tier record (join_pop), the quantity POP_MU uses for pool rows; 0 = off
+                JOIN_POP_FREE=False,                   # ... False: joined rows are re-sorted among their own slots (never pass a pool row here);
+                                                       #   True: joined and pool rows are re-sorted together (reviews/graft-2026-10-10.md)
+                PC_PROMOTE=None,                       # the first row of the popularity-ordered PubChem list (pc_pop, after its forward re-rank) leads
+                                                       #   the list: 'e006' = the public rule (lib_max < LIB_TAU and ((S > PROM_S_TAU and popularity >=
+                                                       #   PROM_POP_TAU) or rel > PROM_REL)); 'strict' = popularity >= PROM_POP_TAU and PROM_MODEL says
+                                                       #   yes; 'observe' = features only, nothing moves. None = off
+                PROM_S_TAU=6.0, PROM_POP_TAU=5.0, PROM_REL=250.0,
+                PROM_STAGE='B',                        # 'B' = before the engine fusion (as in e006), 'C' = after it (final first row)
+                PROM_MODEL=None,                       # 'strict': dict(feat=[names], mean=[..], sd=[..], coef=[..], icpt=float, thr=float)
                 FWD_GL_ALONE=False)                    # robustness: a molecule WITHOUT an ICEBERG score but WITH GLACIER scores (ICEBERG crashed
                                                        #   or stopped at its budget) is re-ranked by GLACIER alone in all three re-ranks and keeps
                                                        #   the fragment 'gap' term out; off = the reference: no forward re-rank at all for it
@@ -84,6 +95,47 @@ def np_reorder(smis, keys, scs, forms, pids, pool_pop, mu, np_vals, np_mu, np_jo
         j_i = np.where(isj)[0]; o[j_i] = j_i[np.argsort(-f[j_i], kind='stable')]
     return ([smis[i] for i in o], [keys[i] for i in o], [float(f[i]) for i in o],
             [forms[i] + ('|gen' if isg[i] else '') for i in o], [int(pid[i]) for i in o])
+
+
+def popularity_reorder_join(smis, keys, scs, forms, pids, pool_pop, mu, jpop, jmu, free):
+    """popularity_reorder with a popularity term on joined PubChem rows (pid == -2): f = z + jmu * jpop (jpop: one value per row, None /
+    not finite = 0). free False: pool rows are re-sorted among the pool slots and joined rows among the joined slots; free True: both kinds
+    are re-sorted together. Generator products (pid == -1) keep their slots. mu = 0 or pool_pop None: no term on pool rows. Tags as before."""
+    s = np.asarray(scs, np.float64); z = (s - s.mean()) / (s.std() + 1e-9)
+    pid = np.asarray(pids); isg = pid < 0; isj = pid == -2
+    jv = np.nan_to_num(np.asarray([np.nan if x is None else float(x) for x in jpop], np.float64), nan=0.0, posinf=0.0, neginf=0.0)
+    pop = pool_pop[np.maximum(pid, 0)] if (mu and pool_pop is not None) else np.zeros(len(pid))
+    f = z + np.where(isg, 0.0, mu * pop) + np.where(isj, jmu * jv, 0.0)
+    o = np.arange(len(pid), dtype=np.int64)
+    if free:
+        i = np.where(~isg | isj)[0]; o[i] = i[np.argsort(-f[i], kind='stable')]
+    else:
+        i = np.where(~isg)[0]; o[i] = i[np.argsort(-f[i], kind='stable')]
+        i = np.where(isj)[0]; o[i] = i[np.argsort(-f[i], kind='stable')]
+    return ([smis[i] for i in o], [keys[i] for i in o], [float(f[i]) for i in o],
+            [forms[i] + ('|gen' if isg[i] else '') for i in o], [int(pid[i]) for i in o])
+
+
+def promote_decision(feat, cfg):
+    """PC_PROMOTE: does the first row of the popularity-ordered PubChem list lead? feat: dict(S, top_pop, rel, marg, gap, lib, in25)."""
+    mode = cfg['PC_PROMOTE']
+    if mode == 'e006':
+        return bool((feat['S'] is not None and feat['S'] > cfg['PROM_S_TAU'] and feat['top_pop'] >= cfg['PROM_POP_TAU']) or feat['rel'] > cfg['PROM_REL'])
+    if mode == 'strict':
+        M = cfg['PROM_MODEL']
+        if not M or feat['top_pop'] < cfg['PROM_POP_TAU']:
+            return False
+        x = np.asarray([float(feat[n] if feat[n] is not None else 0.0) for n in M['feat']], np.float64)
+        x = (x - np.asarray(M['mean'], np.float64)) / np.asarray(M['sd'], np.float64)
+        return bool(1.0 / (1.0 + np.exp(-(float(M['icpt']) + float(x @ np.asarray(M['coef'], np.float64))))) > float(M['thr']))
+    return False
+
+
+def promote_first(lst, row, key, n=25):
+    """row leads lst; a row of lst with the same key is moved to the front instead of being duplicated."""
+    k = key(row) or row
+    same = [x for x in lst if (key(x) or x) == k]
+    return ([same[0] if same else row] + [x for x in lst if (key(x) or x) != k])[:n]
 
 
 def pop_group_rerank(order_std, smis, keys, scores, formulas, pids, score_dicts, lams, pool_pop, mu, top_n, tie_eps=1e-9):
@@ -246,7 +298,7 @@ def fuse_rrf(v_smis, e_smis, e_keys, score_key, alpha, krr, n, credit=None, cred
 
 def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sample_ids,
                      ice_fuse=None, gl_fuse=None, score_key=None, formula=None, log=print, pool_pop=None,
-                     frag_scores=None, np_score=None, add_score=None, nostereo_key=None):
+                     frag_scores=None, np_score=None, add_score=None, nostereo_key=None, join_pop=None, pc_pop=None):
     """Returns (submission DataFrame in sample order, stats dict). Inputs are not mutated."""
     c = dict(DEFAULTS); c.update({k: v for k, v in cfg.items() if k in DEFAULTS})
     base = copy.deepcopy(base); pc = copy.deepcopy(pc) if isinstance(pc, dict) else {}
@@ -301,6 +353,9 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
         gll = c['GL_LAM_LIB'] if (lib and c['GL_LAM_LIB'] is not None) else c['GL_LAM']
         return il, gll
 
+    prom = {}                                    # PC_PROMOTE: {molecule: (row, features, decision)}
+    pc_pop = copy.deepcopy(pc_pop) if (c['PC_PROMOTE'] is not None and isinstance(pc_pop, dict)) else {}
+    _pkey = (lambda x: score_key(x)) if score_key is not None else (lambda x: x)
     extra = {}                                   # FILL_25: re-ranked base candidates beyond position 25
     inj_of = {}                                  # FUSE_INJ_CREDIT: joined PubChem rows (pool id -2) per molecule
     lib_of_m = {m: v[2] for m, v in base.items()}
@@ -338,7 +393,26 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
                     stats.setdefault('adduct', {'molecules': 0})['molecules'] += 1; np_on = True
             except Exception as e:
                 log('adduct-evidence term failed', m, repr(e))
-        if not np_on and (pop_on or pg_on) and pool_pop is not None and pids is not None and len(scs) > 1:
+        gap0 = 0.0                                # PC_PROMOTE feature: first-to-second gap of the ranker scores, in list sd
+        if c['PC_PROMOTE'] is not None and len(scs) > 1:
+            _s = np.asarray(scs, np.float64); _sd = float(_s.std()); gap0 = float((_s[0] - _s[1]) / _sd) if _sd > 0 else 0.0
+        jp_done = False
+        if (c['JOIN_POP_MU'] > 0 and join_pop is not None and not np_on and pids is not None and len(scs) > 1
+                and any(x == -2 for x in pids)):
+            try:                                  # popularity of joined PubChem rows; join_pop(m, smis) -> one value per row
+                jv = join_pop(m, smis) if callable(join_pop) else [(join_pop.get(m) or {}).get(x) for x in smis]
+                smis, keys, scs, forms, pids = popularity_reorder_join(
+                    smis, keys, scs, forms, pids, pool_pop, c['POP_MU'] if (pop_on and pool_pop is not None) else 0.0, jv,
+                    c['JOIN_POP_MU'], c['JOIN_POP_FREE'])
+                st = stats.setdefault('join_pop', {'molecules': 0, 'rows': 0, 'rows_found': 0})
+                st['molecules'] += 1; st['rows'] += sum(1 for x in pids if x == -2)
+                st['rows_found'] += sum(1 for x in jv if x is not None)
+                if pop_on and pool_pop is not None:
+                    stats.setdefault('pop', {'molecules': 0})['molecules'] += 1
+                jp_done = True
+            except Exception as e:
+                log('joined-row popularity term failed', m, repr(e))
+        if not jp_done and not np_on and (pop_on or pg_on) and pool_pop is not None and pids is not None and len(scs) > 1:
             try:                                  # pg_on without POP_MU: weight 0, the rows still get their '|gen' tags
                 smis, keys, scs, forms, pids = popularity_reorder(smis, keys, scs, forms, pids, pool_pop, c['POP_MU'] if pop_on else 0.0)
                 stats.setdefault('pop', {'molecules': 0})['molecules'] += 1
@@ -425,6 +499,25 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
                     stats.setdefault('gl_alone', {'molecules': 0, 'changed_top1': 0, 'pc': 0, 'fused': 0})['pc'] += 1
             except Exception as e:
                 log('pc rerank failed', m, repr(e))
+        q = pc_pop.get(m)
+        if q and q.get('pc') and lib_max < LIB_TAU:   # PC_PROMOTE: the popularity-ordered list, re-ranked as the PubChem list above
+            try:
+                S0 = q.get('S') if q.get('S') is not None else float(q['pc_fz'][0])
+                marg = float(q['pc_fz'][0] - q['pc_fz'][1]) if len(q['pc_fz']) > 1 else 0.0
+                bp = q.get('best_pool_fz'); top = q['fz_top'] if q.get('fz_top') is not None else q['pc_fz'][0]
+                rel = float(top - bp) if (bp is not None and np.isfinite(bp)) else 1e9
+                row = q['pc'][0]
+                if ice_fuse is not None and (ice or gl_alone):
+                    qf = q.get('pc_form') or [formula(x) for x in q['pc']]
+                    o = ice_fuse.rerank(q['pc'], q['pc_keys'], q['pc_fz'], qf, ice, lam=ICE_LAM, top_n=25)
+                    if gl and gl_fuse is not None:
+                        o = gl_fuse.rerank_multi(q['pc'], q['pc_keys'], q['pc_fz'], qf, [ice, gl], [ICE_LAM, GL_LAM], top_n=25)
+                    row = q['pc'][o[0]]
+                feat = dict(S=float(S0), top_pop=float(q.get('top_pop') or 0.0), rel=rel, marg=marg, gap=gap0, lib=float(lib_max),
+                            in25=int(_pkey(row) in set(keys[:25])), first_moved=int(row != q['pc'][0]))
+                prom[m] = (row, feat, promote_decision(feat, c))
+            except Exception as e:
+                log('promotion features failed', m, repr(e))
 
     # ---- stage B: gated PubChem merge
     rows = {}
@@ -450,6 +543,13 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
                     aggressive = True; ms['fwd_early'] = ms.get('fwd_early', 0) + 1
             ms['aggressive' if aggressive else 'gentle'] += 1
             final = merge(smis, keys, p['pc'], p['pc_keys'], c['SLOTS_AGG'] if aggressive else c['SLOTS_GENTLE'])
+        if mid in prom:
+            ps = stats.setdefault('promote', {'candidates': 0, 'promoted': 0, 'new_row': 0, 'already_first': 0, 'feat': {}})
+            ps['candidates'] += 1; ps['feat'][mid] = dict(prom[mid][1], row=prom[mid][0], fire=int(prom[mid][2]))
+            if prom[mid][2] and c['PROM_STAGE'] == 'B':
+                f2 = promote_first(final, prom[mid][0], _pkey)
+                ps['promoted'] += 1; ps['already_first'] += int(f2[:1] == final[:1]); ps['new_row'] += int(f2[0] not in final)
+                final = f2
         if not final:
             final = [c['FALLBACK']]
         rows[mid] = ';'.join(final[:25])
@@ -538,6 +638,10 @@ def build_submission(base, pc, eng, ice_scores, gl_scores, cfg, mol_order, sampl
             vs = fsm[:25] if NSK is None else ns_cut(fsm)[:25]
         elif NSK is not None:
             vs = ns_cut(vs)
+        if mid in prom and prom[mid][2] and c['PROM_STAGE'] == 'C':
+            ps = stats['promote']; f2 = promote_first(vs, prom[mid][0], _pkey)
+            ps['promoted'] += 1; ps['already_first'] += int(f2[:1] == vs[:1]); ps['new_row'] += int(f2[0] not in vs)
+            vs = f2
         vs = fill(mid, vs[:25])
         out.append((mid, ';'.join(vs[:25]) if vs else c['FALLBACK']))
     return pd.DataFrame(out, columns=['molecule_id', 'smiles']), stats

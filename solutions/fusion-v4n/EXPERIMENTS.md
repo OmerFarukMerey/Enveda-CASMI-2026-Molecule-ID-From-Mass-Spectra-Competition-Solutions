@@ -726,3 +726,15 @@ Licences: the host cleared datasets that are non-commercial only by inheritance 
 (thread 745072, 2026-10-09); open: code without a licence, training-code delivery, prvsiyan's CC BY-NC-SA sets
 (`docs/competition/clean-chain-plan-2026-10-10.md`). Running: own fold-safe fingerprint nets (`clean/`), an ensemble
 with the e006 pipeline.
+
+2026-10-10, evening: three probes built on the public 0.440 notebook (canqiang e006), none above v59a (0.434).
+v65c (our list fused with e006's at weight 0.3) **0.430**; v66a (our pipeline + its strong-branch promotion) **0.434**:
+the promotion changed nothing, as with popularity masked locally; v66c (v66a + popularity 0.10 on joined rows)
+**0.428**: the joined-row popularity term costs. All differences are below one answer at rank 1 (0.008). A fusion
+scoring below both parents (0.434 and 0.440) says the two lists are not complementary on the public part, or that the
+public notebook's 0.440 is itself within noise of 0.434. e006r (the public notebook unchanged, CC BY ChEBI set) was
+submitted on 10-11 to measure that. Prepared, not submitted: v67a / b / c (e006's chain fed with our base list,
+`reviews/e006imp-2026-10-10.md`). Own fold-safe fingerprint net and refitted ranker (`clean/`, preset v63a): level with
+the third-party net on all 11 hold-out subsets and on DEV / FINAL; the natural-product weakness is not the instrument
+(same structures on timsTOF and elsewhere: −0.019 ± 0.022) but isomer density among catalogue structures
+(`reviews/ownfp-2026-10-10.md`).

@@ -114,6 +114,17 @@ CFG = dict(
                                            #   casmi26-ours-adduct-prior), standardised over the list; 0 = off (reviews/newinfo-2026-10-08.md)
     PC_FWD_T1=None, PC_FWD_N=25,           # PubChem proposals get the early slots when the best one beats every
                                            #   same-formula base candidate in ICEBERG and GLACIER by more than this (0.0)
+    JOIN_POP_MU=0.0,                       # popularity term on joined PubChem rows: f = z + JOIN_POP_MU x (log1p substance count + log1p PubMed
+                                           #   count) of the row's PubChem-tier record (casmi26-pubchem-popularity-prior, the table POP_MU reads
+                                           #   for pool rows; nb/embed/pc_pop_side.py); 0 = off (reviews/graft-2026-10-10.md)
+    JOIN_POP_FREE=False,                   # ... False: joined rows re-sorted among their own slots; True: together with the pool rows
+    PC_PROMOTE=None,                       # 'e006' = the public line's promotion: a second PubChem-channel pass with the popularity prior
+                                           #   (0.25 / 200, about 1 h on the hidden set); its first row after the forward re-rank leads the list
+                                           #   when lib_max < LIB_TAU and ((S > PROM_S_TAU and popularity >= PROM_POP_TAU) or rel > PROM_REL) |
+                                           #   'strict' = PROM_MODEL decides | 'observe' = the pass runs, nothing moves. None = off
+    PROM_S_TAU=6.0, PROM_POP_TAU=5.0, PROM_REL=250.0,
+    PROM_STAGE='B',                        # 'B' = before the engine fusion (as in e006) | 'C' = after it (the row is the final first row)
+    PROM_MODEL=None,                       # 'strict': dict(feat, mean, sd, coef, icpt, thr) of a logistic model (reviews/graft-2026-10-10.md)
     FWD_GL_ALONE=False,                    # robustness: a molecule without an ICEBERG score but with GLACIER scores (ICEBERG crashed or
                                            #   hit ICE_BUDGET) is re-ranked by GLACIER alone instead of losing both models and falling to
                                            #   the fragment 'gap' term; changes nothing while ICEBERG is healthy
@@ -124,6 +135,28 @@ CFG = dict(
                                   #   'gate' = they compete by a fitted probability, only below lib_max 0.7 and below a top score of the
                                   #   fold-safe ranker (needs RANKER 'fs' / 'fs_avg'). After the fusion; one CPU core, about 1 s per molecule
     GEN_ANALOG_POS=6, GEN_ANALOG_K=5,
+    # --- second pipeline (nb/09_e006.py, nb/embed/e006_stage.py, reviews/e006-2026-10-10.md); None = off = nothing runs
+    E006_FUSE=None,               # 'rrf' | 'fill' | 'agree': after our own submission.csv is written, the public notebook "E006 Window 40
+                                  #   ICE Fallback True" (canqiang, Apache-2.0, 0.440; reference/e006/) runs as a script in its own folder and
+                                  #   its table is fused with ours on the metric key. 'rrf' = 1/(k + rank) summed over the two lists;
+                                  #   'fill' = ours first, their rows that are not in ours inserted from E006_FILL_POS; 'agree' = rows both
+                                  #   hold in their first five lead, the rest as 'rrf'. A failed or late stage keeps our own table
+    E006_RRF_K=3.0, E006_FILL_POS=6,
+    E006_RRF_W=1.0,               # 'rrf': weight of the second list, w/(k + rank); 1 = equal weights (the pre-registered rule, v65a)
+    E006_SHARE_ENG=True,          # hand the second pipeline our engine-2 lists (same embedded code and arguments) instead of a second run;
+                                  #   only when the ENG_* knobs are the reference's, otherwise it runs its own engine 2
+    E006_DEADLINE_S=27600,        # the second pipeline is stopped when the notebook has run this long (7 h 40 min); our table then stays
+    # --- "e006 improved" (nb/e006imp_stage.py, nb/e006imp_final.py, reviews/e006imp-2026-10-10.md); None = off = the two cells are not in the notebook
+    E006_BASE=None,               # 'ours' = the public notebook E006 (canqiang, Apache-2.0, 0.440) is the pipeline: after our base lists (cell 06)
+                                  #   its script runs with OUR base list in place of its own (join + rank average below the gates), everything
+                                  #   else by its own cells (its PubChem channel with popularity, slots, promotion, fusion, tail). Its table is
+                                  #   the submission; cells 07 / 08 then skip the forward models. A failed or late stage -> cells 07 / 08 run in
+                                  #   full and our own table (this preset without the option) is the submission
+    E006_BASE_DEADLINE_S=22200,   # the stage is stopped when the notebook has run this long (6 h 10 min): our own forward stage still fits
+    E006_PROM_REL=None,           # its promotion's `rel > 250` branch with another threshold (1e12 = branch off); None = its own 250
+    E006_GL_ALL=False,            # its GLACIER scores every covered spectrum instead of [M+H]+ only
+    E006_PROM_FINAL=False,        # a row promoted by its popularity branch leads the final list too (after its fusion, key vote, tail)
+    E006_JOIN_POP_MU=0.0,         # joined rows of the handed-over base list re-sorted among their own slots by z + this x popularity; 0 = off
     # --- validation mode (commit runs only; the scoring rerun ignores it): hold out VAL_LIB structures, drop ALL
     #     their spectra from the library, score them as the test set -> stage_cache/val_labels.csv
     VALIDATION=False, VAL_LIB='enveda-np-examples', VAL_N=250, VAL_SEED=0, VAL_MAX_SPEC=16,

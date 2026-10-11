@@ -56,6 +56,18 @@ def log(*a):
     print(time.strftime('%H:%M:%S'), *a, flush=True)
 
 
+def leave(code):
+    """End the process and its data workers. os._exit alone leaves the DataLoader's worker processes alive on Windows:
+    on 2026-10-10 24 such orphans (1.8 GB of committed memory each) grew the page file until drive C: was full."""
+    try:
+        import psutil
+        for c in psutil.Process().children(recursive=True):
+            c.kill()
+    except Exception:
+        pass
+    sys.stdout.flush(); os._exit(code)
+
+
 def groups_of(D, sel, n, rng):
     """(structure, polarity) query groups (<= 8 spectra) built from the selected spectra only; at most n groups."""
     g = {}
@@ -101,7 +113,7 @@ def window_eval(model, D, PFP, entries, share=None, bs=128, instr=False, yield_e
             if share is not None:
                 torch.cuda.synchronize(); share.tick(time.time() - ts)
                 if yield_exit and share.must_yield():
-                    log(f'YIELD: other processes hold {share.other:.1f} GB -> evaluation stopped'); sys.stdout.flush(); os._exit(YIELD_CODE)
+                    log(f'YIELD: other processes hold {share.other:.1f} GB -> evaluation stopped'); leave(YIELD_CODE)
     model.train()
     ranks = np.array(ranks); nwin = np.array(nwin)
     if not len(ranks):
@@ -222,7 +234,7 @@ def main(argv=None):
         share.poll()
         if share.must_yield():
             save_resume(); ledger('yield', step=step, other_gb=share.other)
-            log(f'YIELD: other processes hold {share.other:.1f} GB of GPU memory -> saved {rfile}, exiting'); sys.stdout.flush(); os._exit(YIELD_CODE)
+            log(f'YIELD: other processes hold {share.other:.1f} GB of GPU memory -> saved {rfile}, exiting'); leave(YIELD_CODE)
         tw = time.time(); arrs, pos, negs, ids = next(dl); wait += time.time() - tw
         ts = time.time()
         inp = tuple(a.cuda(non_blocking=True) for a in arrs)
@@ -248,12 +260,12 @@ def main(argv=None):
         for k, v in vals.items():
             ema[k] = v if k not in ema else 0.98 * ema[k] + 0.02 * v
         if not math.isfinite(vals['loss']):
-            log('non-finite loss at step', step); ledger('nan', step=step); return 1
+            log('non-finite loss at step', step); ledger('nan', step=step); leave(1)
         if step % 200 == 0:
             el_t = time.time() - t0
             log(f"step {step}/{args.max_steps} lr {lr:.2e} " + ' '.join(f'{k} {v:.4f}' for k, v in ema.items()) +
                 f" {(step - step0) / el_t:.2f} it/s data-wait {wait / el_t:.2f} duty {share.duty:.2f} gpu-mem {torch.cuda.max_memory_allocated() / 2**30:.1f} GB")
-        if step % 2000 == 0:
+        if step % 2000 == 0 and step < args.max_steps:      # the final checkpoint follows at the last step
             save_resume()
         if step % args.eval_every == 0 and step < args.max_steps:
             ev = eval_all(model, D, PFP, sets, share, args.instr)
@@ -273,7 +285,7 @@ def main(argv=None):
     if os.path.exists(rfile):
         os.remove(rfile)                                # the final checkpoint is kept, the resume state is not
     log('ALL_DONE', f'{active / 3600:.2f} h active, {hours:.2f} h wall')
-    sys.stdout.flush(); os._exit(0)
+    leave(0)
 
 
 if __name__ == '__main__':

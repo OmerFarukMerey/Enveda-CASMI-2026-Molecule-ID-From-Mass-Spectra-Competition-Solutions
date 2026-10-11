@@ -14,7 +14,7 @@ DESKTOP = (':\\windows\\', 'chrome', 'msedge', 'firefox', 'claude', 'tradingview
            'phoneexperiencehost', 'spotify', 'whatsapp', 'telegram', 'obs64', 'epicgameslauncher', 'battle.net.exe',
            'slack', 'teams', 'notion', 'cursor', 'powertoys', 'widgets', 'onedrive', 'dwm.exe', 'textinputhost',
            'razer', 'windowsapps\\microsoft.', 'copilot', 'logitech', 'corsair', 'msi', 'asus', 'armoury', 'icue',
-           'widgetboard', 'overwolf', 'geforce', 'radeon', 'wallpaper', 'lghub', 'steelseries', 'vanguard', 'anydesk', 'zoom')
+           'widgetboard', 'chatgpt', 'openai', 'codex', 'overwolf', 'geforce', 'radeon', 'wallpaper', 'lghub', 'steelseries', 'vanguard', 'anydesk', 'zoom')
 
 
 def below_normal():

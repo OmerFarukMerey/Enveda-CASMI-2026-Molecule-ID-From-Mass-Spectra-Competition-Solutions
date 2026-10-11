@@ -29,10 +29,29 @@ if CFG['ADD_JOIN_MU'] > 0:
         log('adduct-evidence scorer loaded', _ad, len(ADD_SCORE.y), 'molecules')
     except Exception as e:
         print('ADDUCT-EVIDENCE SCORER UNAVAILABLE -> off:', repr(e)); FAILS.append('adduct-evidence scorer: ' + repr(e)[:200])
+JOIN_POP, PC_POP_IN = None, None
+if CFG['JOIN_POP_MU'] > 0 or CFG['PC_PROMOTE'] is not None:
+    try:                                  # popularity of PubChem-tier rows (joined rows; first row of the popularity-ordered list)
+        import pc_pop_side
+        _tp = pc_pop_side.TierPop(PC_DIR, os.path.dirname(find('casmi26-pubchem-popularity-prior/**/pc_lsid.npy')))
+        _tg = {m: p.get('target') for m, p in PC.items()}
+        if CFG['JOIN_POP_MU'] > 0:
+            JOIN_POP, _st = pc_pop_side.join_pop_table(BASE, _tg, _tp)
+            log('JOIN_POP_MU', CFG['JOIN_POP_MU'], 'free' if CFG['JOIN_POP_FREE'] else 'slots', _st)
+            if _st['rows'] and _st['found'] < 0.9 * _st['rows']:
+                FAILS.append(f'joined-row popularity: {_st}'[:200])
+        if CFG['PC_PROMOTE'] is not None:
+            PC_POP_IN, _st = pc_pop_side.prep_pc_pop(PC_POP, _tp)
+            log('PC_PROMOTE', CFG['PC_PROMOTE'], CFG['PROM_STAGE'], _st)
+            if (IS_RERUN or CFG['VALIDATION']) and not PC_POP_IN:
+                FAILS.append('promotion: no popularity-ordered PubChem list')
+    except Exception as e:
+        JOIN_POP, PC_POP_IN = None, None
+        print('TIER POPULARITY UNAVAILABLE -> JOIN_POP_MU / PC_PROMOTE off:', repr(e)); FAILS.append('tier popularity: ' + repr(e)[:200])
 sub, FSTATS = fusion_core.build_submission(
     BASE, PC, ENG, ICE_SCORES, GL_SCORES, CFG, MOL_ORDER, list(samp.molecule_id),
     ice_fuse=ice_fuse, gl_fuse=gl_fuse, score_key=chem.score_key, formula=formula_of, log=print, pool_pop=POOL_POP,
-    frag_scores=FRAG, add_score=ADD_SCORE,
+    frag_scores=FRAG, add_score=ADD_SCORE, join_pop=JOIN_POP, pc_pop=PC_POP_IN,
     nostereo_key=fusion_core.make_nostereo_key(chem.score_key) if (CFG['KEY_NOSTEREO'] or CFG['FUSE_KEY_VOTE']) else None)
 fusion_core.validate(sub, list(samp.molecule_id))
 if CFG['GEN_ANALOG']:                      # analog generator channel: new structures placed into the final lists (slots or gated merge)

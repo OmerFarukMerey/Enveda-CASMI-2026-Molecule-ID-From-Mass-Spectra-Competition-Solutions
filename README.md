@@ -71,6 +71,10 @@ Public leaderboard (MRR@25). Best so far: **0.442** (v33b). Folders with the exa
 | 45 | 10-09 | fusion-v4n | v54a | v59a with fusion constant 1 and fragment weight 0.25 | 0.431 | |
 | 46 | 10-10 | fusion-v4n | v62a | v59a + generated analogs, 5 rows from position 6 | 0.433 | |
 | 47 | 10-10 | fusion-v4n | v62b | v59a + generated analogs, 5 rows from position 11 | 0.434 | |
+| 48 | 10-10 | fusion-v4n | v65c | v59a fused with the public e006 pipeline (weight 0.3) | 0.430 | |
+| 49 | 10-10 | fusion-v4n | v66a | v59a + e006's strong-branch promotion | 0.434 | |
+| 50 | 10-10 | fusion-v4n | v66c | v66a + popularity 0.10 on joined rows | 0.428 | |
+| 51 | 10-11 | public rerun | e006r | public e006 notebook unchanged, CC BY ChEBI set | pending | |
 
 ## Where things are
 
