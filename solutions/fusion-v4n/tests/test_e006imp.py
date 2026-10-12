@@ -11,7 +11,8 @@ Checks, without competition data:
   * the final promotion: the promoted row leads, a row with the same identity is moved instead of duplicated, 25 rows at most, the other
     rows keep their order, molecules without a popularity-branch promotion keep their row byte for byte;
   * the stage cell and the final cell executed with stubs: stage ok -> the script's table is the submission and cells 07 / 08 are told to
-    skip the forward models; stage failed / late / bad table / a fallback inside the script -> CFG untouched and our own table stays;
+    skip the forward models; stage failed / late / bad table / a fallback inside the script with E006_BASE_ON_FAIL 'ours' -> CFG untouched and our own table stays
+    (the other policies: tests/test_e006_onfail.py);
   * the presets v67a / v67b / v67c are v59a + FWD_GL_ALONE + the option(s); FWD_GL_ALONE itself changes nothing while ICEBERG is healthy
     (tests/test_fwd_gl_alone.py holds that check; here: the two presets' fusion_core output on a healthy synthetic run is identical).
 usage: python tests/test_e006imp.py   (or pytest)
@@ -81,7 +82,7 @@ def test_script_patches():
     compile(s1, 'e006imp', 'exec')
     assert s1.startswith(ES.PREAMBLE + ES.PREAMBLE_IMP) and s1.endswith(ES.POSTAMBLE_IMP)
     body = s1[len(ES.PREAMBLE + ES.PREAMBLE_IMP):-len(ES.POSTAMBLE_IMP)]
-    for old, new in ((ES.BASE_CALL, ES.BASE_CALL_NEW), (ES.REL_TEXT, ES.REL_TEXT_NEW), (ES.GL_LINE, ES.GL_LINE_NEW)):
+    for old, new in reversed(ES.improved_patches(work)):                        # patches 4 to 9 (8 / 9: validation folder, PubChem lists reused)
         assert body.count(new) == 1
         body = body.replace(new, old)
     assert ES.PREAMBLE + body == s0                                             # nothing else of the notebook is touched
@@ -154,7 +155,7 @@ def test_final_promotion():
 def run_cells(tmp, cfg_over, script_result, table=None, log_text=None):
     """nb/e006imp_stage.py and nb/e006imp_final.py with stubs. script_result = (returncode, status) of the stubbed script run."""
     import pandas as pd
-    cfg = dict(load_cfg(), E006_BASE='ours', FWD_GL_ALONE=True, **cfg_over)
+    cfg = dict(dict(load_cfg(), E006_BASE='ours', E006_BASE_ON_FAIL='ours', FWD_GL_ALONE=True), **cfg_over)   # 'ours' = the policy of 2026-10-11
     work = os.path.join(tmp, 'work'); comp = os.path.join(tmp, 'comp'); ours = os.path.join(tmp, 'ours')
     for d in (work, comp, os.path.join(ours, 'e006')):
         os.makedirs(d, exist_ok=True)
@@ -176,8 +177,9 @@ def run_cells(tmp, cfg_over, script_result, table=None, log_text=None):
     logs = []
     torch = types.SimpleNamespace(cuda=types.SimpleNamespace(empty_cache=lambda: None))
     import time
-    ns = dict(CFG=cfg, BASE=base, PC={}, ENG={'m1': 1}, FAILS=[], WORK=work, COMP=comp, OURS=ours, T0=time.time(), IS_RERUN=True, os=os, json=json, time=time,
-              pd=pd, torch=torch, fusion_core=FC, log=lambda *a: logs.append(a), dump=lambda *a: None, find=None, PC_DIR=None)
+    ns = dict(CFG=cfg, BASE=base, PC={}, ENG={'m1': 1}, FAILS=[], WORK=work, COMP=comp, OURS=ours, STAGE=os.path.join(work, 'stage_cache'), T0=time.time(),
+              IS_RERUN=True, os=os, json=json, time=time,
+              pd=pd, torch=torch, fusion_core=FC, log=lambda *a: logs.append(a), dump=lambda *a: None, find=None, PC_DIR=None, resources=lambda t: None)
     try:
         exec(compile(open(os.path.join(SOL, 'nb', 'e006imp_stage.py'), encoding='utf-8').read(), 'stage', 'exec'), ns)
         cfg_after_stage = dict(ns['CFG'])

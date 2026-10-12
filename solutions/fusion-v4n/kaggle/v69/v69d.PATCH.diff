@@ -1,0 +1,151 @@
+--- e006r/cell_overlay.py (last cell of submissions/e006r-0.443/notebook.ipynb)
++++ v69d/cell_overlay.py
+@@ -10,4 +10,97 @@
+     import math
+     from pathlib import Path
++
++    # ---- v69 (the ONLY change against e006r): one switch dict; window 40 and every flag False = e006 itself.
++    V69 = {'tag': 'v69d', 'window': 40, 'joint': False, 'shield': False, 'prom': True}
++    V69_STAT = {'joint_rows': 0, 'shield_rows': 0, 'prom_rows': 0, 'fallback': 0, 'changed': 0, 'changed_top1': 0, 'selftest': 'not run'}
++
++    def _v69_get(table, mid):
++        """Entry of a per-molecule dict whose keys may be str or not (BASE, PC)."""
++        if mid in table:
++            return table[mid]
++        return next((v for k, v in table.items() if str(k) == mid), None)
++
++    def _v69_finite(value):
++        try:
++            return value is not None and math.isfinite(float(value))
++        except (TypeError, ValueError):
++            return False
++
++    def _v69_complete_group_ice(candidates, keys, formulas, ice, gl):
++        """flexonafft v86: ICEBERG scores only for same-formula groups (>= 2 rows) whose every row has a finite ICEBERG and GLACIER score."""
++        groups = {}
++        for i, formula in enumerate(formulas):
++            groups.setdefault(formula, []).append(i)
++        accepted, n_groups = {}, 0
++        for indices in groups.values():
++            if len(indices) < 2:
++                continue
++            values = []
++            for i in indices:
++                a, b = ice.get(candidates[i]), gl.get(candidates[i])
++                if a is None:
++                    a = ice.get(keys[i])
++                if b is None:
++                    b = gl.get(keys[i])
++                if not _v69_finite(a) or not _v69_finite(b):
++                    break
++                values.append(float(a))
++            else:
++                n_groups += 1
++                accepted.update((candidates[i], v) for i, v in zip(indices, values))
++        return accepted, n_groups
++
++    def _v69_post(scope, mid, result, audit, v69, stat):
++        """Library shield (lib_max >= LIB_TAU: the row that led before the engine fusion stays first) and promoted row first
++        (lib_max < LIB_TAU and the popularity branch of the merge cell fired: its PubChem row leads the final list)."""
++        ident = scope['metric_identity']
++        b = _v69_get(scope['BASE'], mid)
++        if v69.get('shield') and audit['branch'] not in ('placeholder', 'no_engine'):
++            pf = [s for s in scope['PREFUSION_LISTS'].get(mid, []) if s and s != 'CCO']
++            if b is not None and b[2] >= scope['LIB_TAU'] and pf and result and result[0] != pf[0]:
++                id0 = ident(pf[0])
++                if id0 is not None:
++                    result = ([pf[0]] + [x for x in result if ident(x) != id0])[:25]
++                    stat['shield_rows'] += 1
++        if v69.get('prom'):
++            p = _v69_get(scope['PC'], mid)
++            if p and p.get('pc') and (b[2] if b is not None else 0.0) < scope['LIB_TAU']:
++                S, pop_top = p.get('S'), float(p.get('top_pop') or 0.0)
++                if S is not None and float(S) > scope['S_TAU'] and pop_top >= scope['POP_TAU']:
++                    top = p['pc'][0]
++                    id0 = ident(top)
++                    if id0 is not None and result and ident(result[0]) != id0:
++                        result = ([top] + [x for x in result if ident(x) != id0])[:25]
++                        stat['prom_rows'] += 1
++        return result
++
++    def _v69_selftest(scope):
++        """Runs in every run (also the 12-molecule commit run): the paths that the visible molecules cannot reach, on synthetic rows."""
++        acc, ng = _v69_complete_group_ice(['A', 'B', 'C', 'D'], ['a', 'b', 'c', 'd'], ['F', 'F', 'G', 'G'],
++                                          {'A': 0.1, 'b': 0.9, 'C': 0.5}, {'A': 0.5, 'B': 0.4, 'C': 0.3, 'D': float('nan')})
++        assert ng == 1 and acc == {'A': 0.1, 'B': 0.9}, (acc, ng)
++        order = scope['gl_fuse'].rerank_multi(['A', 'B', 'C'], ['a', 'b', 'c'], [3.0, 2.0, 1.0], ['F', 'F', 'G'],
++                                              [acc, {'A': 0.5, 'B': 0.4, 'C': 0.3}], [scope['ICE_LAM'], scope['GL_LAM']], top_n=3)
++        assert sorted(int(i) for i in order) == [0, 1, 2], order
++        fake = {'metric_identity': lambda s: s.lower(), 'LIB_TAU': 0.9, 'S_TAU': 6.0, 'POP_TAU': 5.0,
++                'BASE': {'hi': ([], [], 0.95), 'lo': ([], [], 0.2)}, 'PREFUSION_LISTS': {'hi': ['P', 'CCO', 'Q'], 'lo': ['P', 'Q']},
++                'PC': {'lo': {'pc': ['X', 'Y'], 'S': 7.5, 'top_pop': 6.0}, 'hi': {'pc': ['X'], 'S': 9.0, 'top_pop': 9.0}}}
++        st = {'shield_rows': 0, 'prom_rows': 0}
++        on = {'shield': True, 'prom': True}
++        assert _v69_post(fake, 'hi', ['Q', 'p', 'R'], {'branch': 'glacier'}, on, st) == ['P', 'Q', 'R']
++        assert _v69_post(fake, 'hi', ['Q', 'p', 'R'], {'branch': 'no_engine'}, on, st) == ['Q', 'p', 'R']
++        assert _v69_post(fake, 'lo', ['Q', 'x', 'R'], {'branch': 'glacier'}, on, st) == ['X', 'Q', 'R']
++        assert _v69_post(fake, 'lo', ['x', 'Q'], {'branch': 'glacier'}, on, st) == ['x', 'Q']
++        assert _v69_post(fake, 'zz', ['Q', 'R'], {'branch': 'glacier'}, on, st) == ['Q', 'R']
++        assert _v69_post(fake, 'lo', ['Q', 'x', 'R'], {'branch': 'glacier'}, {}, st) == ['Q', 'x', 'R']
++        assert st == {'shield_rows': 1, 'prom_rows': 1}, st
++
++    try:
++        _v69_selftest(scope)
++        V69_STAT['selftest'] = 'ok'
++    except Exception as exc:  # a failed self-test switches the patch off: the notebook then IS e006r
++        V69_STAT['selftest'] = 'FAILED ' + repr(exc)[:200]
++        V69 = dict(V69, window=40, joint=False, shield=False, prom=False)
++        print('V69_SELFTEST_FAILED patch switched off', repr(exc)[:300])
+ 
+ 
+@@ -25,5 +118,5 @@
+ 
+ 
+-    def rerank_row(scope, mid, original, *, window, ice_fallback, processed):
++    def rerank_row(scope, mid, original, *, window, ice_fallback, processed, v69=None):
+         """Rebuild final metric fusion from same-run prefusion and engine lists.
+ 
+@@ -73,4 +166,11 @@
+         )
+         before = list(candidates)
++        joint_ice = {}
++        if v69 and v69.get('joint') and ice and gl:
++            _b69 = _v69_get(scope['BASE'], mid)
++            if _b69 is not None and _b69[2] < scope['LIB_TAU']:
++                joint_ice, _ng69 = _v69_complete_group_ice(
++                    candidates, keys, [scope['_form2'](s) for s in candidates], ice, gl)
++                V69_STAT['joint_rows'] += _ng69 > 0
+         if ice and gl:
+             # Preserve v80's exact GL-present gate and GL-only score arguments.
+@@ -80,5 +180,5 @@
+                 scores,
+                 [scope["_form2"](s) for s in candidates],
+-                [{}, gl],
++                [joint_ice, gl],
+                 [scope["ICE_LAM"], scope["GL_LAM"]],
+                 top_n=len(candidates),
+@@ -147,4 +247,18 @@
+                 scope, mid, original, window=window, ice_fallback=ice_fallback, processed=active
+             )
++            if active and (V69['window'] != window or V69['joint'] or V69['shield'] or V69['prom']):
++                try:  # v69: the patched list; any failure keeps e006's untouched list of this molecule
++                    _r69, _a69 = rerank_row(scope, mid, original, window=V69['window'],
++                                            ice_fallback=ice_fallback, processed=active, v69=V69)
++                    _r69 = _v69_post(scope, mid, _r69, _a69, V69, V69_STAT)
++                    _i69 = [scope['metric_identity'](s) for s in _r69]
++                    if not 1 <= len(_r69) <= 25 or None in _i69 or len(_i69) != len(set(_i69)):
++                        raise ValueError('v69 list invalid')
++                    V69_STAT['changed'] += _r69 != result
++                    V69_STAT['changed_top1'] += _r69[:1] != result[:1]
++                    result, audit = _r69, _a69
++                except Exception as exc:
++                    V69_STAT['fallback'] += 1
++                    print('V69_FALLBACK', mid, repr(exc)[:200])
+             assert 1 <= len(result) <= 25
+             if active:
+@@ -193,4 +307,5 @@
+             json.dumps(report, indent=2, allow_nan=False) + "\n"
+         )
++        print("V69_PATCH", json.dumps(dict(V69, processed=len(processed), **V69_STAT)))
+         print("FACTORIAL_VERIFICATION", json.dumps(report))
+         return report

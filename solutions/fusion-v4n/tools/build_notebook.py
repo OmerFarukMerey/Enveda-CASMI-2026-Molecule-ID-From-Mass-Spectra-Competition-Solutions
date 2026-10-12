@@ -24,6 +24,13 @@ DATASETS = [   # the reference notebook's inputs, in its order
     'dmitriigluzdov/casmi26-pubchem-popularity-prior',   # POP_MU (off by default)
     'dmitriigluzdov/casmi26-fold-safe-fpnet',            # validation only: FP_BANK='fold0', VAL_SET='fold0_np'
 ]
+E006R_DATASETS = [   # E006_BASE 'e006': the inputs of casmi26-e006r (submissions/e006r-0.443/kernel-metadata.json), in its order
+    'prvsiyan/casmi26-fp-models-v2', 'dmitriigluzdov/casmi26-pubchem-popularity-prior', 'prvsiyan/casmi26-ranker-features',
+    'megayak/casmi26-simulated-ranker-rows', 'ahmedberatozer/casmi26-fpnet-full1', 'ahmedberatozer/casmi26-glacier', 'ahmedberatozer/casmi26-iceberg',
+    'ahmedberatozer/casmi26-pubchem-tier', 'ahmedberatozer/casmi26-v2-pool', 'ahmedberatozer/casmi26-v3-models', 'ahmedberatozer/casmi26-v4b-models',
+    'sergiomalv/casmi-chebi-lmsd-structures', 'prvsiyan/coconut-casmi26-candidates', 'hengck23/hengck23-dreams-enveda-casmi26',
+    'metric/rdkit-2026-3-3-wheel', 'eveliaveldrine/rdkit-wheels',
+]
 OUR_RANKER = '{user}/casmi26-ours-ranker'                # our own private dataset; attached only when RANKER needs it
 # the reference notebook's pinned environment (Python 3.12: the ICEBERG/GLACIER wheels are cp312)
 DOCKER_IMAGE = ('gcr.io/kaggle-private-byod/python@sha256:'
@@ -84,6 +91,8 @@ def main():
         assert not over_all.get('E006_FUSE'), 'E006_BASE and E006_FUSE are two different designs'
         ids = [c['id'] for c in cells]
         cells.insert(ids.index('06-base-lists') + 1, code_cell(open(os.path.join(NB, 'e006imp_stage.py'), encoding='utf-8').read(), 'e006imp-stage'))
+        if over_all['E006_BASE'] == 'e006':                   # the public notebook itself (baseline profile): none of our pipeline's cells
+            cells = [c for c in cells if not re.match(r'0[3-9]-', c['id'])]
         cells.append(code_cell(open(os.path.join(NB, 'e006imp_final.py'), encoding='utf-8').read(), 'e006imp-final'))
     if over_all.get('E006_FUSE') or over_all.get('E006_BASE'):   # the public notebook's cells ride along (nb/09_e006.py, nb/e006imp_stage.py)
         embed.update(e006_embed())
@@ -97,7 +106,7 @@ def main():
     json.dump(nb, open(os.path.join(out, code_file), 'w', encoding='utf-8'), indent=1)
 
     user = a.user or kaggle_user()
-    datasets = list(DATASETS)
+    datasets = list(E006R_DATASETS if over_all.get('E006_BASE') == 'e006' else DATASETS)
     if over_all.get('RANKER') in ('ours', 'blend'):
         datasets.append(OUR_RANKER.format(user=user or 'YOUR_KAGGLE_USERNAME'))
     if over_all.get('RANKER') in ('fs', 'fs_avg'):          # the ranker fitted to the fold-safe FPNet's features (private dataset)

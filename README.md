@@ -79,6 +79,11 @@ Public leaderboard (MRR@25). Best in the scoring regime in force since 2026-10-0
 | 53 | 10-11 | fusion-v4n | v67b | v67a + promoted row kept first | 0.410 | |
 | 54 | 10-11 | fusion-v4n | v67d | e006's chain + our PubChem join only | 0.398 | |
 | 55 | 10-11 | fusion-v4n | v67e | e006's chain + our rank average only | 0.411 | |
+| 56 | 10-12 | e006 patch | v69e | e006r + joint ICEBERG + GLACIER re-rank in complete groups below LIB_TAU and library shield above it (v69a + v69b) | pending | |
+| 57 | 10-12 | e006 patch | v69c | e006r with the fused shortlist before the last simulator re-rank at 80 rows instead of 40 | pending | |
+| 58 | 10-12 | e006 patch | v69b | e006r + library shield: at lib_max ≥ LIB_TAU the row leading before the engine fusion stays first | pending | |
+| 59 | 10-12 | e006 patch | v69d | e006r + the PubChem row promoted by the popularity branch leads the final list too | pending | |
+| 60 | 10-12 | e006 patch | v69a | e006r + joint ICEBERG + GLACIER re-rank in complete same-formula groups below LIB_TAU | pending | |
 
 ## Where things are
 

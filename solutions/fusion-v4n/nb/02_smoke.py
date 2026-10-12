@@ -22,6 +22,62 @@ def fold0_np_keys():
     return set(h.inchikey14)
 
 
+def build_validation_mix(comp, out, lib, n, seed, max_spec):
+    """VAL_PURGE 'mix': n structures of `lib` are held out; the first max_spec eligible `lib` spectra of each (file order) become its test
+    spectra. Structures at even positions of the draw lose EVERY training row of their metric key (class-2-like, as mode 'all'); those at odd
+    positions lose only the test spectra themselves, so the library keeps their other spectra (library hits where there are any). Labels
+    carry the class in `val_class` ('all' / 'lib')."""
+    import numpy as np, pyarrow as pa, pyarrow.parquet as pq
+    src = os.path.join(comp, 'train.parquet')
+    meta = pq.read_table(src, columns=['ingest_lib', 'inchikey14', 'adduct']).to_pandas()
+    keys = sorted(meta.loc[meta.adduct.isin(TEST_ADDUCTS) & (meta.ingest_lib == lib), 'inchikey14'].unique())
+    _st = pd.read_parquet(os.path.join(POOL_DIR, 'train_structs.parquet'), columns=['inchikey14', 'key'])
+    ik2key = dict(zip(_st.inchikey14, _st.key))
+    order = [keys[i] for i in np.random.RandomState(seed).permutation(len(keys))]
+    keys, seen = [], set()
+    for k in order:
+        mk = ik2key.get(k, k)
+        if mk not in seen:
+            seen.add(mk); keys.append(k)
+        if len(keys) >= n:
+            break
+    cls = {k: ('all' if i % 2 == 0 else 'lib') for i, k in enumerate(keys)}
+    seen_all = {ik2key.get(k, k) for k in keys if cls[k] == 'all'}
+    purge = {k for k in keys if cls[k] == 'all'} | set(_st.inchikey14[_st.key.isin(seen_all)])
+    os.makedirs(out, exist_ok=True)
+    pf, writer, parts, cnt = pq.ParquetFile(src), None, [], {}
+    for rg in range(pf.num_row_groups):
+        t = pf.read_row_group(rg)
+        d = t.select(['inchikey14', 'ingest_lib', 'adduct', 'base_peak_intensity']).to_pandas()
+        elig = (d.inchikey14.isin(cls) & (d.ingest_lib == lib) & d.adduct.isin(TEST_ADDUCTS) &
+                (d.base_peak_intensity.isna() | (d.base_peak_intensity >= 1000))).values
+        take = np.zeros(len(d), bool)
+        for i in np.where(elig)[0]:
+            k = d.inchikey14.values[i]
+            if cnt.get(k, 0) < max_spec:
+                cnt[k] = cnt.get(k, 0) + 1; take[i] = True
+        drop = d.inchikey14.isin(purge).values | take
+        kept = t.filter(pa.array(~drop))
+        writer = writer or pq.ParquetWriter(os.path.join(out, 'train.parquet'), kept.schema)
+        writer.write_table(kept)
+        if take.any():
+            parts.append(t.filter(pa.array(take)))
+    writer.close()
+    q = pa.concat_tables(parts).to_pandas().reset_index(drop=True)
+    q['molecule_id'] = ['v_' + hashlib.md5(k.encode()).hexdigest()[:8] for k in q.inchikey14]
+    q['spectrum_id'] = [f'vs_{i:06d}' for i in range(len(q))]
+    test_cols = ['molecule_id', 'spectrum_id', 'ms2_mzs', 'ms2_normalized_intensities', 'base_peak_intensity', 'adduct',
+                 'ionization_mode', 'instrument_type', 'precursor_mz', 'collision_energy_ev', 'collision_energy_orig',
+                 'collision_energy_orig_units']
+    q[test_cols].to_parquet(os.path.join(out, 'test.parquet'), index=False)
+    lab = q.groupby('molecule_id').agg(smiles=('normalized_smiles', 'first'), inchikey14=('inchikey14', 'first')).reset_index()
+    lab['val_class'] = [cls[k] for k in lab.inchikey14]
+    pd.DataFrame({'molecule_id': lab.molecule_id, 'smiles': 'CCO'}).to_csv(os.path.join(out, 'sample_submission.csv'), index=False)
+    os.makedirs(STAGE, exist_ok=True)
+    lab.to_csv(os.path.join(STAGE, 'val_labels.csv'), index=False)
+    return len(lab), len(q)
+
+
 def build_validation(comp, out, lib, n, seed, max_spec, mode='all', only=None):
     """Hold out n structures: their spectra (test adducts, base peak >= 1000 counts, <= max_spec per molecule) become
     test.parquet, and EVERY train row with those InChIKey14s is dropped from train.parquet, so the library cannot
@@ -91,6 +147,8 @@ if CFG['VALIDATION'] and not IS_RERUN:
     if CFG['VAL_SET'] == 'fold0_np':
         _nm, _ns = build_validation(COMP, os.path.join(WORK, 'val_comp'), None, CFG['VAL_N'], CFG['VAL_SEED'],
                                     CFG['VAL_MAX_SPEC'], 'all', only=fold0_np_keys())
+    elif CFG['VAL_PURGE'] == 'mix':
+        _nm, _ns = build_validation_mix(COMP, os.path.join(WORK, 'val_comp'), CFG['VAL_LIB'], CFG['VAL_N'], CFG['VAL_SEED'], CFG['VAL_MAX_SPEC'])
     else:
         _nm, _ns = build_validation(COMP, os.path.join(WORK, 'val_comp'), CFG['VAL_LIB'], CFG['VAL_N'], CFG['VAL_SEED'],
                                     CFG['VAL_MAX_SPEC'], CFG['VAL_PURGE'])
@@ -106,5 +164,8 @@ elif not IS_RERUN and not CFG['FULL_ON_COMMIT']:
             os.symlink(os.path.join(COMP, _f), os.path.join(SM, _f))
     COMP = SM
     ICE_BUDGET = CFG['SMOKE_ICE_BUDGET']
+# SOFT: per-molecule failures are logged and counted instead of raised. True on the scoring rerun; VAL_AS_RERUN makes a validation run behave
+# the same way, so that it rehearses the hidden run instead of stopping at the first failure.
+SOFT = IS_RERUN or bool(CFG['VALIDATION'] and CFG['VAL_AS_RERUN'])
 log('RERUN', IS_RERUN, '| sig', _sig, '| COMP', COMP, '| ICE_BUDGET', ICE_BUDGET, '| FULL_ON_COMMIT', CFG['FULL_ON_COMMIT'],
-    '| VALIDATION', CFG['VALIDATION'])
+    '| VALIDATION', CFG['VALIDATION'], '| SOFT', SOFT)

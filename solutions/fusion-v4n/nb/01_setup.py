@@ -31,6 +31,22 @@ def log(*a):
 
 if CFG['HASHSEED'] is not None:   # inherited by every later subprocess; the kernel's own string hashing is fixed since its start
     os.environ['PYTHONHASHSEED'] = str(int(CFG['HASHSEED']))
+
+def resources(tag):
+    """One log line per stage boundary: resident memory of the kernel, available RAM, free disk of the work folder, GPU memory in use."""
+    d = {}
+    try:
+        import psutil, shutil
+        vm = psutil.virtual_memory()
+        d.update(kernel_rss_gb=round(psutil.Process().memory_info().rss / 2 ** 30, 2), ram_avail_gb=round(vm.available / 2 ** 30, 1),
+                 ram_total_gb=round(vm.total / 2 ** 30, 1), disk_free_gb=round(shutil.disk_usage(WORK).free / 2 ** 30, 1),
+                 disk_total_gb=round(shutil.disk_usage(WORK).total / 2 ** 30, 1))
+        o = subprocess.run(['nvidia-smi', '--query-gpu=memory.used', '--format=csv,noheader,nounits'], capture_output=True, text=True, timeout=15).stdout
+        d['gpu_mb'] = [int(x) for x in o.split()]
+    except Exception as e:
+        d['err'] = repr(e)[:80]
+    log('RESOURCES', tag, d)
+
 tag = f'cp{sys.version_info.major}{sys.version_info.minor}'
 whl = [w for w in glob.glob('/kaggle/input/**/rdkit-*.whl', recursive=True) if tag in w]
 log('rdkit wheel:', whl)

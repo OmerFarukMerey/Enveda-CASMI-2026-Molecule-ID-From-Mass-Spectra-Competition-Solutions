@@ -150,9 +150,20 @@ CFG = dict(
     E006_BASE=None,               # 'ours' = the public notebook E006 (canqiang, Apache-2.0, 0.440) is the pipeline: after our base lists (cell 06)
                                   #   its script runs with OUR base list in place of its own (join + rank average below the gates), everything
                                   #   else by its own cells (its PubChem channel with popularity, slots, promotion, fusion, tail). Its table is
-                                  #   the submission; cells 07 / 08 then skip the forward models. A failed or late stage -> cells 07 / 08 run in
-                                  #   full and our own table (this preset without the option) is the submission
-    E006_BASE_DEADLINE_S=22200,   # the stage is stopped when the notebook has run this long (6 h 10 min): our own forward stage still fits
+                                  #   the submission; cells 07 / 08 then skip the forward models. A failed or late stage: see E006_BASE_ON_FAIL.
+                                  #   'e006' = the public notebook itself through the same stage code (no hand-over, its own engine 2): the
+                                  #   baseline profile; the notebook is then built WITHOUT our cells 03 to 09 (reviews/diag67-2026-10-12.md)
+    E006_BASE_ON_FAIL='fail',     # the stage failed, ran late, or its table failed a check: 'fail' = the notebook raises (no submission.csv of
+                                  #   this line is ever a degraded table) | 'e006' = the script runs a second time WITHOUT our base lists (the
+                                  #   public notebook untouched; its PubChem lists and the engine-2 lists of the first run are reused) and that
+                                  #   table is the submission; a failure of that run raises | 'ours' = cells 07 / 08 run in full and our own
+                                  #   table (this preset without the option) is the submission (the behaviour of the v67 submissions of
+                                  #   2026-10-11). Every case is logged as 'E006IMP SUBMISSION = ...'
+    E006_BASE_DEADLINE_S=22200,   # ON_FAIL 'ours': the stage is stopped when the notebook has run this long (6 h 10 min): our own forward stage still fits
+    E006_HARD_DEADLINE_S=31200,   # ON_FAIL 'fail' / 'e006': nothing of the stage runs past this notebook time (8 h 40 min of the 9 h)
+    E006_FALLBACK_S=7200,         # ON_FAIL 'e006': time kept for the second run; the first run is stopped at E006_HARD_DEADLINE_S minus this
+    E006_DIAG_KILL_AFTER_S=None,  # diagnostic, commit runs only (ignored on the scoring rerun): the first run of the script is stopped this many
+                                  #   seconds after its start, to rehearse the fallback after a kill in mid-run (reviews/diag67-2026-10-12.md)
     E006_PROM_REL=None,           # its promotion's `rel > 250` branch with another threshold (1e12 = branch off); None = its own 250
     E006_GL_ALL=False,            # its GLACIER scores every covered spectrum instead of [M+H]+ only
     E006_PROM_FINAL=False,        # a row promoted by its popularity branch leads the final list too (after its fusion, key vote, tail)
@@ -160,7 +171,11 @@ CFG = dict(
     # --- validation mode (commit runs only; the scoring rerun ignores it): hold out VAL_LIB structures, drop ALL
     #     their spectra from the library, score them as the test set -> stage_cache/val_labels.csv
     VALIDATION=False, VAL_LIB='enveda-np-examples', VAL_N=250, VAL_SEED=0, VAL_MAX_SPEC=16,
-    VAL_PURGE='all',              # 'all' = class-2-like (no spectra left); 'lib' = class-1-like (other libraries stay)
+    VAL_PURGE='all',              # 'all' = class-2-like (no spectra left); 'lib' = class-1-like (other libraries stay); 'mix' = every second
+                                  #   held-out structure as 'all', the others lose only the spectra that became their test spectra (library
+                                  #   hits when the library holds more spectra of them): both sides of the library gate in one run
+    VAL_AS_RERUN=False,           # validation runs treat per-molecule failures like the scoring rerun (logged and counted, never raised):
+                                  #   a full-size rehearsal of the hidden run (reviews/diag67-2026-10-12.md)
     VAL_SET='np_examples',        # 'np_examples' = VAL_LIB structures (famous NPs); 'fold0_np' = NP-catalogue structures
                                   #   unseen by the fold-safe FPNet (ordinary NPs; use FP_BANK='fold0', VAL_MAX_SPEC ~6)
     VAL_EXTRAS=False,             # validation runs also dump pc_pop.json (PubChem channel with popularity) and gl_mh.json

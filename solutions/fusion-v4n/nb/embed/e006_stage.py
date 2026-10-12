@@ -32,8 +32,19 @@ unless its environment variable is set, so the notebook's own behaviour is the d
   6. OURS_E006_GL_ALL: GLACIER scores every covered spectrum instead of [M+H]+ only;
   7. OURS_E006_PROM_FINAL: a row promoted by the popularity branch (S > 6 and popularity >= 5) leads the FINAL list as well (the notebook's
      later engine fusion and key vote let pool rows pass it again); applied after its last cell, on its own metric identity.
+Two more, for the validation mode and the fallback run (reviews/diag67-2026-10-12.md), inert without their variable as well:
+  8. OURS_E006_COMP: the competition folder (test.parquet, train.parquet, sample_submission.csv) is this folder instead of the one found
+     below /kaggle/input, and its pre-flight check accepts it: our validation mode's held-out test and purged library;
+  9. OURS_E006_PC: its PubChem-channel subprocess is replaced by a copy of this file (the lists an earlier run of the SAME script wrote for
+     the same test: the channel does not depend on the base lists), so that a second run after a failed one does not pay the channel twice.
+E006_BASE = 'e006' runs the script with none of the variables 4 to 7 set: the public notebook itself (the baseline profile).
+
+Diagnostics: `run_script` starts a `Monitor` thread next to the script that writes a time-stamped copy of its log (`<log>.timed`) and a
+resource trace (`<log>.res.jsonl`: resident memory of the kernel and of the script's process tree, available RAM, free disk, GPU memory);
+`phase_times` reads the stage clock at the script's own milestones from the time-stamped log; `mrr_table` scores a table against
+validation labels on the metric key.
 """
-import json, os, signal, subprocess, sys, time
+import json, os, signal, subprocess, sys, threading, time
 
 RULES = ('rrf', 'fill', 'agree')
 WORK_LITERAL = '/kaggle/working'
@@ -90,6 +101,12 @@ REL_TEXT_NEW = ("pop_top >= POP_TAU) or (rel > _OURS_PROM_REL):   # ours: patch 
 GL_LINE = "    gl_items = [it for it in gl_items if it['spectra']]\n"
 GL_LINE_NEW = GL_LINE + ("    if os.environ.get('OURS_E006_GL_ALL'):             # ours: patch 6\n"
                          "        gl_items = [it for it in items if it['spectra']]; print('E006_STAGE GLACIER on every covered spectrum:', len(gl_items), flush=True)\n")
+COMP_LINE = "COMP = os.path.dirname(find('test.parquet'))\n"
+COMP_LINE_NEW = COMP_LINE + "COMP = os.environ.get('OURS_E006_COMP') or COMP   # ours: patch 8\n"
+PRE_ASSERT = "    assert comp in {f'/kaggle/input/{slug}', f'/kaggle/input/competitions/{slug}'}\n"
+PRE_ASSERT_NEW = "    assert comp in {f'/kaggle/input/{slug}', f'/kaggle/input/competitions/{slug}'} or os.environ.get('OURS_E006_COMP')   # ours: patch 8\n"
+PC_CALL = "    rr = subprocess.run([sys.executable, '%s/pc_runner.py', V3CODE, V3MOD, POOL_DIR, PC_DIR,\n"
+PC_CALL_NEW = "    rr = _ours_pc_channel([sys.executable, '%s/pc_runner.py', V3CODE, V3MOD, POOL_DIR, PC_DIR,   # ours: patch 9\n"
 PREAMBLE_IMP = '''
 # "e006 improved" (E006_BASE): four more marked patches by nb/embed/e006_stage.py (4 base lists handed over, 5 threshold of the promotion's
 # rel branch, 6 GLACIER on every covered spectrum, 7 popularity-branch promotion kept in the final list). Every changed line of the cells below
@@ -102,6 +119,14 @@ if os.environ.get('OURS_E006_BASE') and os.path.exists(os.environ['OURS_E006_BAS
 print('E006_STAGE base lists handed over by the first pipeline:', len(_OURS_BASE), flush=True)
 _OURS_PROM_REL = float(os.environ.get('OURS_E006_PROM_REL') or 250.0)   # ours: patch 5 (250.0 = the notebook's own value)
 _OURS_PROM = {}                               # ours: patch 7. {molecule: promoted row} for promotions by the popularity branch
+
+
+def _ours_pc_channel(cmd, **kw):              # ours: patch 9. cmd = [python, pc_runner.py, V3CODE, V3MOD, POOL_DIR, PC_DIR, test, out, workers]
+    src = os.environ.get('OURS_E006_PC')
+    if src and os.path.exists(src):
+        shutil.copyfile(src, cmd[7])
+        return types.SimpleNamespace(stdout='E006_STAGE PubChem lists of the earlier run of this script reused: ' + src, stderr='', returncode=0)
+    return subprocess.run(cmd, **kw)
 
 
 def _ours_base_rows(b, topn):
@@ -152,10 +177,16 @@ def script_improved(cells, work):
     src = script_from_cells(cells, work)
     assert src.startswith(PREAMBLE)
     body = src[len(PREAMBLE):]
-    for old, new in ((BASE_CALL, BASE_CALL_NEW), (REL_TEXT, REL_TEXT_NEW), (GL_LINE, GL_LINE_NEW)):
+    for old, new in improved_patches(work):
         assert body.count(old) == 1, ('the notebook source changed: patch does not apply', old, body.count(old))
         body = body.replace(old, new)
     return PREAMBLE + PREAMBLE_IMP + body + POSTAMBLE_IMP
+
+
+def improved_patches(work):
+    """(old, new) text pairs of the patches 4 to 9, in the order they are applied (the PubChem call names the work folder)."""
+    return ((BASE_CALL, BASE_CALL_NEW), (REL_TEXT, REL_TEXT_NEW), (GL_LINE, GL_LINE_NEW), (COMP_LINE, COMP_LINE_NEW), (PRE_ASSERT, PRE_ASSERT_NEW),
+            (PC_CALL % work, PC_CALL_NEW % work))
 
 
 def improved_env(cfg):
@@ -205,14 +236,122 @@ def engine_shareable(cfg):
     return bool(cfg.get('USE_ENG')) and all(cfg.get(k) == v for k, v in ENG_REFERENCE.items())
 
 
-def run_script(script, work, env, timeout_s, log_path):
-    """Run the script in its own process group; kill the whole group at the timeout. -> (return code or None, seconds, 'ok' | 'timeout' | 'failed')."""
-    t0 = time.time()
+MARKS = (('engine-2 lists', r'^engine lists \d+|^E006_STAGE engine 2 runs'), ('PubChem channel', r'^pubchem lists \d+'), ('spectrum cache', r'^cache built'),
+         ('engine ready', r'^engine ready'), ('base lists', r'^errors \d+ \| popularity re-ranked'), ('ICEBERG input', r'^ICE input molecules'),
+         ('ICEBERG', r'^ICE meta|^ICE FAILED'), ('GLACIER', r'^GL meta|^GL FAILED'), ('merge', r'^merge stats'), ('engine fusion', r'^V1 inference complete'),
+         ('tail fill', r'^E004_VERIFICATION'), ('overlay', r'^FACTORIAL_VERIFICATION'), ('end', r'^E006_STAGE base lists used'))
+LAST_MONITOR = {}
+
+
+class Monitor(threading.Thread):
+    """Next to the running script: a time-stamped copy of its log and a resource trace. Reads only; never touches the script's process."""
+
+    def __init__(self, pid, work, log_path, every=10.0, res_every=30.0):
+        super().__init__(daemon=True)
+        self.pid, self.work, self.log_path, self.every, self.res_every = pid, work, log_path, every, res_every
+        self.t0 = time.time(); self.stop_ev = threading.Event(); self.off = 0; self.tail = ''; self.rows = []; self.last_line = ''
+
+    def snapshot(self):
+        d = dict(t=round(time.time() - self.t0))
+        try:
+            import psutil, shutil
+            d['kernel_rss_gb'] = round(psutil.Process().memory_info().rss / 2 ** 30, 2)
+            rss = n = 0
+            try:
+                p = psutil.Process(self.pid)
+                for q in [p] + p.children(recursive=True):
+                    try:
+                        rss += q.memory_info().rss; n += 1
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+            vm = psutil.virtual_memory()
+            d.update(stage_rss_gb=round(rss / 2 ** 30, 2), stage_procs=n, ram_avail_gb=round(vm.available / 2 ** 30, 2), ram_total_gb=round(vm.total / 2 ** 30, 1),
+                     disk_free_gb=round(shutil.disk_usage(self.work).free / 2 ** 30, 2))
+        except Exception as e:
+            d['err'] = repr(e)[:120]
+        try:
+            o = subprocess.run(['nvidia-smi', '--query-gpu=memory.used', '--format=csv,noheader,nounits'], capture_output=True, text=True, timeout=15).stdout
+            d['gpu_mb'] = [int(x) for x in o.split()]
+        except Exception:
+            pass
+        d['line'] = self.last_line[:100]
+        return d
+
+    def pump(self):
+        try:
+            with open(self.log_path, 'rb') as fh:
+                fh.seek(self.off); new = fh.read(); self.off += len(new)
+            text = self.tail + new.decode('utf-8', errors='replace'); lines = text.split('\n'); self.tail = lines.pop()
+            if lines:
+                t = time.time() - self.t0
+                with open(self.log_path + '.timed', 'a', encoding='utf-8') as out:
+                    for l in lines:
+                        out.write('[+%6.0fs] %s\n' % (t, l))
+                keep = [l for l in lines if l.strip()]
+                if keep:
+                    self.last_line = keep[-1]
+        except Exception:
+            pass
+
+    def run(self):
+        nxt = 0.0
+        while not self.stop_ev.wait(self.every):
+            self.pump()
+            if time.time() - self.t0 >= nxt:
+                nxt = time.time() - self.t0 + self.res_every
+                r = self.snapshot(); self.rows.append(r)
+                try:
+                    with open(self.log_path + '.res.jsonl', 'a') as out:
+                        out.write(json.dumps(r) + '\n')
+                except Exception:
+                    pass
+
+    def finish(self):
+        self.stop_ev.set(); self.join(30); self.pump(); self.rows.append(self.snapshot())
+
+        def ext(k, f):
+            v = [r[k] for r in self.rows if r.get(k) is not None]
+            return f(v) if v else None
+        g = [max(r['gpu_mb']) for r in self.rows if r.get('gpu_mb')]
+        return dict(samples=len(self.rows), peak_stage_rss_gb=ext('stage_rss_gb', max), peak_kernel_rss_gb=ext('kernel_rss_gb', max),
+                    min_ram_avail_gb=ext('ram_avail_gb', min), ram_total_gb=ext('ram_total_gb', max), min_disk_free_gb=ext('disk_free_gb', min),
+                    peak_gpu_mb=max(g) if g else None)
+
+
+def phase_times(timed_text):
+    """{milestone: seconds on the stage clock when the script first printed it}, from the time-stamped log (resolution = the monitor's 10 s)."""
+    import re
+    out = {}
+    for line in timed_text.split('\n'):
+        m = re.match(r'\[\+\s*(\d+)s\] (.*)', line)
+        if not m:
+            continue
+        for name, pat in MARKS:
+            if name not in out and re.search(pat, m.group(2)):
+                out[name] = int(m.group(1))
+    return out
+
+
+def run_script(script, work, env, timeout_s, log_path, monitor=True):
+    """Run the script in its own process group; kill the whole group at the timeout. -> (return code or None, seconds, 'ok' | 'timeout' | 'failed').
+    monitor: a Monitor thread runs next to it (time-stamped log, resource trace); its summary is left in LAST_MONITOR."""
+    t0 = time.time(); mon = None; LAST_MONITOR.clear()
+    for ext in ('.timed', '.res.jsonl'):
+        if os.path.exists(log_path + ext):
+            os.remove(log_path + ext)
     with open(log_path, 'w') as fh:
         kw = dict(start_new_session=True) if os.name == 'posix' else {}
         p = subprocess.Popen([sys.executable, '-u', script], cwd=work, env=env, stdout=fh, stderr=subprocess.STDOUT, **kw)
+        if monitor:
+            try:
+                mon = Monitor(p.pid, work, log_path); mon.start()
+            except Exception:
+                mon = None
         try:
             rc = p.wait(timeout=max(1.0, float(timeout_s)))
+            st = 'ok' if rc == 0 else 'failed'
         except subprocess.TimeoutExpired:
             try:
                 if os.name == 'posix':
@@ -222,8 +361,28 @@ def run_script(script, work, env, timeout_s, log_path):
             except Exception:
                 pass
             p.wait()
-            return None, time.time() - t0, 'timeout'
-    return rc, time.time() - t0, ('ok' if rc == 0 else 'failed')
+            rc, st = None, 'timeout'
+    if mon is not None:
+        try:
+            LAST_MONITOR.update(mon.finish())
+        except Exception as e:
+            LAST_MONITOR.update(error=repr(e)[:200])
+    return rc, time.time() - t0, st
+
+
+def mrr_table(table, labels, key=None, max_rank=25):
+    """Validation score of one table {molecule: [smiles]} against {molecule: answer SMILES} on the metric key.
+    -> (dict(mrr, top1, hit, n), {molecule: reciprocal rank})."""
+    key = key or metric_key
+    rr = {}
+    for m, ans in labels.items():
+        t = key(ans); r = 0.0
+        for i, s in enumerate((table.get(str(m)) or [])[:max_rank], 1):
+            if t is not None and key(s) == t:
+                r = 1.0 / i; break
+        rr[str(m)] = r
+    n = max(1, len(rr)); v = list(rr.values())
+    return dict(mrr=round(sum(v) / n, 4), top1=round(sum(x == 1.0 for x in v) / n, 4), hit=round(sum(x > 0 for x in v) / n, 4), n=len(rr)), rr
 
 
 # ------------------------------------------------------------------------------------------------ fusion ----

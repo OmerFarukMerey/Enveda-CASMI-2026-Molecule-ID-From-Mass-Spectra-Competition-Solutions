@@ -107,6 +107,6 @@ if os.path.exists(os.path.join(STAGE, 'val_labels.csv')):   # validation mode: s
 import shutil; shutil.rmtree(os.path.join(WORK, 'ice_site'), ignore_errors=True)
 shutil.rmtree(os.path.join(WORK, 'ice_pkg_ft'), ignore_errors=True)
 log('stage fallbacks:', FAILS if FAILS else 'none')
-if CFG['STRICT'] and FAILS:
+if CFG['STRICT'] and FAILS and not CFG['E006_BASE']:      # E006_BASE: the last cell (nb/e006imp_final.py) raises, after its own report
     raise RuntimeError('STRICT: ' + ' | '.join(FAILS))
 sub.head()

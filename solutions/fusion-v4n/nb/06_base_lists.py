@@ -1,5 +1,6 @@
 # all molecules -> base lists: BASE[mid] = [smiles, keys, lib_max, ranker scores, formulas, pool ids] (top TOPN, key-deduped;
 # pool id < 0 = generated candidate)
+SOFT = IS_RERUN or bool(CFG['VALIDATION'] and CFG['VAL_AS_RERUN'])   # per-molecule failures are counted, not raised (cell 02; VAL_AS_RERUN)
 GEN_Z, GEN_S1 = {}, {}                       # GEN_ANALOG: FPNet logits and the fold-safe ranker's top score per molecule (empty when off)
 if CFG['GEN_ANALOG']:
     import gen_analog
@@ -49,14 +50,14 @@ for gi, (mid, sub) in enumerate(mols):
                                                      P.bits, fz=[_p['pc_fz'][i] for i in _ix])
                         recs = [r for r in recs if abs(r['mass'] - target) <= target * 30e-6]   # never the 'CCO' fallback
                 except Exception as e:                                # scoring rerun: never lose the molecule
-                    if not IS_RERUN:
+                    if not SOFT:
                         raise
                     print('PC JOIN FAILED -> no injection', mid, repr(e)); recs = []; n_join_err += 1
                 pc_join.set_injection(E, recs)
             try:
                 C, X, F, names, info = _r0 if (_r0 is not None and not recs) else V.run(spectra, target)
             except Exception as e:
-                if not recs or not IS_RERUN:
+                if not recs or not SOFT:
                     raise
                 print('JOINED RUN FAILED -> run without injection', mid, repr(e)); n_join_err += 1
                 pc_join.set_injection(E, []); C, X, F, names, info = V.run(spectra, target)
@@ -79,7 +80,7 @@ for gi, (mid, sub) in enumerate(mols):
                     try:
                         score = pc_join.choose_score(*_a, CFG['RANKER_LIB_GATE'], inj)   # == ranker_infer.choose_score without injected rows
                     except Exception as e:                    # scoring rerun: never lose the molecule
-                        if not IS_RERUN:
+                        if not SOFT:
                             raise
                         print('RANKER FAILED -> public ranker', mid, repr(e)); n_rk_err += 1
                 order = np.argsort(-score, kind='stable')
@@ -122,7 +123,7 @@ for gi, (mid, sub) in enumerate(mols):
                         if rows2 and lib_max < CFG['RANKER_LIB_GATE']:
                             smis, keys, scs, forms, pids = fs_pass.to_base(rows2, CFG['TOPN']); n_fs_used += 1; FS_USED[mid] = _d
                     except Exception as e:
-                        if not IS_RERUN:
+                        if not SOFT:
                             raise
                         print('FS PASS FAILED -> first-pass list', mid, repr(e)); n_fs_err += 1
                         FAILS.append(f'fold-safe pass failed for molecule {mid}: {e!r}'[:300])
@@ -151,7 +152,7 @@ if CFG['RANKER'] in fs_pass.MODES:
     log(f"fold-safe pass ({CFG['RANKER']}, gate {CFG['RANKER_LIB_GATE']}): run on {n_fs} molecules, list used for {n_fs_used}, first place differs "
         f"from the first pass in {n_fs_diff}, failures {n_fs_err}, {t_fs:.0f}s ({t_fs / max(1, n_fs + n_fs_err):.2f}s per pass)")
     dump('fs_used', FS_USED)
-    if IS_RERUN and n_fs_used == 0:
+    if SOFT and n_fs_used == 0:
         FAILS.append('the fold-safe pass was active but no molecule used its list')
 if CFG['ADDUCT_TIE'] is not None:
     log('ADDUCT_TIE', CFG['ADDUCT_TIE'], ': merged-adduct ties broken by the rule (one per polarity group and engine pass):', determ.counts())
@@ -165,6 +166,6 @@ if CFG['USE_PC'] and len(PC) < 0.9 * len(mols):
     FAILS.append(f'pubchem lists for {len(PC)} of {len(mols)} molecules')
 if CFG['PC_JOIN_N'] > 0 and (IS_RERUN or CFG['VALIDATION']) and n_join_mol == 0:
     FAILS.append('the join was active but no molecule received joined rows')
-assert IS_RERUN or (CFG['RANKER'] == 'public' and CFG['PC_JOIN_N'] == 0) or n_err == 0, \
+assert SOFT or (CFG['RANKER'] == 'public' and CFG['PC_JOIN_N'] == 0) or n_err == 0, \
     'base-list errors with RANKER != public or PC_JOIN_N > 0: fix before submitting'
 dump('base', BASE)
