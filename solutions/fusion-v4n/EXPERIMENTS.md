@@ -743,3 +743,12 @@ the third-party net on all 11 hold-out subsets and on DEV / FINAL; the natural-p
 v59a 0.434). It is the baseline from here on (`submissions/e006r-0.443/`). Submitted on top of it the same day: v67a
 (its chain fed with our base list), v67b (plus the final promotion), and the two halves of v67a, v67d (join only) and
 v67e (rank average only), if their commit runs pass.
+
+2026-10-12: the v67 line failed. v67a **0.411**, v67b **0.410**, v67d (join only) **0.398**, v67e (rank average only)
+**0.411**, against e006r 0.443: four to six answers lost each. v67e differs from e006r only below the library gate and
+by a rank average that gained in our own chain, so a real effect of this size is implausible; the scores match what
+our base list scores WITHOUT forward models (the stand-in table the stage writes before e006's chain runs). Working
+hypothesis: on the hidden set the e006 stage fails or runs out of time and the notebook submits the stand-in; the
+commit runs could not show it because all 12 visible molecules are library hits. Not verified: hidden-run logs are
+not available. Lesson: a path that the commit run cannot exercise must be run at full size (validation mode on
+Kaggle) before it is submitted; four submissions went on one untested path.
