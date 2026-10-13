@@ -752,3 +752,14 @@ hypothesis: on the hidden set the e006 stage fails or runs out of time and the n
 commit runs could not show it because all 12 visible molecules are library hits. Not verified: hidden-run logs are
 not available. Lesson: a path that the commit run cannot exercise must be run at full size (validation mode on
 Kaggle) before it is submitted; four submissions went on one untested path.
+
+2026-10-13: five single-switch patches of e006r (0.443), all in its own chain on its own lists: window 80 **0.443**,
+library shield **0.443**, promoted row kept first **0.443**, joint ICEBERG + GLACIER **0.440**, joint + shield **0.440**.
+Three change nothing on the public part; the joint re-rank costs 0.003 (less than one swap between rank 1 and 2), the
+sign of the public pair (0.438 against 0.440) and the opposite of the local replay (+0.005 to +0.007). The promotion
+being neutral here as in v66a says the hidden PubChem answers it would promote are already first. Re-ranking inside
+the public chain is closed. Same days: the v67 loss is real, not a silent fallback (full-size validation on Kaggle,
+`reviews/diag67-2026-10-12.md`); the metric has no tail effect (`tailfx`); GNPS-NIST14-MATCHES is allowed by the host
+by name but 1,498 of its 1,508 structures are already in train (`docs/competition/gnps-nist14-2026-10-12.md`); a
+learned fingerprint-conditioned generator fails its gate even with true fingerprints (top-25 10.6% / 0% / 4.0% against
+the rule-based 53.1% / 4.5% / 43.0%, `reviews/fpgen-2026-10-12.md`).
