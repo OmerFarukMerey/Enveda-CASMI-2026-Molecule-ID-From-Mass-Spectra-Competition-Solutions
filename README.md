@@ -84,9 +84,9 @@ Public leaderboard (MRR@25). Best in the scoring regime in force since 2026-10-0
 | 58 | 10-12 | e006 patch | v69b | e006r + library shield: at lib_max ≥ LIB_TAU the row leading before the engine fusion stays first | 0.443 | |
 | 59 | 10-12 | e006 patch | v69d | e006r + the PubChem row promoted by the popularity branch leads the final list too | 0.443 | |
 | 60 | 10-12 | e006 patch | v69a | e006r + joint ICEBERG + GLACIER re-rank in complete same-formula groups below LIB_TAU | 0.440 | |
-| 61 | 10-13 | public rerun | pub-p2 | public e006 + fragment re-rank notebook, CC BY ChEBI set | pending | |
-| 62 | 10-13 | public rerun | pub-p4 | public meta-consensus notebook, CC BY ChEBI set | pending | |
-| 63 | 10-13 | e006 patch | v70a | e006 + fragment re-rank + library shield + promoted row first | pending | |
+| 61 | 10-13 | public rerun | pub-p2 | public e006 + fragment re-rank notebook, CC BY ChEBI set | 0.444 | |
+| 62 | 10-13 | public rerun | pub-p4 | public meta-consensus notebook, CC BY ChEBI set | 0.443 | |
+| 63 | 10-13 | e006 patch | v70a | e006 + fragment re-rank + library shield + promoted row first | 0.444 | |
 
 ## Where things are
 
