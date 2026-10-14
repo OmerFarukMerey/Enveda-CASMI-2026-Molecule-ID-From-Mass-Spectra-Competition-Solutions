@@ -18,6 +18,10 @@ the `casmi` / `fe_v4` packages of the public datasets (they carry no code licenc
 | `specdata.py` | our own data access: spectrum-cache builder from `train.parquet`, loader, leak check, spectrum merging, element table, negatives, samplers, worker stream |
 | `train_fpnet.py` | trainer and hold-out evaluation (Apache-2.0 derived loop, see below): mixed precision, resume, GPU sharing, seeds, run ledger |
 | `../tests/test_own_fpnet.py`, `../tests/test_fs_net.py` | data-free tests of the three files above and of the notebook key `RANKER_FS_NET` |
+| `subform.py` | ours: subformula annotation of peaks (ion formula of any adduct, best subformula within max(15 ppm, 0.004 Da)), cache builder (`reviews/specenc-2026-10-13.md`) |
+| `specenc.py` | ours: spectrum encoder with configurable peak tokens (m/z = `fpnet.FPNet`, subformula, pairwise mass differences, multi-spectrum, intensity rank, external embedding token), items, data stream; `RefSignature` for the reference interface |
+| `train_specenc.py` | trainer of `specenc.py` (the Apache-2.0 derived loop of `train_fpnet.py`): kept checkpoints with learning curves, true / pipeline-formula evaluation, iso top-1 |
+| `../tests/test_specenc.py` | data-free tests of the three files above |
 
 ## Own fingerprint network (2026-10-10): what is whose
 | Part | Status |

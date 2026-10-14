@@ -87,6 +87,7 @@ Public leaderboard (MRR@25). Best in the scoring regime in force since 2026-10-0
 | 61 | 10-13 | public rerun | pub-p2 | public e006 + fragment re-rank notebook, CC BY ChEBI set | 0.444 | |
 | 62 | 10-13 | public rerun | pub-p4 | public meta-consensus notebook, CC BY ChEBI set | 0.443 | |
 | 63 | 10-13 | e006 patch | v70a | e006 + fragment re-rank + library shield + promoted row first | 0.444 | |
+| 64 | 10-14 | public rerun | pub-p1 | public e006 + fragment re-rank notebook (restructured version), CC BY ChEBI set | pending | |
 
 ## Where things are
 
