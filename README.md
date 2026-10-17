@@ -97,7 +97,7 @@ Public leaderboard (MRR@25). Best in the scoring regime in force since 2026-10-0
 | 74 | 10-16 | clean chain (team) | C0 | chain without third-party weights (floor) | 0.347 | |
 | 75 | 10-16 | stack1 patch (team) | v72a | stack1 + PubChem leader floored at rank 5 | 0.451 | |
 | 76 | 10-16 | probe (team) | AE | analog-edit candidates only (probe) | 0.035 | |
-| 65 | 10-17 | stack1 patch | v72b | stack1 + forward-model arbitration of the rank-2 insert | pending | |
+| 65 | 10-17 | stack1 patch | v72b | stack1 + forward-model arbitration of the rank-2 insert | 0.451 | |
 | 66 | 10-17 | stack1 compliance | comply-s1m | stack1 with the PubChem channel on our own networks | pending | |
 | 67 | 10-17 | stack1 patch | v73a | stack1 + our net's PubChem order, stack1's promotion decisions | pending | |
 
