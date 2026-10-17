@@ -1,4 +1,4 @@
-<!-- index: 2026-10-17 compliance of stack1 (omerfarukmerey/casmi26-om-stack1 v1, 0.451) with the host's weights rule of thread 748882: every file the notebook loads with cell / line, publisher, licence (Kaggle metadata of 2026-10-17) and status (a official checkpoint, b participant weights with public training code, c without, d data, e code); new since 10-10: ahmedberatozer's code is MIT (cards of 10-13), prvsiyan's FPNet training loop is public in his Apache notebook but his data builder and split are not, fragnet stage A re-derived exactly and stage B equivalently from the shipped training data; the eleven (c) items grouped by stage with the score at stake (measured ablations, each with its base), our replacements and their cost; a replacement plan in three leaderboard steps with stop rules; the minimum compliant chain and the removal fallback; step 1 (PubChem channel on our two fold-safe networks, gate rescaled by a label-free constant) prepared in scratch/comply/step1 with tests -->
+<!-- index: 2026-10-17 compliance of stack1 (omerfarukmerey/casmi26-om-stack1 v1, 0.451) with the host's weights rule of thread 748882: every file the notebook loads with cell / line, publisher, licence (Kaggle metadata of 2026-10-17) and status (a official checkpoint, b participant weights with public training code, c without, d data, e code); new since 10-10: ahmedberatozer's code is MIT (cards of 10-13), prvsiyan's FPNet training loop is public in his Apache notebook but his data builder and split are not, fragnet stage A re-derived exactly and stage B equivalently from the shipped training data; the eleven (c) items grouped by stage with the score at stake (measured ablations, each with its base), our replacements and their cost; a replacement plan in three leaderboard steps with stop rules; the minimum compliant chain and the removal fallback; step 1 (PubChem channel on our two fold-safe networks, gate rescaled by a label-free constant) prepared in scratch/comply/step1 with tests; section 8: step 2 (engine 1 on our network, fragnet, ranker; derivation dropped) prepared with checks, local replay and private dataset casmi26-ours-e1 -->
 # stack1 against the weights rule: inventory, replacement plan, step 1 (2026-10-17)
 
 Marks: **[V]** read in the code / metadata / page, or computed here (file named); **[C]** cited from a review of ours or a
@@ -382,3 +382,39 @@ channel's own code) ran locally for 257 molecules during the calibration without
 - Ranker-refit time and the feature parity of a patched `V1FE` against the P4 rows (step 2): not run.
 - Every cost in days: estimates. No leaderboard number for any step.
 - `INDEX.md` not regenerated; nothing committed.
+
+## 8. Step 2 (G-E1), prepared 2026-10-17 evening (no submission)
+
+Plan / pre-registration / state: `scratch/comply/step2/PLAN.md`, `STATE.md`. Base: step 1's `casmi26-comply-s1m` (0.444).
+
+| What | stack1 / s1m | step 2 (switch `COMPLY2['e1']`) |
+|---|---|---|
+| C1 engine bank, C2-C4 view slots | `fpnet_full1`, `fe_A/B/D` | our `base_s0` (`fpnet_own_s0.pt` of `casmi26-ours-pcnets`, already attached) everywhere |
+| C9 / C10 fragnet | shipped stage A / B | ours (`train/comply/fit_fragnet.py`; stage A byte-identical, stage B reproducible bit for bit by our script) |
+| C11 derivation | prior tables | family dropped (19 features) |
+| C5 ranker | `ranker_v4b.pkl` (160 features) | our LightGBM ranker, 141 features, 6,153 lists of no-join engine rows of `train.parquet` molecules with our network (`train/comply/fit_ranker_e1.py`); the seven tie-dependent rank features recomputed with average ties in training and in the notebook |
+
+Private dataset `huseyinemreaksoy/casmi26-ours-e1` (ranker, fragnet tables, training code, molecule-set table, README).
+Training code and provenance: `solutions/fusion-v4n/train/comply/` (README). Builder `scratch/comply/step2/build_step2.py`
+(s1m + one switch cell + anchored substitutions in cells 18 / 20; switch off = s1m's code paths), tests
+`solutions/fusion-v4n/tests/test_comply_step2.py` (9, pass).
+
+Checks [V]: fragnet recomputation reproduces the stored columns exactly with the shipped stage A / B (70 lists); our row builder
+(no third-party weight loaded) reproduces the training features within 1e-5; the notebook's own switch cell + cell 18, executed
+locally, reproduce the training features (<= 4e-5) and the ranker scores (difference 0.0) on 75 lists and open none of the
+third-party engine-1 files. Engine 1 is not deterministic across runs with a random `PYTHONHASHSEED` (generated candidates);
+with the seed fixed the parity is exact. This is a property of the shipped engine, also in stack1.
+
+Local replay (stack1-like e006u, Tm150 + E2R2, 606 molecules, harness re-run reproduces arb's lists 6,372 / 6,372; forward-model
+scores topped up on the GPU for every new candidate), step 2 against the s1m-equivalent (public ranker on fold-safe rows):
+composite **−0.0020 ± 0.0040 (arm m), −0.0026 ± 0.0039 (arm u)**; c2 +0.022 ± 0.008; **dA −0.024 ± 0.007 in both arms (3.2 / 3.4
+SE): the pre-registered local gate (no type cell below by > 3 SE in both arms) fails on dA**; dB −0.015 / −0.017; base list
+alone +0.005 ± 0.005 (c2 +0.064, drop lists −0.028). The reference ranker was trained on all of train (these molecules
+included), so the reference is optimistic on the generated answers of the drop lists [I].
+
+Commit runs (private, logs in `scratch/comply/step2/log_*.txt`): `casmi26-comply-s2-off` reproduces s1m's commit submission
+(sha256 `74c26530…`, identical); `casmi26-comply-s2` (switch on) completes in 988 s (s1m 1,093 s): `COMPLY2_PATCH` 12 lists, 0
+fallbacks, 141 features, our network in the bank and the three slots, derivation absent; ICE / GL / merge / E2R2 lines as in s1m;
+final sha256 `9d8d70ab…` (differs from s1m, as it must). Not submitted. Stop rule (user's, cumulative): accept at LB >= 0.443;
+0.435-0.443 one pre-registered retry (three-network views base_s0 / base_s1 / a0_ctrl_s0, built only if triggered); below 0.435 a
+validation pair.
