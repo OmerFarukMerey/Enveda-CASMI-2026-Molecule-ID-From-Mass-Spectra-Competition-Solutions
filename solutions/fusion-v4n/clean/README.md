@@ -19,6 +19,7 @@ the `casmi` / `fe_v4` packages of the public datasets (they carry no code licenc
 | `train_fpnet.py` | trainer and hold-out evaluation (Apache-2.0 derived loop, see below): mixed precision, resume, GPU sharing, seeds, run ledger |
 | `../tests/test_own_fpnet.py`, `../tests/test_fs_net.py` | data-free tests of the three files above and of the notebook key `RANKER_FS_NET` |
 | `subform.py` | ours: subformula annotation of peaks (ion formula of any adduct, best subformula within max(15 ppm, 0.004 Da)), cache builder (`reviews/specenc-2026-10-13.md`) |
+| `chemrules.py` | ours: knowledge-driven MS/MS rules (diagnostic losses / ions -> structural requirements) re-ordering same-formula rows in a list's first 10; not wired in, local verdict fail (`reviews/chemrules-2026-10-17.md`); tests `../tests/test_chemrules.py` |
 | `specenc.py` | ours: spectrum encoder with configurable peak tokens (m/z = `fpnet.FPNet`, subformula, pairwise mass differences, multi-spectrum, intensity rank, external embedding token), items, data stream; `RefSignature` for the reference interface |
 | `train_specenc.py` | trainer of `specenc.py` (the Apache-2.0 derived loop of `train_fpnet.py`): kept checkpoints with learning curves, true / pipeline-formula evaluation, iso top-1 |
 | `../tests/test_specenc.py` | data-free tests of the three files above |
