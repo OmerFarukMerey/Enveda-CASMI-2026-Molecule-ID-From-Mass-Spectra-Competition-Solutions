@@ -3,6 +3,24 @@
 
 Public LB ≈ 33% of the hidden test; the final uses the other 67%.
 
+## 2026-10-17 12:27 UTC (3,466 teams; source `update-2026-10-17.md` section 6)
+| # | Team | Score |
+|---|---|---|
+| 1–2 | CHU1PC, pikachu | 0.495 |
+| 3 | Oleksandr Parfionov | 0.493 |
+| 4 | MarvinTMB | 0.484 |
+| 5 | Oliver Ford | 0.468 |
+| 6 | Dmitrii Khizbullin | 0.467 |
+| 7 | Yuuki Aikawa | 0.466 |
+| 8 | Kucing Garong | 0.465 |
+| 9 | Faraz92 | 0.464 |
+| 10 | Alex #2 | 0.462 |
+| 11–12 | JJ, Sho Saga | 0.461 |
+| 13–14 | vukpetar, Shehab Alshehabi | 0.460 |
+
+61 teams at 0.452 or more, **232 at 0.451** (the public v22 / stack1 line), 99 at 0.446. Best public notebook 0.451 (nine
+of them). Our team (Arsokan): stack1 **0.451**, rank 77.
+
 ## 2026-09-30 (~1,890 teams)
 | # | Team | Score |
 |---|---|---|
