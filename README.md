@@ -99,7 +99,8 @@ Public leaderboard (MRR@25). Best in the scoring regime in force since 2026-10-0
 | 76 | 10-16 | probe (team) | AE | analog-edit candidates only (probe) | 0.035 | |
 | 65 | 10-17 | stack1 patch | v72b | stack1 + forward-model arbitration of the rank-2 insert | 0.451 | |
 | 66 | 10-17 | stack1 compliance | comply-s1m | stack1 with the PubChem channel on our own networks | 0.444 | |
-| 67 | 10-17 | stack1 patch | v73a | stack1 + our net's PubChem order, stack1's promotion decisions | pending | |
+| 67 | 10-17 | stack1 patch | v73a | stack1 + our net's PubChem order, stack1's promotion decisions | 0.439 | |
+| 77 | 10-17 | stack1 patch (team) | v74a | v72a + engine-2 tree depth 7 | 0.451 | |
 
 ## Where things are
 
