@@ -19,7 +19,7 @@ See [solutions/README.md](solutions/README.md) for how a solution is laid out.
 
 ## Submissions and scores
 
-Public leaderboard (MRR@25). Best in the scoring regime in force since 2026-10-07: **0.443** (e006r, a rerun of the best public notebook with a licence-clean input; our own pipeline: v59a 0.434). Before the change: 0.442 (v33b). Folders with the exact notebook, config and a detailed
+Public leaderboard (MRR@25). Best in the scoring regime in force since 2026-10-07: **0.451** (stack1: public e006 chain + our fragment re-rank + engine-2 rank-2 insert + PubChem promotion at rel > 150; our own pipeline: v59a 0.434). Before the change: 0.442 (v33b). Folders with the exact notebook, config and a detailed
 `README.txt` are in [submissions/](submissions/); every row with its details is in [docs/experiments.md](docs/experiments.md).
 
 | # | Date | Solution | Version | Change | Public LB | Folder |
@@ -87,7 +87,19 @@ Public leaderboard (MRR@25). Best in the scoring regime in force since 2026-10-0
 | 61 | 10-13 | public rerun | pub-p2 | public e006 + fragment re-rank notebook, CC BY ChEBI set | 0.444 | |
 | 62 | 10-13 | public rerun | pub-p4 | public meta-consensus notebook, CC BY ChEBI set | 0.443 | |
 | 63 | 10-13 | e006 patch | v70a | e006 + fragment re-rank + library shield + promoted row first | 0.444 | |
-| 64 | 10-14 | public rerun | pub-p1 | public e006 + fragment re-rank notebook (restructured version), CC BY ChEBI set | pending | |
+| 64 | 10-14 | public rerun | pub-p1 | public e006 + fragment re-rank notebook (restructured version), CC BY ChEBI set | 0.444 | |
+| 68 | 10-15 | stack1 chain (team) | E2R2 | pub-p2 + engine 2's top candidate at rank 2 | 0.445 | |
+| 69 | 10-15 | team | – | no description | 0.425 | |
+| 70 | 10-15 | public patch (team) | iso005-pub446 | public 0.446 notebook + isomer-fragmentation re-rank | 0.419 | |
+| 71 | 10-15 | stack1 chain (team) | **stack1** | E2R2 + PubChem promotion at rel > 150 | **0.451** | [notebook](https://www.kaggle.com/code/omerfarukmerey/casmi26-om-stack1) |
+| 72 | 10-15 | stack1 patch | v71b | stack1 + our multi-spectrum net as PubChem selector | 0.439 | |
+| 73 | 10-16 | fusion-v4n (team) | A3 | v24a + union-ranker PubChem rows at slots 3-11 | 0.401 | |
+| 74 | 10-16 | clean chain (team) | C0 | chain without third-party weights (floor) | 0.347 | |
+| 75 | 10-16 | stack1 patch (team) | v72a | stack1 + PubChem leader floored at rank 5 | 0.451 | |
+| 76 | 10-16 | probe (team) | AE | analog-edit candidates only (probe) | 0.035 | |
+| 65 | 10-17 | stack1 patch | v72b | stack1 + forward-model arbitration of the rank-2 insert | pending | |
+| 66 | 10-17 | stack1 compliance | comply-s1m | stack1 with the PubChem channel on our own networks | pending | |
+| 67 | 10-17 | stack1 patch | v73a | stack1 + our net's PubChem order, stack1's promotion decisions | pending | |
 
 ## Where things are
 
