@@ -101,7 +101,7 @@ Public leaderboard (MRR@25). Best in the scoring regime in force since 2026-10-0
 | 66 | 10-17 | stack1 compliance | comply-s1m | stack1 with the PubChem channel on our own networks | 0.444 | |
 | 67 | 10-17 | stack1 patch | v73a | stack1 + our net's PubChem order, stack1's promotion decisions | 0.439 | |
 | 77 | 10-17 | stack1 patch (team) | v74a | v72a + engine-2 tree depth 7 | 0.451 | |
-| 78 | 10-17 | stack1 compliance | comply-s2 | s1m + engine 1 on our own network, fragnet and ranker | pending | |
+| 78 | 10-17 | stack1 compliance | comply-s2 | s1m + engine 1 on our own network, fragnet and ranker | 0.403 | |
 
 ## Where things are
 
