@@ -56,3 +56,12 @@ place of the notebook's engine call for molecules handed over, (5) another thres
 (6) GLACIER on every covered spectrum instead of [M+H]+ only, (7) a row promoted by its popularity branch also leads the final list. This
 paragraph is the notice of modification for those patches (Apache License 2.0, section 4(b)); no file of the snapshot is changed on disk, and
 no dataset is added (the notebook's inputs are those of `configs/v59a-v33b-ccby.json`).
+`train/glacierft/` (GLACIER fine-tune, `solutions/fusion-v4n/train/glacierft/README.md`) imports the official
+[coleygroup/ms-pred](https://github.com/coleygroup/ms-pred) code at commit `708148c2a8eb` (**MIT License**, Copyright (c) 2023
+Samuel Goldman; GLACIER `JointModel`, its losses and `configure_optimizers`, `TreeProcessor`, `IntenContrDataset.collate_fn`,
+`iceberg.graph_mutate.mutate`, `common.process_spec_file` / `max_inten_spec`) from a local checkout at run time; no ms-pred file is
+copied into this repository or modified. Starting weights: the authors' open MassSpecGym GLACIER checkpoint (MIT, as packaged in
+ahmedberatozer/casmi26-glacier). `train/glacierft/shim/pygmtools/` is our own pure-torch stand-in for the two
+[pygmtools](https://github.com/Thinklab-SJTU/pygmtools) functions the losses call (`sinkhorn`, `hungarian`; pygmtools is
+MulanPSL-2.0; no pygmtools code copied). The dgl / torch_scatter / LinSATNet stand-ins used at run time are those of the
+casmi26-glacier package (own code, see its LICENSE-NOTICE).
