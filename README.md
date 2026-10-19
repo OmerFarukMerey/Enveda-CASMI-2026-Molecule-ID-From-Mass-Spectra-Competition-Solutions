@@ -19,7 +19,7 @@ See [solutions/README.md](solutions/README.md) for how a solution is laid out.
 
 ## Submissions and scores
 
-Public leaderboard (MRR@25). Best in the scoring regime in force since 2026-10-07: **0.451** (stack1: public e006 chain + our fragment re-rank + engine-2 rank-2 insert + PubChem promotion at rel > 150; our own pipeline: v59a 0.434). Before the change: 0.442 (v33b). Folders with the exact notebook, config and a detailed
+Public leaderboard (MRR@25). Best in the scoring regime in force since 2026-10-07: **0.456** (q1: stack1 + PubChemLite structures in engine 2 + PubChem-only popularity 0.15 + N1A GLACIER proxies, a copy of the public v465 notebook; stack1 0.451; our own pipeline: v59a 0.434). Before the change: 0.442 (v33b). Folders with the exact notebook, config and a detailed
 `README.txt` are in [submissions/](submissions/); every row with its details is in [docs/experiments.md](docs/experiments.md).
 
 | # | Date | Solution | Version | Change | Public LB | Folder |
@@ -102,6 +102,11 @@ Public leaderboard (MRR@25). Best in the scoring regime in force since 2026-10-0
 | 67 | 10-17 | stack1 patch | v73a | stack1 + our net's PubChem order, stack1's promotion decisions | 0.439 | |
 | 77 | 10-17 | stack1 patch (team) | v74a | v72a + engine-2 tree depth 7 | 0.451 | |
 | 78 | 10-17 | stack1 compliance | comply-s2 | s1m + engine 1 on our own network, fragnet and ranker | 0.403 | |
+| 79 | 10-18 | LB probe | G-current | generated candidates only, at their ranks | 0.000 | |
+| 80 | 10-18 | LB probe | G-first | generated candidates only, at rank 1 | 0.000 | |
+| 81 | 10-18 | public copy | **q1** | stack1 + PubChemLite in engine 2 + popularity 0.15 + N1A | **0.456** | |
+| 82 | 10-18 | q1 patch | q1s | q1 + library shield | 0.456 | |
+| 83 | 10-18 | q1 patch | q1d | q1 + engine-2 tree depth 7 | 0.450 | |
 
 ## Where things are
 
