@@ -107,6 +107,8 @@ Public leaderboard (MRR@25). Best in the scoring regime in force since 2026-10-0
 | 81 | 10-18 | public copy | **q1** | stack1 + PubChemLite in engine 2 + popularity 0.15 + N1A | **0.456** | |
 | 82 | 10-18 | q1 patch | q1s | q1 + library shield | 0.456 | |
 | 83 | 10-18 | q1 patch | q1d | q1 + engine-2 tree depth 7 | 0.450 | |
+| 84 | 10-19 | q1 patch | q1p | q1 + PE promotion (PubChem top = engine-2 top -> rank 1) | 0.452 | |
+| 85 | 10-19 | q1 patch (Ömer) | q1g | q1 + dual-gate PubChem promotion (rel > 130 & pop >= 2.5) + PCF5 | 0.456 | |
 
 ## Where things are
 

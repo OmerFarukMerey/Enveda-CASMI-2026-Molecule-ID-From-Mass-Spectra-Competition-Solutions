@@ -1,9 +1,10 @@
-"""Tests of the PCF5 cell (nb/embed/pcf5.py, cell 37 of stack1-v72a / v74a) and the EVR cell (nb/embed/evr.py, cell 38 of the unsubmitted
-stack1-v72b-evr); no competition data, toy lower-case keys instead of RDKit.
+"""Tests of the PCF5 cell (nb/embed/pcf5.py, cell 37 of stack1-v72a / v74a), its q1g variant (nb/embed/pcf5_q1g.py, last cell of
+casmi26-om-q1-g130-pcf5) and the EVR cell (nb/embed/evr.py, cell 38 of the unsubmitted stack1-v72b-evr); no competition data, toy
+lower-case keys instead of RDKit.
 
-Covers: every tag of pcf5_row / evr_row (short lists, the 25 cut, metric twins, placeholders), the cell-24 segment mirror, pcf5_rows and
-evr_rows on a toy final file, and the whole PCF5 cell run in a temp dir: the commit path (IS_RERUN False) writes the expected file, the
-scoring-rerun path restores the input bytes on an error, the commit path raises.
+Covers: every tag of pcf5_row / evr_row (short lists, the 25 cut, metric twins, placeholders), the cell-24 segment mirror (with the dual
+gate in the q1g variant), pcf5_rows and evr_rows on a toy final file, and the whole PCF5 cell (both variants) run in a temp dir: the commit
+path (IS_RERUN False) writes the expected file, the scoring-rerun path restores the input bytes on an error, the commit path raises.
 Run with pytest, or by hand: python solutions/fusion-v4n/tests/test_pcf5_evr.py"""
 import contextlib, io, json, os, sys, tempfile, time
 
@@ -27,7 +28,7 @@ def defs(name):
     return ns
 
 
-P5, EV = defs('pcf5.py'), defs('evr.py')
+P5, EV, P5G = defs('pcf5.py'), defs('evr.py'), defs('pcf5_q1g.py')
 IDENT = lambda s: s.strip().lower() if isinstance(s, str) and s.strip() else None   # toy metric identity: 'X' and 'x' are twins
 
 
@@ -123,8 +124,8 @@ def test_pcf5_rows():
     assert len(audit) == 6
 
 
-def run_cell(is_rerun, stats_patch=None):
-    """Run nb/embed/pcf5.py as a notebook cell in a fresh temp dir. Returns (stdout, final file bytes, input bytes, stats json, error)."""
+def run_cell(is_rerun, stats_patch=None, name='pcf5.py'):
+    """Run a PCF5 cell file as a notebook cell in a fresh temp dir. Returns (stdout, final file bytes, input bytes, stats json, error)."""
     rows, PC, BASE, stats, _ = toy()
     stats.update(stats_patch or {})
     cwd = os.getcwd()
@@ -140,7 +141,7 @@ def run_cell(is_rerun, stats_patch=None):
         os.chdir(work)
         try:
             with contextlib.redirect_stdout(out):
-                exec(compile(cell_src('pcf5.py'), 'pcf5.py', 'exec'), scope)
+                exec(compile(cell_src(name), name, 'exec'), scope)
         except Exception as e:  # noqa: BLE001
             err = e
         finally:
@@ -172,6 +173,36 @@ def test_cell_rerun_restores_input_on_error():
 def test_cell_commit_raises_on_error():
     out, after, before, st, err = run_cell(False, dict(untouched=99))
     assert isinstance(err, AssertionError) and after == before
+
+
+# ---- the q1g variant: the same cell, its cell-24 mirror extended by the dual gate (rel > 130 and pop >= 2.5) ----
+def test_q1g_variant_differs_only_in_the_rule():
+    a, b = cell_src('pcf5.py').splitlines(), cell_src('pcf5_q1g.py').splitlines()
+    import difflib
+    changed = [l for l in difflib.unified_diff(a, b, lineterm='', n=0) if l[:1] in '+-' and not l.startswith(('+++', '---'))]
+    assert len(changed) == 7, changed                                   # header, the rule (1 -> 2 lines), the stats version
+    assert any('rel > 130.0 and pop_top >= 2.5' in l for l in changed if l.startswith('+'))
+    assert any("version='q1g'" in l for l in changed if l.startswith('+'))
+
+
+def test_q1g_segments():
+    PC = dict(a=pc('L', rel=140.0, pop=3.0), b=pc('L', rel=140.0, pop=2.4), c=pc('L', rel=130.0, pop=9.0), d=pc('L', rel=151.0),
+              g=pc('L', rel=140.0, pop=3.0))
+    BASE = {m: ([], [], 0.5) for m in PC}
+    BASE['g'] = ([], [], 0.95)
+    got = {m: P5G['pcf5_segment'](m, PC, BASE, **TAU)[0] for m in PC}
+    assert got == dict(a='promoted', b='open', c='open', d='promoted', g='gate_closed'), got
+    assert P5['pcf5_segment']('a', PC, BASE, **TAU)[0] == 'open'           # the stack1 mirror does not know the dual gate
+
+
+def test_q1g_cell_paths():
+    out, after, before, st, err = run_cell(False, name='pcf5_q1g.py')
+    assert err is None, err
+    _, _, _, _, expected = toy()
+    got = pd.read_csv(io.BytesIO(after), dtype=str, keep_default_na=False)
+    assert dict(zip(got.molecule_id, got.smiles)) == expected and st['version'] == 'q1g' and st['changed_rows'] == 3
+    out, after, before, st, err = run_cell(True, dict(untouched=99), name='pcf5_q1g.py')
+    assert err is None and after == before and st['status'] == 'failed' and 'PCF5_FAILED' in out
 
 
 # ---- EVR ----
