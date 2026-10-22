@@ -19,7 +19,7 @@ See [solutions/README.md](solutions/README.md) for how a solution is laid out.
 
 ## Submissions and scores
 
-Public leaderboard (MRR@25). Best in the scoring regime in force since 2026-10-07: **0.456** (q1: stack1 + PubChemLite structures in engine 2 + PubChem-only popularity 0.15 + N1A GLACIER proxies, a copy of the public v465 notebook; stack1 0.451; our own pipeline: v59a 0.434). Before the change: 0.442 (v33b). Folders with the exact notebook, config and a detailed
+Public leaderboard (MRR@25). Best in the scoring regime in force since 2026-10-07: **0.464** (D0 / r1: copies of dmitriigluzdov's Data Behind notebook v16 / v19, whose gain over the 0.456 line is flexonafft's "N1 challenger"; before that 0.456, q1: stack1 + PubChemLite structures in engine 2 + PubChem-only popularity 0.15 + N1A GLACIER proxies, a copy of the public v465 notebook; stack1 0.451; our own pipeline: v59a 0.434). Before the change: 0.442 (v33b). Folders with the exact notebook, config and a detailed
 `README.txt` are in [submissions/](submissions/); every row with its details is in [docs/experiments.md](docs/experiments.md).
 
 | # | Date | Solution | Version | Change | Public LB | Folder |
@@ -109,6 +109,11 @@ Public leaderboard (MRR@25). Best in the scoring regime in force since 2026-10-0
 | 83 | 10-18 | q1 patch | q1d | q1 + engine-2 tree depth 7 | 0.450 | |
 | 84 | 10-19 | q1 patch | q1p | q1 + PE promotion (PubChem top = engine-2 top -> rank 1) | 0.452 | |
 | 85 | 10-19 | q1 patch (Ömer) | q1g | q1 + dual-gate PubChem promotion (rel > 130 & pop >= 2.5) + PCF5 | 0.456 | |
+| 86 | 10-22 | public copy | r1 | latest Data Behind (v19) | 0.464 | |
+| 87 | 10-21 | q1 patch (Ömer) | S0 | q1 + determinism + dataset receipt | 0.456 | |
+| 88 | 10-21 | LB probe (Ömer) | I2 | analog-edit products not in S0's 25, at rank 1 | 0.007 | |
+| 89 | 10-21 | public copy (Ömer) | **D0** | Data Behind v16 (N1 challenger) | **0.464** | [notebook](https://www.kaggle.com/code/dmitriigluzdov/casmi-26-the-data-behind-spectra-to-structures) |
+| 90 | 10-21 | D0 patch (Ömer) | T1 | D0 + engine-2 tree depth 5 | 0.455 | |
 
 ## Where things are
 
