@@ -20,7 +20,9 @@ Log lines: S1V_SWITCH, S1V_STATE (runner), S1V_PASS2 (pass 2), S1V_PATCH (apply)
 import os, json
 
 S1V = dict(on=True, k=5, vote_only=True, max_pos=40, workers=4, timeout=1800, score_closed=True, state='/tmp/s1v_state.pkl',
-           out='/kaggle/working/s1v_eng2.json', keep_state=False)
+           out='/kaggle/working/s1v_eng2.json', keep_state=False, gate=None)
+# gate None: every open molecule (s1v as measured). gate 'aggressive' (G1, scratch/s1v/PREREG.md section 6): the rows are inserted only
+# on molecules whose channel takes cell 44's aggressive branch (channel-level rel > REL_TH); pass 2 still scores every open molecule.
 
 # ---- engine-2 runner patch (pure text; anchors must occur exactly once) --------------------------------------------------------
 S1V_RUNNER_ANCHORS = (
@@ -245,6 +247,24 @@ def s1v_rows(base, pc, lib_tau, k, score_closed=False):
     return rows, opened
 
 
+def s1v_gate_ok(gate, p, rel_th):
+    """-> (allowed, rel). gate None: always. 'aggressive': cell 44's channel-level test, rel = (fz_top if present else pc_fz[0]) -
+    best_pool_fz (1e9 when best_pool_fz is not finite), allowed iff rel > rel_th. Unknown gate -> ValueError."""
+    import math
+    if gate is None:
+        return True, None
+    if gate != 'aggressive':
+        raise ValueError('unknown s1v gate %r' % (gate,))
+    if not p or not p.get('pc'):
+        return False, None
+    b = p.get('best_pool_fz')
+    if b is None or not math.isfinite(float(b)):
+        rel = 1e9
+    else:
+        rel = float(p['fz_top'] if p.get('fz_top') is not None else p['pc_fz'][0]) - float(b)
+    return rel > float(rel_th), rel
+
+
 def s1v_insert(eng, entries, vote_only=True, max_pos=40):
     """One engine-2 list {smiles, keys} + pass-2 entries -> (new list or None if unchanged, tags). Pure. An entry is inserted before the
     exported row at index pos (after every row with a blend >= its own); vote_only: pos >= 1 (never engine 2's first row); keys already
@@ -322,6 +342,11 @@ def s1v_selftest():
     new, t = s1v_insert(eng, [dict(smiles='X', key='kx', pos=2, blend=0.1)], max_pos=3)
     assert new['smiles'] == ['E0', 'E1', 'X'], new
     assert s1v_insert(dict(smiles=[], keys=[]), ent[:1])[0] is None
+    pa = dict(pc=['X'], pc_fz=[900.0], fz_top=None, best_pool_fz=100.0)
+    assert s1v_gate_ok(None, pa, 600.0) == (True, None) and s1v_gate_ok('aggressive', pa, 600.0) == (True, 800.0)
+    assert s1v_gate_ok('aggressive', dict(pa, fz_top=650.0), 600.0) == (False, 550.0)
+    assert s1v_gate_ok('aggressive', dict(pa, best_pool_fz=float('nan')), 600.0) == (True, 1e9)
+    assert s1v_gate_ok('aggressive', dict(pc=[]), 600.0) == (False, None)
     assert s1v_patch_runner is not None
     return 'ok'
 
@@ -379,7 +404,12 @@ def s1v_apply(scope):
             rep.update(pass2=res.get('status'), dev=res.get('dev'), pass2_counts=res.get('counts'), pass2_secs=res.get('secs'))
             assert res.get('status') == 'ok', ('pass 2', res.get('status'), res.get('error'))
             new, tags = {}, {}
+            gate = sw.get('gate')
+            gated_out = 0
             for m in sorted(opened):
+                if gate is not None and not s1v_gate_ok(gate, PC.get(m) if isinstance(PC, dict) else None, float(scope['REL_TH']))[0]:
+                    gated_out += 1
+                    continue
                 out, t = s1v_insert(ENG.get(m), (res.get('mols') or {}).get(m) or [], bool(sw['vote_only']), int(sw['max_pos']))
                 for kk, vv in t.items():
                     tags[kk] = tags.get(kk, 0) + vv
@@ -390,7 +420,7 @@ def s1v_apply(scope):
                                          le20=sum(p <= 20 for p in pos), lt40=sum(p < 40 for p in pos))
             for m, v in new.items():                   # all at once, after every check
                 ENG[m] = v
-            rep.update(status='ok', changed_lists=len(new), tags=tags)
+            rep.update(status='ok', changed_lists=len(new), tags=tags, gate=gate, gated_out=gated_out, gated_in=len(opened) - gated_out)
     except Exception as exc:
         rep.update(status='failed (ENG unchanged)', error=repr(exc)[:300])
     finally:

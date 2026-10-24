@@ -7,7 +7,7 @@ pv.py of s1's engine-2 cell with a synthetic main() (36-structure pool, 3 window
 real runner text, unhooked and hooked: (1) the export eng_lists.json is byte-identical, (2) the pickled state passes pass 2's identity
 gate (dev 0), (3) every scored row's blend and position equal an independent computation in which the row is simply one more candidate
 of the window (lib 0, MetFrag-lite by the engine), (4) s1v_apply changes ENG exactly as s1v_insert on pass 2's output, only for open
-molecules, and leaves ENG untouched with the switch off. Workers: 2.
+molecules, and leaves ENG untouched with the switch off; with gate 'aggressive' only aggressive-branch molecules change. Workers: 2.
 usage: python solutions/fusion-v4n/tests/test_s1v.py   (or pytest)
 """
 import ast, copy, json, os, pickle, shutil, subprocess, sys, tempfile
@@ -151,6 +151,26 @@ def test_builder():
         assert len(c) == len(s1) + 3 and c[2:34] == s1[1:33] and c[36:47] == s1[34:45] and c[48:] == s1[45:]
         assert ('S1V = dict(on=True, ' in c[34]) == on and ('S1V = dict(on=False, ' in c[34]) == (not on)
         assert 'S1V_HOOK(' in c[35] and c[47].strip().endswith('S1V_REPORT = s1v_apply(globals())')
+    on_ = [''.join(x['source']) for x in B.build(True)['cells']]
+    g1 = [''.join(x['source']) for x in B.build(True, 'aggressive')['cells']]
+    diff = [i for i, (x, y) in enumerate(zip(on_, g1)) if x != y]
+    assert len(on_) == len(g1) and diff == [1, 34], diff                       # notice + the one switch line
+    dl = [(x, y) for x, y in zip(on_[34].splitlines(), g1[34].splitlines()) if x != y]
+    assert dl == [(x, x.replace('gate=None)', "gate='aggressive')")) for x, _ in dl] and len(dl) == 1, dl
+
+
+def test_gate_matches_replay():
+    """s1v_gate_ok('aggressive') = the G1 flags replayed from the T3 / T2 dumps (scratch/s1v/replay_gates.py); local files only."""
+    import gzip
+    for k in ('t2', 't3'):
+        gp, dp = f'C:/Users/hemre/casmi-work/s1v/{k}/gates.json', f'C:/Users/hemre/casmi-work/s1v/{k}/dump/s1val/s1val_dump.json.gz'
+        if not (os.path.exists(gp) and os.path.exists(dp)):
+            print('skip test_gate_matches_replay', k); continue
+        G = json.load(open(gp))['mols']; D = json.load(gzip.open(dp, 'rt', encoding='utf-8'))
+        rel_th = D['meta']['consts']['REL_TH']
+        for m, r in G.items():
+            if r['open']:
+                assert M['s1v_gate_ok']('aggressive', D['mols'][m]['pc'], rel_th)[0] == r['aggressive'], (k, m)
 
 
 # ---- end to end -----------------------------------------------------------------------------------------------------------------
@@ -347,6 +367,18 @@ def test_end_to_end():
         eng3 = json.loads(b0)
         rep = g['s1v_apply'](dict(S1V=sw2, ENG=eng3, PC=pc, BASE=base, LIB_TAU=0.9, ENG_DIR=d, IS_RERUN=False))
         assert rep['scored_molecules'] == 3 and eng3['mB'] == ENG['mB'] and eng3['mA'] == eng['mA'], rep
+        # gate 'aggressive' (G1): rows only for molecules whose channel takes cell 44's aggressive branch (rel > REL_TH)
+        pcg = {m: dict(pc[m], pc_fz=[100.0] * len(rows[m]), fz_top=None, best_pool_fz=0.0) for m in pc}
+        pcg['mA']['fz_top'] = 900.0                                                   # mA aggressive (rel 900), mC gentle (rel 100)
+        eng4 = json.loads(b0)
+        sw4 = dict(sw, out=os.path.join(d, 'p2d.json'), gate='aggressive')
+        rep = g['s1v_apply'](dict(S1V=sw4, ENG=eng4, PC=pcg, BASE=base, LIB_TAU=0.9, REL_TH=600.0, ENG_DIR=d, IS_RERUN=True))
+        assert rep['status'] == 'ok' and rep['gate'] == 'aggressive' and rep['gated_in'] == 1 and rep['gated_out'] == 1, rep
+        assert eng4['mA'] == eng['mA'] and eng4['mC'] == ENG['mC'] and eng4['mB'] == ENG['mB'], 'gate not applied as specified'
+        eng5 = json.loads(b0)
+        rep = g['s1v_apply'](dict(S1V=dict(sw4, gate='bogus'), ENG=eng5, PC=pcg, BASE=base, LIB_TAU=0.9, REL_TH=600.0, ENG_DIR=d,
+                                  IS_RERUN=True))
+        assert rep['status'].startswith('failed') and eng5 == ENG, rep                 # unknown gate -> ENG unchanged
     finally:
         sys.path[:] = [p for p in sys.path if p != d]
         for k in [k for k in sys.modules if k in ('casmi_engine', 'pv', 'pv_fp')]:
