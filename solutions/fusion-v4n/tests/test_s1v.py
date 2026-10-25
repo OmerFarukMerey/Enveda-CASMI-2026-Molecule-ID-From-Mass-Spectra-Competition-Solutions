@@ -157,6 +157,8 @@ def test_builder():
     assert len(on_) == len(g1) and diff == [1, 34], diff                       # notice + the one switch line
     dl = [(x, y) for x, y in zip(on_[34].splitlines(), g1[34].splitlines()) if x != y]
     assert dl == [(x, x.replace('gate=None)', "gate='aggressive')")) for x, _ in dl] and len(dl) == 1, dl
+    g2 = [''.join(x['source']) for x in B.build(True, 'rel>300')['cells']]
+    assert [i for i, (x, y) in enumerate(zip(on_, g2)) if x != y] == [1, 34] and "gate='rel>300')" in g2[34] and 'exceeds 300' in g2[1]
 
 
 def test_gate_matches_replay():
@@ -171,6 +173,11 @@ def test_gate_matches_replay():
         for m, r in G.items():
             if r['open']:
                 assert M['s1v_gate_ok']('aggressive', D['mols'][m]['pc'], rel_th)[0] == r['aggressive'], (k, m)
+        g2p = f'C:/Users/hemre/casmi-work/s1v/{k}/gates2.json'                     # Ga (rel > 300) = PREREG section 7's replayed flag
+        if os.path.exists(g2p):
+            for m, r in json.load(open(g2p))['mols'].items():
+                if r['open'] and r['rel'] is not None:
+                    assert M['s1v_gate_ok']('rel>300', D['mols'][m]['pc'], rel_th)[0] == (r['rel'] > 300.0), (k, m)
 
 
 # ---- end to end -----------------------------------------------------------------------------------------------------------------
@@ -379,6 +386,11 @@ def test_end_to_end():
         rep = g['s1v_apply'](dict(S1V=dict(sw4, gate='bogus'), ENG=eng5, PC=pcg, BASE=base, LIB_TAU=0.9, REL_TH=600.0, ENG_DIR=d,
                                   IS_RERUN=True))
         assert rep['status'].startswith('failed') and eng5 == ENG, rep                 # unknown gate -> ENG unchanged
+        pcg['mC']['fz_top'] = 400.0                                                   # mC rel 400: in for 'rel>300', out for 'aggressive'
+        eng6 = json.loads(b0)
+        rep = g['s1v_apply'](dict(S1V=dict(sw4, out=os.path.join(d, 'p2e.json'), gate='rel>300'), ENG=eng6, PC=pcg, BASE=base, LIB_TAU=0.9,
+                                  REL_TH=600.0, ENG_DIR=d, IS_RERUN=True))
+        assert rep['gate'] == 'rel>300' and rep['gated_in'] == 2 and eng6['mA'] == eng['mA'] and eng6['mC'] == eng['mC'], rep
     finally:
         sys.path[:] = [p for p in sys.path if p != d]
         for k in [k for k in sys.modules if k in ('casmi_engine', 'pv', 'pv_fp')]:

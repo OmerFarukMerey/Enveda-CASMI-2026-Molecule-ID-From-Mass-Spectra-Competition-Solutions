@@ -22,7 +22,8 @@ import os, json
 S1V = dict(on=True, k=5, vote_only=True, max_pos=40, workers=4, timeout=1800, score_closed=True, state='/tmp/s1v_state.pkl',
            out='/kaggle/working/s1v_eng2.json', keep_state=False, gate=None)
 # gate None: every open molecule (s1v as measured). gate 'aggressive' (G1, scratch/s1v/PREREG.md section 6): the rows are inserted only
-# on molecules whose channel takes cell 44's aggressive branch (channel-level rel > REL_TH); pass 2 still scores every open molecule.
+# on molecules whose channel takes cell 44's aggressive branch (channel-level rel > REL_TH); gate 'rel>X' (Ga = 'rel>300', PREREG section 7):
+# the same with the fixed threshold X instead of REL_TH. Pass 2 still scores every open molecule.
 
 # ---- engine-2 runner patch (pure text; anchors must occur exactly once) --------------------------------------------------------
 S1V_RUNNER_ANCHORS = (
@@ -249,11 +250,16 @@ def s1v_rows(base, pc, lib_tau, k, score_closed=False):
 
 def s1v_gate_ok(gate, p, rel_th):
     """-> (allowed, rel). gate None: always. 'aggressive': cell 44's channel-level test, rel = (fz_top if present else pc_fz[0]) -
-    best_pool_fz (1e9 when best_pool_fz is not finite), allowed iff rel > rel_th. Unknown gate -> ValueError."""
+    best_pool_fz (1e9 when best_pool_fz is not finite), allowed iff rel > rel_th. 'rel>X': allowed iff rel > float(X).
+    Unknown gate -> ValueError."""
     import math
     if gate is None:
         return True, None
-    if gate != 'aggressive':
+    if gate == 'aggressive':
+        th = float(rel_th)
+    elif isinstance(gate, str) and gate.startswith('rel>'):
+        th = float(gate[4:])
+    else:
         raise ValueError('unknown s1v gate %r' % (gate,))
     if not p or not p.get('pc'):
         return False, None
@@ -262,7 +268,7 @@ def s1v_gate_ok(gate, p, rel_th):
         rel = 1e9
     else:
         rel = float(p['fz_top'] if p.get('fz_top') is not None else p['pc_fz'][0]) - float(b)
-    return rel > float(rel_th), rel
+    return rel > th, rel
 
 
 def s1v_insert(eng, entries, vote_only=True, max_pos=40):
@@ -347,6 +353,8 @@ def s1v_selftest():
     assert s1v_gate_ok('aggressive', dict(pa, fz_top=650.0), 600.0) == (False, 550.0)
     assert s1v_gate_ok('aggressive', dict(pa, best_pool_fz=float('nan')), 600.0) == (True, 1e9)
     assert s1v_gate_ok('aggressive', dict(pc=[]), 600.0) == (False, None)
+    assert s1v_gate_ok('rel>300', dict(pa, fz_top=650.0), 600.0) == (True, 550.0)
+    assert s1v_gate_ok('rel>300', dict(pa, fz_top=350.0), 600.0) == (False, 250.0)
     assert s1v_patch_runner is not None
     return 'ok'
 
