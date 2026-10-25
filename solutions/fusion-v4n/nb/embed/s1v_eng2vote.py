@@ -23,7 +23,23 @@ S1V = dict(on=True, k=5, vote_only=True, max_pos=40, workers=4, timeout=1800, sc
            out='/kaggle/working/s1v_eng2.json', keep_state=False, gate=None)
 # gate None: every open molecule (s1v as measured). gate 'aggressive' (G1, scratch/s1v/PREREG.md section 6): the rows are inserted only
 # on molecules whose channel takes cell 44's aggressive branch (channel-level rel > REL_TH); gate 'rel>X' (Ga = 'rel>300', PREREG section 7):
-# the same with the fixed threshold X instead of REL_TH. Pass 2 still scores every open molecule.
+# the same with the fixed threshold X instead of REL_TH. gate 'learned' (PREREG section 8): a frozen logistic regression on 15 label-free
+# features of the molecule (channel, engine-1 / engine-2 agreement, pass 2's entries; s1v_gate_features) must score >= its threshold.
+# Pass 2 still scores every open molecule.
+# Frozen by scratch/s1v/learned_gate.py (fit on T2 u T3 open molecules with a non-zero ungated delta; casmi-work/s1v/learned_gate.json).
+S1V_LEARNED = dict(
+    feats=('rel_slog', 'rel_inf', 'bpf_slog', 'S0', 'S_gap', 'top_pop', 'row1_rel_slog', 'minpos_log', 'n_top2', 'best_rif', 'best_blend',
+           'n_listed', 'agree12', 'overlap5', 'pc_nform'),
+    mu=(2.686626914003362, 0.0, 1.9560756125701224, 4.581080070286508, 1.433183532873605, 2.2133900672390263, 0.3797917659511326,
+        0.4360171077026608, 2.607329842931937, 0.02146694998045352, 0.968480233616298, 0.1518324607329843, 0.28272251308900526,
+        2.0104712041884816, 2.643979057591623),
+    sd=(4.543620719344278, 1.0, 5.8381931029645955, 1.3896728099953926, 1.0789567344523299, 0.9021357721191458, 5.25841757633536,
+        0.6818106660621642, 1.9055577823525238, 0.05387169453824833, 0.055584267253093296, 0.4131152155932746, 0.4503226550837105,
+        1.2150432685541528, 2.9638225069940605),
+    coef=(0.12269475037253694, 0.0, -0.045044154080257165, 0.003982219149216568, 0.2529993364102577, 0.42507124287977627,
+          0.20696343844854498, -0.1594892225784524, -0.1858436053585253, 0.03273000762834743, 0.049121429452331285, 0.15218726582387276,
+          0.5064518164128431, 0.3255243066137104, -0.12935823633990706),
+    b=0.44318674927208457, threshold=0.69)
 
 # ---- engine-2 runner patch (pure text; anchors must occur exactly once) --------------------------------------------------------
 S1V_RUNNER_ANCHORS = (
@@ -248,13 +264,64 @@ def s1v_rows(base, pc, lib_tau, k, score_closed=False):
     return rows, opened
 
 
-def s1v_gate_ok(gate, p, rel_th):
-    """-> (allowed, rel). gate None: always. 'aggressive': cell 44's channel-level test, rel = (fz_top if present else pc_fz[0]) -
-    best_pool_fz (1e9 when best_pool_fz is not finite), allowed iff rel > rel_th. 'rel>X': allowed iff rel > float(X).
+def _s1v_slog(x, cap=1e4):
+    import math
+    x = max(-cap, min(cap, float(x)))
+    return math.copysign(math.log1p(abs(x)), x)
+
+
+def s1v_gate_features(p, base, eng, ent):
+    """PREREG section 8's features of one molecule: p = PC[m], base = BASE[m] = (smiles25, keys25, lib_max), eng = ENG[m] before the
+    vote, ent = pass 2's entries. Label-free; lib_max, sizes, engine-1 scores and adducts are deliberately not used."""
+    import math
+    b = p.get('best_pool_fz')
+    fin = b is not None and math.isfinite(float(b))
+    top = float(p['fz_top'] if p.get('fz_top') is not None else p['pc_fz'][0])
+    rel = top - float(b) if fin else 1e9
+    pz = list(p.get('pc_fz') or [])
+    bkeys = list((base or ((), (), 0.0))[1])
+    bset = set(bkeys)
+    inter = [k for k in p.get('pc_keys') or [] if k not in bset]
+    ev = p.get('promotion_evidence') or {}
+    r1 = ev.get(inter[0]) if inter else None
+    row1 = _s1v_slog(float(r1['raw_fz']) - float(b)) if (r1 is not None and r1.get('raw_fz') is not None and fin) else 0.0
+    sc = [e for e in ent or [] if e.get('pos') is not None]
+    ek = list((eng or {}).get('keys') or [])
+    return dict(rel_slog=_s1v_slog(rel), rel_inf=float(not fin), bpf_slog=_s1v_slog(float(b)) if fin else 0.0,
+                S0=float(pz[0]) if pz else 0.0, S_gap=float(pz[0] - pz[1]) if len(pz) > 1 else 0.0,
+                top_pop=math.log1p(max(0.0, float(p.get('top_pop') or 0.0))),
+                row1_rel_slog=row1,
+                minpos_log=math.log1p(min([int(e['pos']) for e in sc] + [40])),
+                n_top2=float(sum(int(e['pos']) <= 1 for e in sc)),
+                best_rif=min([e['rank_in_window'] / max(1, e['n_window']) for e in sc if e.get('n_window')] + [1.0]),
+                best_blend=max([float(e.get('blend', 0.0)) for e in sc] + [0.0]),
+                n_listed=float(sum(e.get('reason') == 'listed' for e in ent or [])),
+                agree12=float(bool(ek) and bool(bkeys) and ek[0] == bkeys[0]),
+                overlap5=float(len(set(bkeys[:5]) & set(ek[:5]))),
+                pc_nform=float(len(set(p.get('pc_form') or []))))
+
+
+def s1v_learned_score(f, L=None):
+    """Frozen logistic regression (S1V_LEARNED) on a feature dict -> probability."""
+    import math
+    L = L or S1V_LEARNED
+    z = L['b'] + sum(c * (float(f[n]) - mu) / sd for n, mu, sd, c in zip(L['feats'], L['mu'], L['sd'], L['coef']))
+    return 1.0 / (1.0 + math.exp(-z))
+
+
+def s1v_gate_ok(gate, p, rel_th, base=None, eng=None, ent=None):
+    """-> (allowed, rel or score). gate None: always. 'aggressive': cell 44's channel-level test, rel = (fz_top if present else pc_fz[0]) -
+    best_pool_fz (1e9 when best_pool_fz is not finite), allowed iff rel > rel_th. 'rel>X': allowed iff rel > float(X). 'learned':
+    allowed iff s1v_learned_score(s1v_gate_features(p, base, eng, ent)) >= S1V_LEARNED['threshold'] (second value = the score).
     Unknown gate -> ValueError."""
     import math
     if gate is None:
         return True, None
+    if gate == 'learned':
+        if not p or not p.get('pc'):
+            return False, None
+        s = s1v_learned_score(s1v_gate_features(p, base, eng, ent))
+        return s >= float(S1V_LEARNED['threshold']), s
     if gate == 'aggressive':
         th = float(rel_th)
     elif isinstance(gate, str) and gate.startswith('rel>'):
@@ -355,6 +422,13 @@ def s1v_selftest():
     assert s1v_gate_ok('aggressive', dict(pc=[]), 600.0) == (False, None)
     assert s1v_gate_ok('rel>300', dict(pa, fz_top=650.0), 600.0) == (True, 550.0)
     assert s1v_gate_ok('rel>300', dict(pa, fz_top=350.0), 600.0) == (False, 250.0)
+    assert s1v_gate_ok('learned', dict(pc=[]), 600.0) == (False, None)
+    f = s1v_gate_features(dict(pa, pc_keys=['kx'], pc_form=['C1']), (['A'], ['ka'], 0.1), dict(smiles=['A'], keys=['ka']),
+                          [dict(smiles='X', key='kx', pos=0, blend=0.9, rank_in_window=0, n_window=10)])
+    assert tuple(sorted(f)) == tuple(sorted(S1V_LEARNED['feats'])) and f['agree12'] == 1.0 and f['n_top2'] == 1.0 and f['minpos_log'] == 0.0
+    ok, sc = s1v_gate_ok('learned', dict(pa, pc_keys=['kx']), 600.0, (['A'], ['ka'], 0.1), dict(smiles=['A'], keys=['ka']), [])
+    assert 0.0 < sc < 1.0 and ok == (sc >= S1V_LEARNED['threshold'])
+    assert all(len(S1V_LEARNED[k]) == len(S1V_LEARNED['feats']) for k in ('mu', 'sd', 'coef'))
     assert s1v_patch_runner is not None
     return 'ok'
 
@@ -414,11 +488,14 @@ def s1v_apply(scope):
             new, tags = {}, {}
             gate = sw.get('gate')
             gated_out = 0
+            bstr = {str(kk): vv for kk, vv in BASE.items()}
             for m in sorted(opened):
-                if gate is not None and not s1v_gate_ok(gate, PC.get(m) if isinstance(PC, dict) else None, float(scope['REL_TH']))[0]:
+                ent = (res.get('mols') or {}).get(m) or []
+                if gate is not None and not s1v_gate_ok(gate, PC.get(m) if isinstance(PC, dict) else None, float(scope['REL_TH']),
+                                                        bstr.get(m), ENG.get(m), ent)[0]:
                     gated_out += 1
                     continue
-                out, t = s1v_insert(ENG.get(m), (res.get('mols') or {}).get(m) or [], bool(sw['vote_only']), int(sw['max_pos']))
+                out, t = s1v_insert(ENG.get(m), ent, bool(sw['vote_only']), int(sw['max_pos']))
                 for kk, vv in t.items():
                     tags[kk] = tags.get(kk, 0) + vv
                 if out is not None:

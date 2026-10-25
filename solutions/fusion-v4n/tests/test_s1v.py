@@ -178,6 +178,35 @@ def test_gate_matches_replay():
             for m, r in json.load(open(g2p))['mols'].items():
                 if r['open'] and r['rel'] is not None:
                     assert M['s1v_gate_ok']('rel>300', D['mols'][m]['pc'], rel_th)[0] == (r['rel'] > 300.0), (k, m)
+        _learned_matches_fit(k, D, rel_th)
+
+
+def _learned_matches_fit(k, D, rel_th):
+    """gate 'learned' = scratch/s1v/learned_gate.py's features and frozen fit (PREREG section 8) on every open molecule of a dump."""
+    lp = 'C:/Users/hemre/casmi-work/s1v/learned_gate.json'
+    if not os.path.exists(lp):
+        print('skip learned gate check', k); return
+    import numpy as np
+    sys.path.insert(0, os.path.join(ROOT, 'scratch', 's1v'))
+    import learned_gate as LG
+    F = json.load(open(lp))['final']
+    L = M['S1V_LEARNED']
+    assert list(L['feats']) == F['feats'] == LG.FEATS and L['threshold'] == F['threshold'] and L['b'] == F['b']
+    assert all(list(L[x]) == F[x] for x in ('mu', 'sd', 'coef'))
+    n_open = n_in = 0
+    for m, d in D['mols'].items():
+        _, op = M['s1v_rows']({m: tuple(d['base25'])}, {m: d['pc']} if d.get('pc') else {}, D['meta']['consts']['LIB_TAU'], 5)
+        if m not in op:
+            continue
+        ent = d.get('s1v') or []
+        f = M['s1v_gate_features'](d['pc'], tuple(d['base25']), d['eng0'], ent)
+        assert f == LG.features(d['pc'], d['base25'], d['eng0'], ent), (k, m)
+        x = np.array([f[n] for n in F['feats']])
+        want = 1.0 / (1.0 + np.exp(-(((x - np.array(F['mu'])) / np.array(F['sd'])) @ np.array(F['coef']) + F['b'])))
+        ok, s = M['s1v_gate_ok']('learned', d['pc'], rel_th, tuple(d['base25']), d['eng0'], ent)
+        assert abs(s - want) < 1e-9 and ok == (s >= F['threshold']), (k, m, s, want)
+        n_open += 1; n_in += ok
+    print(f'learned gate {k}: {n_in} of {n_open} open molecules pass (in-sample, frozen fit)')
 
 
 # ---- end to end -----------------------------------------------------------------------------------------------------------------
@@ -391,6 +420,16 @@ def test_end_to_end():
         rep = g['s1v_apply'](dict(S1V=dict(sw4, out=os.path.join(d, 'p2e.json'), gate='rel>300'), ENG=eng6, PC=pcg, BASE=base, LIB_TAU=0.9,
                                   REL_TH=600.0, ENG_DIR=d, IS_RERUN=True))
         assert rep['gate'] == 'rel>300' and rep['gated_in'] == 2 and eng6['mA'] == eng['mA'] and eng6['mC'] == eng['mC'], rep
+        # gate 'learned' (PREREG section 8): exactly the molecules whose frozen score passes, from pass 2's own entries
+        eng7, o7 = json.loads(b0), os.path.join(d, 'p2f.json')
+        rep = g['s1v_apply'](dict(S1V=dict(sw4, out=o7, gate='learned'), ENG=eng7, PC=pcg, BASE=base, LIB_TAU=0.9, REL_TH=600.0,
+                                  ENG_DIR=d, IS_RERUN=True))
+        P7 = json.load(open(o7))['mols']
+        want = {m: g['s1v_gate_ok']('learned', pcg[m], 600.0, base[m], ENG[m], P7[m])[0] for m in ('mA', 'mC')}
+        assert rep['status'] == 'ok' and rep['gate'] == 'learned' and rep['gated_in'] == sum(want.values()), (rep, want)
+        for m in ('mA', 'mC'):
+            assert eng7[m] == (eng[m] if want[m] else ENG[m]), m
+        assert eng7['mB'] == ENG['mB']
     finally:
         sys.path[:] = [p for p in sys.path if p != d]
         for k in [k for k in sys.modules if k in ('casmi_engine', 'pv', 'pv_fp')]:
