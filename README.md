@@ -114,6 +114,7 @@ Public leaderboard (MRR@25). Best in the scoring regime in force since 2026-10-0
 | 88 | 10-21 | LB probe (Ömer) | I2 | analog-edit products not in S0's 25, at rank 1 | 0.007 | |
 | 89 | 10-21 | public copy (Ömer) | **D0** | Data Behind v16 (N1 challenger) | **0.464** | [notebook](https://www.kaggle.com/code/dmitriigluzdov/casmi-26-the-data-behind-spectra-to-structures) |
 | 90 | 10-21 | D0 patch (Ömer) | T1 | D0 + engine-2 tree depth 5 | 0.455 | |
+| 102 | 10-22 | D0 patch (Ömer) | T_A | D0 + engine-1 pool popularity 0.25 | 0.456 | |
 
 ## Where things are
 
