@@ -59,6 +59,10 @@ ap.add_argument('--ranks_out', action='store_true')
 ap.add_argument('--yield_gb', type=float, default=11.0); ap.add_argument('--duty', type=float, default=0.8); ap.add_argument('--game_duty', type=float, default=0.25)
 ap.add_argument('--soup', default=None); ap.add_argument('--out', default=None); ap.add_argument('--soup_base', default=None); ap.add_argument('--soup_alpha', type=float, default=1.0)
 ap.add_argument('--cpu', action='store_true', help='run on the CPU (tests, smoke)')
+ap.add_argument('--merge_p', type=float, default=0.0,
+                help='share of training items that are merged pseudo-spectra (pv_fp.merge_peaks of 1-8 spectra of the same structure '
+                     'and library, prec = median, adduct / instrument of the first, CE 25.0, mode = mean: what the engine feeds a '
+                     "'merged' model); 0 = single spectra only (default, the earlier behaviour)")
 args = ap.parse_args()
 sys.path.insert(0, HERE); sys.path.insert(0, args.eng)
 import gpushare
@@ -192,13 +196,41 @@ class Data:
         a, b = self.off[i], self.off[i + 1]
         return pv_fp.prep_peaks(self.mz[a:b], self.it[a:b], float(self.prec[i]))
 
-    def collate(self, rows, dev):
-        P = [self.item(int(i)) for i in rows]; B = len(P); N = max(1, max(len(a) for a, _ in P))
+    def merge_groups(self):
+        """(structure, library) -> training rows, for --merge_p (built once)."""
+        key = self.gid[self.train_rows].astype(np.int64) * 64 + pd.factorize(self.lib)[0][self.train_rows]
+        o = np.argsort(key, kind='mergesort'); ks = key[o]
+        starts = np.flatnonzero(np.r_[True, ks[1:] != ks[:-1]]); ends = np.r_[starts[1:], len(ks)]
+        self.mg_rows = self.train_rows[o]; self.mg_start = np.empty(len(self.train_rows), np.int64); self.mg_end = np.empty_like(self.mg_start)
+        for s, e in zip(starts, ends):
+            self.mg_start[o[s:e]] = s; self.mg_end[o[s:e]] = e
+        log(f'merge groups: {len(starts):,} (structure, library) groups over {len(self.train_rows):,} training rows')
+
+    def merged_set(self, loc, rng):
+        """Rows merged with training row number `loc` (index into train_rows): 1-8 rows of its (structure, library) group."""
+        g = self.mg_rows[self.mg_start[loc]:self.mg_end[loc]]
+        k = int(rng.integers(2, min(len(g), 8) + 1)) if len(g) >= 2 else 1
+        return g if k >= len(g) else rng.choice(g, k, replace=False)
+
+    def collate(self, rows, dev, merged=None):
+        """merged: None or a list (one entry per row) of None (single spectrum) or an array of rows to merge (pv_fp.molecule_logits' merged view)."""
+        rows = np.asarray(rows); P = []; prec = self.prec[rows].astype(np.float32); adduct = self.adduct[rows].copy()
+        instr = self.instr[rows].copy(); ce = self.ce[rows].astype(np.float32); mode = self.mode[rows].astype(np.float32)
+        for j, i in enumerate(rows):
+            ms = None if merged is None else merged[j]
+            if ms is None:
+                P.append(self.item(int(i))); continue
+            ms = np.asarray(ms)
+            mzm, itm = pv_fp.merge_peaks([(self.mz[self.off[r]:self.off[r + 1]], self.it[self.off[r]:self.off[r + 1]]) for r in ms])
+            pm = float(np.median(self.prec[ms]))
+            P.append(pv_fp.prep_peaks(mzm, itm, pm))
+            prec[j] = pm; adduct[j] = self.adduct[ms[0]]; instr[j] = self.instr[ms[0]]; ce[j] = 25.0; mode[j] = float(np.mean(self.mode[ms]))
+        B = len(P); N = max(1, max(len(a) for a, _ in P))
         mz = np.zeros((B, N), np.float32); it = np.zeros((B, N), np.float32); pad = np.ones((B, N), bool)
         for i, (a, b) in enumerate(P):
             mz[i, :len(a)] = a; it[i, :len(b)] = b; pad[i, :len(a)] = False
         T = lambda x: torch.as_tensor(x, device=dev)
-        return (T(mz), T(it), T(pad), T(self.prec[rows].astype(np.float32)), T(self.adduct[rows]), T(self.instr[rows]), T(self.ce[rows].astype(np.float32)), T(self.mode[rows]))
+        return (T(mz), T(it), T(pad), T(prec), T(adduct), T(instr), T(ce), T(mode))
 
     def window(self, pid):
         m = self.pmass[pid]; tol = m * 10e-6
@@ -319,6 +351,8 @@ def main():
             pd.DataFrame(detail).to_parquet(os.path.join(args.run, f'{args.tag}_ranks.parquet'), index=False)
         return
     cdf, boosted = sampler(D)
+    if args.merge_p > 0:
+        D.merge_groups()
     torch.manual_seed(args.seed)
     model = load_model(args.init, dev).train() if args.init else pv_fp.FPNet(NBITS).to(dev).train()
     use_amp = dev == 'cuda'
@@ -340,7 +374,10 @@ def main():
     def batch(rng):
         loc = np.minimum(np.searchsorted(cdf, rng.random(args.bs)), len(cdf) - 1)
         rows = D.train_rows[loc]; pos = D.pid[rows]; neg, ok = D.negatives(pos, args.k, rng)
-        return D.collate(rows, 'cpu'), pos, neg, ok, boosted[loc]
+        merged = None
+        if args.merge_p > 0:
+            merged = [D.merged_set(int(l), rng) if rng.random() < args.merge_p else None for l in loc]
+        return D.collate(rows, 'cpu', merged), pos, neg, ok, boosted[loc]
 
     def forward(b):
         arrs, pos, neg, ok, bo = b

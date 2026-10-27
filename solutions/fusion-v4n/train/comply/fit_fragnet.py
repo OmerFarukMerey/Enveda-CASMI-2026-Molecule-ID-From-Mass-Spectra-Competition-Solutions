@@ -16,7 +16,10 @@ import numpy as np
 
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument('--code', default='D:/casmi-data/ranker_study/ds/v4b/code'); ap.add_argument('--out', required=True)
-    ap.add_argument('--threads', type=int, default=3); a = ap.parse_args()
+    ap.add_argument('--threads', type=int, default=3)
+    ap.add_argument('--exclude_sids', default=None, help='parquet with a `sid` column (train_structs row): stage-B groups whose training '
+                    'structure (res/fragnet/sets.pkl) is listed are left out (clean instrument: structures of the exclusion set E)')
+    a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
     for p in (os.path.join(a.code, 'fe_v4'), a.code):
         sys.path.insert(0, p)
@@ -28,8 +31,16 @@ def main():
     # stage B: LightGBM lambdarank on part B (groups = training sets of one structure and spectrum), 31 features of the AH80 aggregates
     t0 = time.time(); f = np.load(os.path.join(RES, 'featB.npz'), allow_pickle=True)
 
+    keep = np.ones(len(f['set']), bool)
+    if a.exclude_sids:
+        import pickle, pandas as pd
+        set_sid = np.array([d['sid'] for d in pickle.load(open(os.path.join(RES, 'sets.pkl'), 'rb'))])
+        ex = set(pd.read_parquet(a.exclude_sids, columns=['sid']).sid.astype(int))
+        keep = ~np.isin(set_sid[f['set']], list(ex))
+        rep.update(exclude_sids=a.exclude_sids, excluded_rows=int((~keep).sum()), excluded_groups_B=int(len(np.unique(f['set'][~keep & (f['part'] == 'B')]))),
+                   excluded_groups_V=int(len(np.unique(f['set'][~keep & (f['part'] == 'V')]))))
     def part(name):
-        sel = f['part'] == name
+        sel = (f['part'] == name) & keep
         st, y, agg = f['set'][sel], f['y'][sel], f['agg_AH80'][sel]
         o = np.argsort(st, kind='stable'); st, y, agg = st[o], y[o], agg[o]
         _, start, cnt = np.unique(st, return_index=True, return_counts=True)
