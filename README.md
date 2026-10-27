@@ -19,7 +19,7 @@ See [solutions/README.md](solutions/README.md) for how a solution is laid out.
 
 ## Submissions and scores
 
-Public leaderboard (MRR@25). Best in the scoring regime in force since 2026-10-07: **0.464** (D0 / r1: copies of dmitriigluzdov's Data Behind notebook v16 / v19, whose gain over the 0.456 line is flexonafft's "N1 challenger"; before that 0.456, q1: stack1 + PubChemLite structures in engine 2 + PubChem-only popularity 0.15 + N1A GLACIER proxies, a copy of the public v465 notebook; stack1 0.451; our own pipeline: v59a 0.434). Before the change: 0.442 (v33b). Folders with the exact notebook, config and a detailed
+Public leaderboard (MRR@25). Best in the scoring regime in force since 2026-10-07: **0.468** (B1: romanrozen's public 0.468, n1 + a second neural weight for ranks 2-25, with the baseline leader locked; before that n1o 0.467, n1 0.466 and s1 0.465, see docs/experiments.md rows 91-101; 0.464: D0 / r1, copies of dmitriigluzdov's Data Behind notebook v16 / v19, whose gain over the 0.456 line is flexonafft's "N1 challenger"; before that 0.456, q1: stack1 + PubChemLite structures in engine 2 + PubChem-only popularity 0.15 + N1A GLACIER proxies, a copy of the public v465 notebook; stack1 0.451; our own pipeline: v59a 0.434). Before the change: 0.442 (v33b). Folders with the exact notebook, config and a detailed
 `README.txt` are in [submissions/](submissions/); every row with its details is in [docs/experiments.md](docs/experiments.md).
 
 | # | Date | Solution | Version | Change | Public LB | Folder |
@@ -115,6 +115,7 @@ Public leaderboard (MRR@25). Best in the scoring regime in force since 2026-10-0
 | 89 | 10-21 | public copy (Ömer) | **D0** | Data Behind v16 (N1 challenger) | **0.464** | [notebook](https://www.kaggle.com/code/dmitriigluzdov/casmi-26-the-data-behind-spectra-to-structures) |
 | 90 | 10-21 | D0 patch (Ömer) | T1 | D0 + engine-2 tree depth 5 | 0.455 | |
 | 102 | 10-22 | D0 patch (Ömer) | T_A | D0 + engine-1 pool popularity 0.25 | 0.456 | |
+| 103 | 10-26 | public copy + patch (Ömer) | **B1** | romanrozen 0.468 (n1 + neural 0.50 on ranks 2-25) with the baseline leader locked | **0.468** | [notebook](https://www.kaggle.com/code/romanrozen/0-468-casmi-from-peaks-to-structures) |
 
 ## Where things are
 
