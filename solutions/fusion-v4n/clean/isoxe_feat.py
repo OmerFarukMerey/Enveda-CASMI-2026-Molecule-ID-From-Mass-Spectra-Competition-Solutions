@@ -18,6 +18,11 @@ code that also keeps WHAT explains a peak, so a model can learn which cleavages 
     ai, af = annotate(F, g, sp)                 -> int16 [PEAKS, N_INT], float32 [PEAKS, N_FLT]
     cg = cand_global(g, F)                      -> float32 [N_CAND]
 
+isoxe v2 additions (2026-10-28, reviews/isoxe2-2026-10-28.md; v1 outputs unchanged): cand_graph also returns per-atom
+(`afeat`, N_AF int8) and per-bond (`bfeat`, N_BF int8) categorical features for a graph network; fragments return the raw
+broken-bond indices (`bi`); annotate(..., bonds=True) and featurize_candidate(..., bonds=True) also return them per peak
+(int16, -1 = none); featurize_candidate / spectra_block take `peaks` (default PEAKS = v1's 32).
+
 Only NumPy, RDKit and (optionally) numba. Spectra are expected cleaned like the library cache (chemcore.clean_peaks:
 floor 0.001, top 512, m/z <= precursor + 2), which `clean_spectrum` applies.
 """
@@ -53,6 +58,12 @@ N_FLT = 8                                                 # err/tol, heavy frac,
 N_SPF = 6                                                 # spectrum-side per peak: mz/1000, mz/prec, (prec-mz)/200, log10 it, rank, sqrt it
 N_CAND = 6                                                # candidate-global features
 VERSION = 1
+ELEM = ('C', 'N', 'O', 'S', 'P', 'F', 'Cl', 'Br', 'I')    # atom element ids 1..9, 10 = other, 0 = padding
+N_AF = 6                                                  # element, aromatic, ring, degree (0..5), total H (0..4), charge + 1 (0..2)
+N_BF = 3                                                  # order (0 single, 1 double, 2 triple, 3 aromatic), ring, conjugated
+AF_SIZES = (11, 2, 2, 6, 5, 3)
+BF_SIZES = (4, 2, 2)
+_BO = {1.0: 0, 2.0: 1, 3.0: 2, 1.5: 3}
 
 
 # ------------------------------------------------------------------------------------------------ candidate graph ---
@@ -89,10 +100,15 @@ def cand_graph(smiles):
         w[i] = am + a.GetTotalNumHs() * H
         isN[i] = s == 'N'; isO[i] = s == 'O'; ring[i] = a.IsInRing(); arom[i] = a.GetIsAromatic()
     bonds = list(m.GetBonds())
+    afeat = np.array([[ELEM.index(a.GetSymbol()) + 1 if a.GetSymbol() in ELEM else len(ELEM) + 1, int(a.GetIsAromatic()), int(a.IsInRing()),
+                       min(a.GetDegree(), 5), min(a.GetTotalNumHs(), 4), min(max(a.GetFormalCharge(), -1), 1) + 1] for a in m.GetAtoms()],
+                     np.int8).reshape(-1, N_AF)
+    bfeat = np.array([[_BO.get(b.GetBondTypeAsDouble(), 0), int(b.IsInRing()), int(b.GetIsConjugated())] for b in bonds],
+                     np.int8).reshape(-1, N_BF)
     ea = np.array([b.GetBeginAtomIdx() for b in bonds], np.int64)
     eb = np.array([b.GetEndAtomIdx() for b in bonds], np.int64)
     bt = np.array([bond_type_id(b) for b in bonds], np.int64)
-    return dict(n=n, w=w, isN=isN, isO=isO, ring=ring, arom=arom, ea=ea, eb=eb, bt=bt,
+    return dict(n=n, w=w, isN=isN, isO=isO, ring=ring, arom=arom, ea=ea, eb=eb, bt=bt, afeat=afeat, bfeat=bfeat,
                 npieces=len(Chem.GetMolFrags(m)), nring=m.GetRingInfo().NumRings(), nN=float(isN.sum()), nO=float(isO.sum()))
 
 
@@ -215,7 +231,7 @@ def fragments(g, depth=None):
     R, B = R[first], B[first]
     bt = np.where(B >= 0, g['bt'][np.maximum(B, 0)], 0) if nb else np.zeros((len(R), 3), np.int64)
     return dict(m=R[:, 0].copy(), heavy=R[:, 1], N=R[:, 2], O=R[:, 3], ring=R[:, 4], arom=R[:, 5], k=R[:, 6].astype(np.int64),
-                b=bt.astype(np.int64), depth=d)
+                b=bt.astype(np.int64), bi=B.astype(np.int64), depth=d)
 
 
 # ------------------------------------------------------------------------------------------------ spectra -----------
@@ -278,8 +294,9 @@ def prep_spectrum(mz, it, prec, adduct, mode, ce=None, instr=0, peaks=PEAKS):
                 ce=np.float32(0.0 if not np.isfinite(cev) else cev / 100.0))
 
 
-def annotate(F, g, sp):
-    """Candidate-specific annotation of the spectrum's peaks: int16 [n, N_INT], float32 [n, N_FLT] (n = peaks of sp)."""
+def annotate(F, g, sp, bonds=False):
+    """Candidate-specific annotation of the spectrum's peaks: int16 [n, N_INT], float32 [n, N_FLT] (n = peaks of sp);
+    bonds=True: also int16 [n, 3] broken-bond indices of the best explanation (-1 = none)."""
     npk = len(sp['mz']); ns = len(sp['shifts'])
     q = (sp['mz'][None, :] - sp['shifts'][:, None]).ravel()
     best, bs, berr, nm = _match(q, ns, npk, sp['tol'], F['m'], F['k'], sp['sdh'], sp['scar'])
@@ -301,6 +318,11 @@ def annotate(F, g, sp):
         af[hit, 5] = F['arom'][j] / np.maximum(F['heavy'][j], 1.0)
         af[hit, 7] = 1.0
     af[:, 6] = np.log1p(nm) / 3.0
+    if bonds:
+        bi = np.full((npk, 3), -1, np.int16)
+        if hit.any():
+            bi[hit] = F['bi'][best[hit]]
+        return ai, af, bi
     return ai, af
 
 
@@ -310,8 +332,9 @@ def cand_global(g, F):
                      float((F['k'] == 1).sum()) / max(nb, 1)], np.float32)
 
 
-def featurize_candidate(smiles, spectra, cache=None):
-    """(cand_global [N_CAND], ann_int [S, P, N_INT], ann_flt [S, P, N_FLT]) for prepared spectra (padded to PEAKS), or None."""
+def featurize_candidate(smiles, spectra, cache=None, peaks=PEAKS, bonds=False):
+    """(cand_global [N_CAND], ann_int [S, P, N_INT], ann_flt [S, P, N_FLT]) for prepared spectra (padded to `peaks`), or None.
+    bonds=True: (cand_global, ann_int, ann_flt, ann_bonds [S, P, 3] int16, graph dict incl. afeat / bfeat / ea / eb)."""
     if cache is not None and smiles in cache:
         g, F = cache[smiles]
     else:
@@ -322,18 +345,25 @@ def featurize_candidate(smiles, spectra, cache=None):
     if g is None:
         return None
     S = len(spectra)
-    AI = np.zeros((S, PEAKS, N_INT), np.int16); AF = np.zeros((S, PEAKS, N_FLT), np.float32)
+    AI = np.zeros((S, peaks, N_INT), np.int16); AF = np.zeros((S, peaks, N_FLT), np.float32)
     AI[:, :, 1] = 7; AI[:, :, 2] = 3
+    AB = np.full((S, peaks, 3), -1, np.int16) if bonds else None
     for i, sp in enumerate(spectra):
-        ai, af = annotate(F, g, sp)
+        if bonds:
+            ai, af, bi = annotate(F, g, sp, bonds=True)
+            AB[i, :len(bi)] = bi
+        else:
+            ai, af = annotate(F, g, sp)
         AI[i, :len(ai)] = ai; AF[i, :len(af)] = af
+    if bonds:
+        return cand_global(g, F), AI, AF, AB, g
     return cand_global(g, F), AI, AF
 
 
-def spectra_block(spectra):
+def spectra_block(spectra, peaks=PEAKS):
     """Spectrum-side arrays for prepared spectra: f [S, P, N_SPF] float32, mask [S, P] bool, meta [S, 4] int16, ce [S] float32."""
     S = len(spectra)
-    f = np.zeros((S, PEAKS, N_SPF), np.float32); mask = np.zeros((S, PEAKS), bool)
+    f = np.zeros((S, peaks, N_SPF), np.float32); mask = np.zeros((S, peaks), bool)
     meta = np.zeros((S, 4), np.int16); ce = np.zeros(S, np.float32)
     for i, sp in enumerate(spectra):
         n = len(sp['mz']); f[i, :n] = sp['f']; mask[i, :n] = True; meta[i] = sp['meta']; ce[i] = sp['ce']
