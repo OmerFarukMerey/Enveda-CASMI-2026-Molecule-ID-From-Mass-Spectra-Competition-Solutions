@@ -40,7 +40,7 @@ nb = json.loads(nbp.read_text(encoding='utf-8'))
 src = [''.join(c['source']) for c in nb['cells'] if c['cell_type'] == 'code' and 'FRR_ON = True' in ''.join(c['source'])][0]
 src = src.replace("'/kaggle/input/**/test.parquet'", repr(str(W / 'input') + '/**/test.parquet'))
 shutil.copy2(sys.argv[4] if len(sys.argv) > 4 else 'C:/Users/omerm/Desktop/Kaggle/casmi-local-work/fragrr2_80k/model.txt', W / 'input/frr_model_v2.txt')
-src = src.replace("'/kaggle/input/**/frr_model_v2.txt'", repr(str(W / 'input') + '/**/frr_model.txt'))
+src = src.replace("'/kaggle/input/**/frr_model_v2.txt'", repr(str(W / 'input') + '/**/frr_model_v2.txt'))
 g = dict(ROOT=W / 'root', pd=pd, Path=Path, hashlib=hashlib, shutil=shutil, os=os, json=json, sys=sys, IS_RERUN=True,
          MERGE_REPORT=dict(moved_ids=[]))
 exec(compile(src, 'frr_cell', 'exec'), g)
