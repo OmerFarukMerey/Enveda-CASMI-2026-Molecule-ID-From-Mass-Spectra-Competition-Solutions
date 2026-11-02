@@ -10,11 +10,12 @@ ap = argparse.ArgumentParser()
 ap.add_argument('--base', required=True); ap.add_argument('--model', required=True); ap.add_argument('--slug', required=True)
 ap.add_argument('--mode', choices=['all', 'top'], required=True); ap.add_argument('--lam', type=float, required=True)
 ap.add_argument('--title'); ap.add_argument('--notice', default='')
+ap.add_argument('--no-freeze', action='store_true', help='let training-set structures move too')
 a = ap.parse_args()
 base = Path(a.base); nb = json.loads(base.read_text(encoding='utf-8')); meta = json.loads((base.parent / 'kernel-metadata.json').read_text(encoding='utf-8'))
 txt = Path(a.model).read_bytes()
 cell = (HERE / 'frr_cell.py').read_text(encoding='utf-8')
-fill = {'__FRR_MODE__': repr(a.mode), '__FRR_LAMBDA__': repr(a.lam), '__FRR_FEAT_SRC__': repr((HERE / 'fragfeat.py').read_text(encoding='utf-8')),
+fill = {'__FRR_MODE__': repr(a.mode), '__FRR_LAMBDA__': repr(a.lam), '__FRR_FREEZE__': repr(not a.no_freeze),'__FRR_FEAT_SRC__': repr((HERE / 'fragfeat.py').read_text(encoding='utf-8')),
         '__FRR_MODEL_SHA__': repr(hashlib.sha256(txt).hexdigest())}
 for k, v in fill.items():
     assert cell.count(k) == 1, k

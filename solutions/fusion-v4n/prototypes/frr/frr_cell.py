@@ -4,8 +4,8 @@
 # from peaks shifted by +-5 / +-9 Da). A LightGBM ranker trained by us on 71,891 enveda-180 molecules of train.parquet
 # (true structure against up to 15 same-formula isomers; scaffold-held-out top-1 0.751 vs 0.663 for the untrained
 # fragment check's own score) turns these into one score per candidate.
-# Rule, in lists whose library match is below FRR_LIB_TAU: training-set structures keep their slots (heliosli's FREEZE
-# idea) and so do ranks 1-2 where the fragment check moved the leader. Within each molecular formula, the other members
+# Rule, in lists whose library match is below FRR_LIB_TAU: with FRR_FREEZE_TRAIN training-set structures keep their slots
+# (heliosli's FREEZE idea); ranks 1-2 where the fragment check moved the leader always do. Within each molecular formula, the other members
 # are re-ordered among their own slots by  score - FRR_LAMBDA * ln(list rank).  FRR_MODE 'top' keeps every slot but
 # rank 1 as the merge wrote it: only a rank-1 change is allowed (the winner takes rank 1, the old leader rank 2).
 # Model file: private dataset omerfarukmerey/casmi26-om-frr (frr_model_v2.txt, SHA-256 pinned). Any error restores the file the
@@ -13,6 +13,7 @@
 FRR_ON = True
 FRR_MODE = __FRR_MODE__
 FRR_LAMBDA = __FRR_LAMBDA__
+FRR_FREEZE_TRAIN = __FRR_FREEZE__
 FRR_LIB_TAU = 0.87
 FRR_MAX_SPEC = 6
 FRR_FEAT_SRC = __FRR_FEAT_SRC__
@@ -94,8 +95,9 @@ def _frr(tau=FRR_LIB_TAU, dry=False):
                 c['examined'] += 1
                 meta = [mol_info(s) for s in lst]
                 fixed = 2 if mid in moved else 0; c['kept_leader_move'] += int(fixed == 2)
-                frozen = {i for i, m in enumerate(meta) if m is None or m[1] in train_keys}
-                c['frozen_train'] += len(frozen); c['leader_train'] += int(0 in frozen)
+                in_train = {i for i, m in enumerate(meta) if m is not None and m[1] in train_keys}
+                frozen = {i for i, m in enumerate(meta) if m is None} | (in_train if FRR_FREEZE_TRAIN else set())
+                c['frozen_train'] += len(in_train) if FRR_FREEZE_TRAIN else 0; c['leader_train'] += int(0 in in_train)
                 groups = {}
                 for i, m in enumerate(meta):
                     if m is not None:
@@ -123,7 +125,8 @@ def _frr(tau=FRR_LIB_TAU, dry=False):
                         if movable[0] == 0 and order[0] != 0:
                             w = order[0]
                             new = [lst[w]] + [x for k, x in enumerate(lst) if k != w]
-                            fired.append(dict(molecule_id=mid, rank=w + 1, margin=round(float(sc[w] - sc[0]), 3), lib=round(float(lib.get(mid, 0.)), 3)))
+                            fired.append(dict(molecule_id=mid, rank=w + 1, margin=round(float(sc[w] - sc[0]), 3), lib=round(float(lib.get(mid, 0.)), 3),
+                                              train_leader=0 in in_train, train_winner=w in in_train))
                     else:
                         for slot, src in zip(movable, order):
                             new[slot] = lst[src]
