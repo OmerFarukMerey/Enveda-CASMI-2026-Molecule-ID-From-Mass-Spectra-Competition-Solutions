@@ -1,11 +1,11 @@
 """Build a private kernel: bgunshui's 0.480 neural ensemble + our analog-edit overlay cell after its final layer.
 usage: build_ae.py --base NB_DIR --gate ae_gate_v1.txt --slug SLUG --tau 0.25 --lib-tau 0.95 [--notice TEXT] [--dataset ID]
-Also writes the filled cell to OUT/SLUG/ae_cell_filled.py (for the local test)."""
+Writes scratch/kernels/SLUG/ (notebook, kernel-metadata.json) and the filled cell ae_cell_filled.py (for the local test)."""
 import argparse, hashlib, json
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-OUT = Path('C:/Users/omerm/AppData/Local/Temp/claude/C--Users-omerm-Desktop-Kaggle/f6bb9c18-a985-4e93-9584-49242fbbeecc/scratchpad/ultra11/kernels')
+OUT = HERE.parents[3] / 'scratch' / 'kernels'  # repo-root scratch/ (not in git)
 
 ap = argparse.ArgumentParser()
 ap.add_argument('--base', required=True); ap.add_argument('--gate', required=True); ap.add_argument('--slug', required=True)

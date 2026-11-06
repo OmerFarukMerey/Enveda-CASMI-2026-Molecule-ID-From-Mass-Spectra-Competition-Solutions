@@ -1,0 +1,10 @@
+{
+  "title": "CASMI26 analog edits: gate and code",
+  "id": "omerfarukmerey/casmi26-analog-edit-gate",
+  "subtitle": "Modified-cosine analog search, single-site edits and a learned gate",
+  "licenses": [
+    {
+      "name": "CC0-1.0"
+    }
+  ]
+}

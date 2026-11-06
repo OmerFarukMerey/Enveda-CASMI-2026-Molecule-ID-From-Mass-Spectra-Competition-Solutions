@@ -22,8 +22,15 @@ peaks from fragments without it). A LightGBM gate predicts P(top edit = truth).
 | `check_same.py` | `molecule_candidates` reproduces `eval2.py` rows |
 | `ae_cell.py`, `build_ae.py` | the Kaggle overlay cell (placeholders filled by the builder) and the builder that inserts it after MIDX's final layer |
 | `test_cell.py` | runs a filled cell locally on a mock (training molecules as the test, random lists) |
+| `public/build_public_ae.py`, `public/header_ae.md` | the public version of a scored ticket: our header (score, method, runs table, credits) first, the private notice dropped, garbled markdown of the base repaired, the cell pointed at the public dataset; `build_public_ae.py TICKET_DIR SCORE RUNS_MD` |
+| `public/dataset_README.md`, `public/dataset-metadata.json` | card and metadata of the public dataset `omerfarukmerey/casmi26-analog-edit-gate` (CC0). To stage it: a new folder with these two (the card as `README.md`), `ae_core.py`, `build_lib.py`, `eval2.py`, `gate.py` and `ae_gate_v1.txt`, then `kaggle datasets create -p <folder>` |
 
 Offline (7,858 held-out enveda-180 structures; products that are other training structures dropped): the truth is an
 edit of one of the top 5 analogs for 650 molecules (8.3%); out-of-fold, the gate at p >= 0.25 fires on 7.1% with
 precision 0.468, at p >= 0.5 on 3.7% with precision 0.569. The gate model lives in the private dataset
-`omerfarukmerey/casmi26-om-ae` (not in git). The library is built from train.parquet in 45-50 s.
+`omerfarukmerey/casmi26-om-ae` (not in git). The library is built from train.parquet in 45-50 s
+locally, 114 s on Kaggle. Builders write to the repo-root `scratch/kernels/` (not in git).
+
+**Result** (rows 126-127): ae1 (gate p >= 0.25) **0.480** and ae2 (p >= 0.15) **0.480**, both level with the base.
+Neither threshold moved the public part. Both are our best own scores. The public dataset and notebook are built and
+checked locally but not published.
