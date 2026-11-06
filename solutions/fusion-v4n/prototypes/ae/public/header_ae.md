@@ -7,6 +7,11 @@ added after its final layer, headed *Overlay (team Arsokan): spectral analog edi
 as bgunshui published it. Below this header, bgunshui's notebook follows as published, except that garbled characters
 in its markdown were repaired.
 
+One input differs. bgunshui's training kernel `casmi26-scorer-train-public` is no longer available, so its retrained
+model is attached from bgunshui's dataset
+[casmi26-scorer-v2-model](https://www.kaggle.com/datasets/bgunshui/casmi26-scorer-v2-model). Its training summary is
+identical to that kernel's output, and bgunshui's code already accepts this dataset, so no code changed.
+
 **The idea** comes from heliosli's r3p overlay in [casmi26-0.481](https://www.kaggle.com/code/heliosli/casmi26-0-481).
 Its analog library and site model are private datasets, so that notebook cannot be run by others. This is an
 independent implementation in which every part is public: the analog library is built in the notebook from
@@ -55,8 +60,9 @@ or lower: it moves down one place, which costs 1/6 at rank 2 and less further do
 |---|---:|---:|
 __RUNS__
 
-For comparison, bgunshui's notebook alone scores 0.480. The public split is about 125 molecules, so one answer gained
-at rank 2 is worth about 0.004.
+For comparison, bgunshui's notebook alone scores 0.480, so on the public part the overlay neither gains nor loses at
+either threshold. The public split is about 125 molecules, so one answer gained at rank 2 is worth about 0.004. The
+private split may differ: the gate fires on 7-10% of held-out training structures offline.
 
 The commit run ranks only the 12 visible molecules. These are copies of training spectra and library matches, so the
 cell leaves them alone. A dry pass with the library gate off also runs on them. `ae_overlay_report.json` lists every

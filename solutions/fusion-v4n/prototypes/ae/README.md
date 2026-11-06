@@ -32,5 +32,7 @@ precision 0.468, at p >= 0.5 on 3.7% with precision 0.569. The gate model lives 
 locally, 114 s on Kaggle. Builders write to the repo-root `scratch/kernels/` (not in git).
 
 **Result** (rows 126-127): ae1 (gate p >= 0.25) **0.480** and ae2 (p >= 0.15) **0.480**, both level with the base.
-Neither threshold moved the public part. Both are our best own scores. The public dataset and notebook are built and
-checked locally but not published.
+Neither threshold moved the public part. Both are our best own scores. Published 2026-11-06: the dataset
+`omerfarukmerey/casmi26-analog-edit-gate` and the notebook `omerfarukmerey/casmi26-neural-ensemble-spectral-analog-edits`
+(ae1, p >= 0.25). bgunshui's training kernel was gone by then, so the public notebook attaches the same checkpoint from
+his dataset `casmi26-scorer-v2-model` (identical `training_result.json`; his swap code accepts it by name).

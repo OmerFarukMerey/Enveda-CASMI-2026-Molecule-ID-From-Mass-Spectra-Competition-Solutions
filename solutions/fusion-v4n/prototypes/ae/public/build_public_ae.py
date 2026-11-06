@@ -60,7 +60,14 @@ text = json.dumps(nb, ensure_ascii=False, indent=1)
 (out / f'{slug}.ipynb').write_text(text, encoding='utf-8')
 assert PRIV in meta['dataset_sources']
 ds = [d for d in meta['dataset_sources'] if d != PRIV] + [DS]
-newmeta = dict(meta, id=f'omerfarukmerey/{slug}', title=title, code_file=f'{slug}.ipynb', is_private=False, dataset_sources=ds)
+# bgunshui's training kernel is gone (2026-11-06); his dataset holds the same checkpoint (identical training_result.json)
+# and his swap code accepts it by name
+KS_OLD, DS_V2 = 'bgunshui/casmi26-scorer-train-public', 'bgunshui/casmi26-scorer-v2-model'
+ks = [k for k in meta['kernel_sources'] if k != KS_OLD]
+if len(ks) < len(meta['kernel_sources']):
+    ds.append(DS_V2)
+newmeta = dict(meta, id=f'omerfarukmerey/{slug}', title=title, code_file=f'{slug}.ipynb', is_private=False, dataset_sources=ds,
+               kernel_sources=ks)
 (out / 'kernel-metadata.json').write_text(json.dumps(newmeta, indent=2, ensure_ascii=False), encoding='utf-8')
 print(out, '| title:', title, f'({len(title)} chars) | repaired markdown cells:', fixed, '| datasets:', len(ds), '| tau', tau,
       f'| {len(text.encode()):,} bytes')
