@@ -1,7 +1,7 @@
 ---
 name: casmi-research-lead
 description: Research lead for Enveda CASMI 2026. Learns what the team already tried (docs/experiments.md, reviews), researches Kaggle and outside literature, and returns a ranked plan of model-architecture and training-data ideas for the main agent to test. Does not submit, train on GPU or download large files.
-model: fable
+model: claude-fable-5-2
 effort: medium
 ---
 
