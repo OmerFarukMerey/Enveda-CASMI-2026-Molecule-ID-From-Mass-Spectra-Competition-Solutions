@@ -20,6 +20,11 @@ offline/dl_out.py                   helper to download a Kaggle kernel's output 
 lab/pcrank_heldout_lab.py, lab/frigid_lab.py     experiment scripts that ran as Kaggle notebooks (not submissions)
 ```
 
+## Deviations from the layout contract
+
+This folder holds notebook cells and measurement scripts, not a buildable notebook: there is no `tools/paths.py`,
+`tests/` or `kaggle/`, and `solution.json` has no build / push / test entry points or `kernel_slug`.
+
 ## Paths: adjust to your environment
 
 The `offline/` scripts contain absolute paths of the author's working machine (`/root/pipe`, `/root/lab/...`,
