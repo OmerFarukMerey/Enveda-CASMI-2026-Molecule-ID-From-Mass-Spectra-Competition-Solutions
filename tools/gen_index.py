@@ -7,6 +7,20 @@ import ast, json, os, re, subprocess, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OVERRIDES = {
+    'solutions/arsokan-fable/stages/train_analog_rerank.py': 'TA-1 notebook cell: rerank lists by spectral evidence from similar training molecules (Tanimoto 0.40-0.85), gated',
+    'solutions/arsokan-fable/stages/pc_wide_rerank_NEGATIVE.py': 'NEGATIVE: PubChem-mass-window FPNet + spectrum-model rerank hedged into fixed slots (w0-w3, no hidden-test gain)',
+    'solutions/arsokan-fable/offline/net_bench.py': 'offline harness of the test-set network rerank: lists, spectra, fingerprints, modified cosine (paths: author machine)',
+    'solutions/arsokan-fable/offline/net_eval.py': 'offline evaluation of network-rerank design variants on the harness (paths: author machine)',
+    'solutions/arsokan-fable/offline/net_grid.py': 'grid over network-rerank variants and LAM values (uses net_eval)',
+    'solutions/arsokan-fable/offline/an_prep.py': 'TA-1 offline prep: nearest training analogs of every candidate (paths: author machine)',
+    'solutions/arsokan-fable/offline/an_eval3.py': 'TA-1 offline evaluation on the harness lists (paths: author machine)',
+    'solutions/arsokan-fable/offline/an_eval5.py': 'TA-1 offline evaluation, top-30 analogs, raw evidence dump (paths: author machine)',
+    'solutions/arsokan-fable/offline/pc_ranker2.py': 'LightGBM ranker over PubChem-window candidates, fold-wise (paths: author machine)',
+    'solutions/arsokan-fable/offline/libval.py': 'match accuracy of the second spectrum library (nakhun/casmi26-extlib2) on training molecules',
+    'solutions/arsokan-fable/offline/sim_frigid.py': 'scores FRIGID generations against validation lists',
+    'solutions/arsokan-fable/offline/dl_out.py': 'downloads a Kaggle kernel output with retries (local Kaggle API config, no credentials here)',
+    'solutions/arsokan-fable/lab/pcrank_heldout_lab.py': 'Kaggle lab: rank of the true structure when FPNet scores the whole PubChem mass window',
+    'solutions/arsokan-fable/lab/frigid_lab.py': 'Kaggle lab: FRIGID de novo generation on validation lists (internet on)',
     'LICENSE': 'MIT licence of the repository',
     'CLAUDE.md': 'Claude Code entry: imports AGENTS.md',
     'llms.txt': 'llms.txt: curated link list for LLM tools',

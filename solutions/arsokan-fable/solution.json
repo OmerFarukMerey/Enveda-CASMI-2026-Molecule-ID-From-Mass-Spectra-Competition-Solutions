@@ -1,0 +1,30 @@
+{
+  "name": "arsokan-fable",
+  "owner": "Arsokan",
+  "status": "t0 (n0 + TA-1) submitted, public score pending; best public 0.492 (n0, public copy)",
+  "summary": "Stages on top of public 0.487 / 0.492 notebooks: TA-1 train-analog evidence rerank, plus offline harnesses for the network step, PubChem-wide rerank (negative), second library and FRIGID.",
+  "based_on": {
+    "notebooks": [
+      "ozertuu \"From Peaks to Structures\" (public 0.487)",
+      "mathleteutd \"0.492 Test-Set Network Rerank\" (public 0.492)"
+    ]
+  },
+  "entrypoints": {
+    "stage_ta1": "stages/train_analog_rerank.py (paste after cell n1c, before the external-library overlay)",
+    "offline_ta1": "offline/an_prep.py, offline/an_eval3.py, offline/an_eval5.py (paths must be adjusted)",
+    "offline_network": "offline/net_bench.py, offline/net_eval.py, offline/net_grid.py",
+    "download": "python offline/dl_out.py <owner/kernel> <dst> <file_pattern>"
+  },
+  "kaggle": {
+    "competition": "enveda-CASMI26-molecule-id-mass-spectra",
+    "accelerator": "NvidiaTeslaT4",
+    "internet": false,
+    "datasets": ["takumuhata/casmi26-extlib (via the base notebooks; licence unknown)"]
+  },
+  "best_lb": 0.492,
+  "provenance": [
+    "takumuhata/casmi26-extlib: source and licence not documented (open question)",
+    "nakhun/casmi26-extlib2: used only in p1 and offline/libval.py",
+    "coleygroup/FRIGID: cloned at run time in lab/frigid_lab.py only"
+  ]
+}

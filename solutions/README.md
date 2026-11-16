@@ -6,6 +6,7 @@ One self-contained approach per folder. Each approach can be copied to Kaggle on
 | Folder | Owner | Summary | Best public LB |
 |---|---|---|---|
 | [fusion-v4n/](fusion-v4n/) | Hemre | Public 0.399 notebook restructured: config-driven, stage dumps, tested fusion core; PubChem candidates ranked by the main engine; a ranker fitted on unseen molecules | **0.442** |
+| [arsokan-fable/](arsokan-fable/) | Arsokan | Stages on the public 0.487 / 0.492 notebooks: TA-1 train-analog evidence rerank (t0, pending), offline harnesses, negative PubChem-wide rerank | 0.492 (n0, public copy) |
 | *(branch `research/competition-analysis`)* | İlker | From-scratch pipeline + leak-aware validation. Suggested home when merged: `solutions/research-pipeline/` | 0.260 |
 
 ## Layout contract (every solution)
