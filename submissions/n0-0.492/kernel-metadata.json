@@ -1,0 +1,35 @@
+{
+ "id": "YOUR_KAGGLE_USERNAME/casmi-n0-lam35",
+ "title": "casmi-n0-lam35",
+ "code_file": "casmi26-0-492-test-set-network-rerank.ipynb",
+ "language": "python",
+ "kernel_type": "notebook",
+ "is_private": true,
+ "enable_gpu": true,
+ "enable_tpu": false,
+ "enable_internet": false,
+ "keywords": [
+  "chemistry"
+ ],
+ "dataset_sources": [
+  "samartalwar/casmi-2026-spectral-library-massbankharmonized",
+  "sanpier/casmi-spectrum-model-v1",
+  "dmitriigluzdov/casmi26-fold-safe-fpnet",
+  "dmitriigluzdov/casmi26-natural-product-knowledge-table",
+  "dmitriigluzdov/casmi26-natural-product-panel-benchmark",
+  "dmitriigluzdov/casmi26-pubchem-popularity-prior",
+  "dmitriigluzdov/casmi26-attributed-v4g-reproduction-assets",
+  "takumuhata/casmi26-extlib",
+  "sanpier/catalogue-experiment-saner",
+  "metric/rdkit-2026-3-3-wheel"
+ ],
+ "kernel_sources": [
+  "popwenman/casmi26-scorer-train-v80"
+ ],
+ "competition_sources": [
+  "enveda-CASMI26-molecule-id-mass-spectra"
+ ],
+ "model_sources": [],
+ "docker_image": "gcr.io/kaggle-private-byod/python@sha256:9a6bcfda6d03b2cd9aa347ee8c1bae62043328ed0f4afe9bda014e4f8bbf9435",
+ "machine_shape": "NvidiaTeslaT4"
+}

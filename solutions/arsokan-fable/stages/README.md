@@ -36,7 +36,8 @@ Rerank"). Each one reads `/kaggle/working/submission.csv`, re-orders lists, and 
       import traceback; print('[ta] FAILED, submission untouched:', repr(_e)[:300]); traceback.print_exc()
   ```
 
-  The exact call line used in the t0 notebook is not in this folder; confirm it against that notebook.
+  The t0 notebook (`../kaggle/t0/notebook.ipynb`, cell 22) does exactly this:
+  `try: _ta_run()` / `except Exception: traceback.print_exc(); print('[ta] FAILED -> submission unchanged')`.
 - Placement in the notebook: right after the network step (cell n1c), before the external-library overlay.
 
 Offline measurement: `../offline/an_prep.py`, `an_eval3.py`, `an_eval5.py`; numbers in `../EXPERIMENTS.md`.

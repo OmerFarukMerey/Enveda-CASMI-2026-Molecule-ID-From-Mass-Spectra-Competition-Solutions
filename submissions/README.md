@@ -11,6 +11,7 @@ One folder per submission worth keeping, named `<solution>-<version>-<public LB>
 
 | Folder | Public LB | Date | Change |
 |---|---|---|---|
+| [n0-0.492](n0-0.492/) | **0.492** | 2026-11-16 | public notebook mathleteutd "0.492 Test-Set Network Rerank" copied (N-1c at LAM 0.35); team best |
 | [ax13n-0.488](ax13n-0.488/) | **0.488** | 2026-11-13 | public notebook analyticaobscura/casmi-2026 (alexchilton v13 + N-1c in-test network rerank) copied unchanged; team best |
 | [e006r-0.443](e006r-0.443/) | **0.443** (new scoring regime) | 2026-10-11 | public notebook canqiang e006 rerun unchanged with the CC BY ChEBI / LIPID MAPS set; baseline from here on |
 | [fusion-v4n-v33b-0.442](fusion-v4n-v33b-0.442/) | **0.442** (old regime; 0.433 in the new one) | 2026-10-06 | v24a + a ranker fitted on unseen molecules, rank-averaged with the public one below the library gate |

@@ -146,5 +146,5 @@ One row per Kaggle submission. Details go in the solution's own `EXPERIMENTS.md`
 | 137 | 2026-11 (date not recorded) | arsokan-fable | w1 | w0, no promotion, later slots | 136 | 0.485 | 0.000 | Arsokan (fable session) |
 | 138 | 2026-11 (date not recorded) | arsokan-fable | w2 | w0, high-confidence promotion only | 136 | 0.487 | +0.002 | Arsokan (fable session) |
 | 139 | 2026-11 (date not recorded) | arsokan-fable | w3 | w0, a single candidate to rank 2/3 only | 136 | 0.486 | +0.001 | Arsokan (fable session) |
-| 140 | 2026-11 (date not recorded) | arsokan-fable (public copy) | n0 | Copy of mathleteutd "0.492 Test-Set Network Rerank" (LAM 0.35) | – | 0.492 | – | Arsokan (fable session) |
-| 141 | 2026-11 (date not recorded) | arsokan-fable | t0 | n0 + TA-1 train-analog evidence rerank (`stages/train_analog_rerank.py`; offline on 400 unseen class-2 lists: MRR 0.617 → 0.660, 95% CI +0.041..+0.078) | 140 | pending | – | Arsokan (fable session) |
+| 140 | 2026-11-16 | arsokan-fable (public copy) | n0 | Copy of mathleteutd "0.492 Test-Set Network Rerank" (LAM 0.35) | – | 0.492 | – | Arsokan (fable session) |
+| 141 | 2026-11-16 | arsokan-fable | t0 (Kaggle id 58419263) | n0 + TA-1 train-analog evidence rerank (`stages/train_analog_rerank.py`; offline on 400 unseen class-2 lists: MRR 0.617 → 0.660, 95% CI +0.041..+0.078) | 140 | pending | – | Arsokan (fable session) |

@@ -7,6 +7,22 @@ import ast, json, os, re, subprocess, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OVERRIDES = {
+    'solutions/arsokan-fable/offline/an_eval2.py': "TA-1 offline evaluation, earlier variant (paths: author machine)",
+    'solutions/arsokan-fable/offline/an_eval4.py': "TA-1 offline evaluation of variants: K, lower bound, sum vs best, adduct fallback (paths: author machine)",
+    'solutions/arsokan-fable/offline/an_prep30.py': "TA-1 offline prep with 30 analogs per candidate (paths: author machine)",
+    'solutions/arsokan-fable/offline/ta_local.py': "runs the TA-1 stage locally on harness files (paths: author machine)",
+    'solutions/arsokan-fable/offline/net_bench_prep.py': "builds the network-harness inputs from pccand.parquet (paths: author machine)",
+    'solutions/arsokan-fable/offline/pc_ranker.py': "first LightGBM ranker over PubChem-window candidates (paths: author machine)",
+    'solutions/arsokan-fable/offline/libscan.py': "best extlib2 spectrum match per test molecule (paths: author machine)",
+    'solutions/arsokan-fable/offline/sim_gen.py': "GEN simulation: positional isomers of listed candidates on a validation replay, MRR before/after",
+    'solutions/arsokan-fable/offline/lab_mass.py': "tests romanrozen's timsTOF mass prior on a validation replay's final lists",
+    'solutions/arsokan-fable/lab/pcwin_lab.py': "Kaggle lab: are the validation truths our lists miss present in the public PubChem mass index?",
+    'solutions/arsokan-fable/lab/pcw_stage_standalone_test.py': "standalone Kaggle test of the PubChem-wide rerank stage (w0-w3)",
+    'solutions/arsokan-fable/kaggle/t0/notebook.ipynb': "exact t0 notebook: n0 + TA-1 cell after N-1c (Kaggle id 58419263)",
+    'solutions/arsokan-fable/kaggle/t0/kernel-metadata.json': "Kaggle inputs and machine settings of t0 (owner redacted)",
+    'submissions/n0-0.492/notebook.ipynb': 'the exact notebook submitted as n0 (public LB 0.492, mathleteutd copy, N-1c LAM 0.35); import into Kaggle as is',
+    'submissions/n0-0.492/kernel-metadata.json': 'Kaggle inputs and machine settings of n0 (owner redacted)',
+    'submissions/n0-0.492/README.txt': 'n0, public LB 0.492 (team best): what it is, inputs, local evidence, follow-up t0',
     'solutions/arsokan-fable/stages/train_analog_rerank.py': 'TA-1 notebook cell: rerank lists by spectral evidence from similar training molecules (Tanimoto 0.40-0.85), gated',
     'solutions/arsokan-fable/stages/pc_wide_rerank_NEGATIVE.py': 'NEGATIVE: PubChem-mass-window FPNet + spectrum-model rerank hedged into fixed slots (w0-w3, no hidden-test gain)',
     'solutions/arsokan-fable/offline/net_bench.py': 'offline harness of the test-set network rerank: lists, spectra, fingerprints, modified cosine (paths: author machine)',
