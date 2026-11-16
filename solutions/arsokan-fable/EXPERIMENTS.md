@@ -145,3 +145,34 @@ b. Design candidates: no exclusion (every neighbour gives evidence, itself inclu
    re-order ranks 2–25 only (+0.008 on the harness, safest).
 c. One candidate only if (a) shows no class-1 loss and a class-2 gain; then one submission, announced first.
 
+
+## Class-1 regime on the harness (2026-11-16): the harness cannot see the hidden loss
+
+Evidence side made class-1-like without the copy leak: full train, minus the truth's rows that are copies of the query
+(row-to-row modified cosine ≥ 0.95; harness queries are perturbed copies of train rows, median cosine 0.995). 282
+molecules keep a truth spectrum in train ("C1"); only 126 keep one the stage can use. Class 2 = truth and its ≥ 0.95
+neighbours removed ("P2", 400). Base lists are still the leaky harness lists. `dem` = correct rank 1 demoted.
+
+| Design | C1 (282): Δ, win / loss, dem | P2 (400): Δ, win / loss, dem |
+|---|---|---|
+| t0 as written | +0.0358, 29 / 7, 0 | +0.0468, 54 / 17, 6 |
+| no exclusion, ungated | +0.0584, 47 / 3, 0 | +0.0384, 59 / 26, 7 |
+| no exclusion, gate 0.6 | +0.0515, 36 / 1, 0 | +0.0341, 46 / 20, 7 |
+| structural gate (rank-1 key in train), exclusion | +0.0264, 21 / 6, 0 | +0.0286, 35 / 15, 6 |
+| structural gate, no exclusion | +0.0432, 28 / 1, 0 | +0.0251, 33 / 16, 7 |
+| ranks 2–25 only, exclusion | +0.0066, 21 / 13, 0 | +0.0105, 37 / 20, 0 |
+| ranks 2–25 only, no exclusion | +0.0170, 27 / 4, 0 | +0.0079, 35 / 22, 0 |
+| top-3 structural gate, no exclusion | +0.0033, 2 / 0, 0 | +0.0264, 25 / 5, 3 |
+
+- **t0 as written still gains in the class-1 regime (+0.036, no correct rank 1 demoted), yet lost 0.031 on the hidden
+  test.** Every design is positive in both regimes, so this harness cannot rank TA designs by hidden-test effect, not
+  even by sign. The "truth's spectra feed wrong candidates / gate fails" hypothesis is not supported offline (the
+  cosine gate does miss 26 touchable correct-rank-1 lists in C1, but none is demoted).
+- Likely reason the harness is blind (inference, not measured): its queries are perturbed copies of same-lab train
+  spectra, so train analog spectra resemble the query by construction; a separate-lab class 1 cannot be built from it
+  (dropping the copies' ingest_lib leaves 10 molecules); and the base lists are not n0's lists.
+- A 0.031 loss is large (about 6% of all lists going from rank 1 to rank 2 with no gains elsewhere): it points to
+  damage on lists n0 gets right.
+- **Decision: no TA candidate for submission.** TA work stops until there is a test with n0's own lists and query
+  spectra from a different lab than the evidence spectra. If a diagnostic slot is ever spent, "ranks 2–25 only" is the
+  informative one (it cannot demote rank 1); expected score change about zero.
