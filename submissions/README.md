@@ -11,6 +11,7 @@ One folder per submission worth keeping, named `<solution>-<version>-<public LB>
 
 | Folder | Public LB | Date | Change |
 |---|---|---|---|
+| [ax13n-0.488](ax13n-0.488/) | **0.488** | 2026-11-13 | public notebook analyticaobscura/casmi-2026 (alexchilton v13 + N-1c in-test network rerank) copied unchanged; team best |
 | [e006r-0.443](e006r-0.443/) | **0.443** (new scoring regime) | 2026-10-11 | public notebook canqiang e006 rerun unchanged with the CC BY ChEBI / LIPID MAPS set; baseline from here on |
 | [fusion-v4n-v33b-0.442](fusion-v4n-v33b-0.442/) | **0.442** (old regime; 0.433 in the new one) | 2026-10-06 | v24a + a ranker fitted on unseen molecules, rank-averaged with the public one below the library gate |
 | [fusion-v4n-v24a-0.437](fusion-v4n-v24a-0.437/) | 0.437 | 2026-10-05 | v13a with ICEBERG / GLACIER weights 0.75 instead of 1.0 |

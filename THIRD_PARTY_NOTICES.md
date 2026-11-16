@@ -67,3 +67,10 @@ ahmedberatozer/casmi26-glacier). `train/glacierft/shim/pygmtools/` is our own pu
 [pygmtools](https://github.com/Thinklab-SJTU/pygmtools) functions the losses call (`sinkhorn`, `hungarian`; pygmtools is
 MulanPSL-2.0; no pygmtools code copied). The dgl / torch_scatter / LinSATNet stand-ins used at run time are those of the
 casmi26-glacier package (own code, see its LICENSE-NOTICE).
+
+## submissions/ax13n-0.488
+`notebook.ipynb` is the public Kaggle notebook [casmi-2026](https://www.kaggle.com/code/analyticaobscura/casmi-2026) by
+analyticaobscura (**Apache-2.0**), itself derived from
+[casmi26-lb-0-487-peaks-to-structures-scorer](https://www.kaggle.com/code/alexchilton/casmi26-lb-0-487-peaks-to-structures-scorer)
+by alex chilton (**Apache-2.0**), unchanged except for an added notice cell. The datasets it reads at run time are not
+redistributed and keep their own licences (see `kernel-metadata.json` and the folder's `README.txt`).

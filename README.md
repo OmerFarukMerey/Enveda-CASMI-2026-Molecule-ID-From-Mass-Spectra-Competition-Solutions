@@ -116,6 +116,7 @@ Public leaderboard (MRR@25). Best in the scoring regime in force since 2026-10-0
 | 90 | 10-21 | D0 patch (Ömer) | T1 | D0 + engine-2 tree depth 5 | 0.455 | |
 | 102 | 10-22 | D0 patch (Ömer) | T_A | D0 + engine-1 pool popularity 0.25 | 0.456 | |
 | 103 | 10-26 | public copy + patch (Ömer) | **B1** | romanrozen 0.468 (n1 + neural 0.50 on ranks 2-25) with the baseline leader locked | **0.468** | [notebook](https://www.kaggle.com/code/romanrozen/0-468-casmi-from-peaks-to-structures) |
+| 131 | 11-13 | public copy | **ax13n** | analyticaobscura/casmi-2026 unchanged (alexchilton v13 + N-1c in-test network rerank); team best | **0.488** | [folder](submissions/ax13n-0.488/) |
 
 ## Where things are
 
