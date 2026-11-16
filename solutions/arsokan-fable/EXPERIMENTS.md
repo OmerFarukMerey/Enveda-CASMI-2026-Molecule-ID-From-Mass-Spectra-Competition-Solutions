@@ -73,3 +73,43 @@ All measured; do not repeat.
 - t0 ≤ 0.492: most likely it breaks library-found (class 1) lists, or the hidden test has few similar training
   molecules. Checks: re-order only ranks 2–25 (offline +0.008) or tighten the gate.
 
+
+## TA-1 re-measured (2026-11-16, second session)
+
+Stage code as committed, harness lists (400 class-2 molecules), RDKit 2026.03.3, metric key from
+`solutions/fusion-v4n/tools/metric.py`, paired bootstrap (10,000 resamples). Working files not in git.
+
+**The headline reproduces: 0.6168 → 0.6602 (gate on) on the full train file.** But that run is not the hidden-test
+situation: all 400 truths are in `train.parquet`, the gate fires on exactly the 180 lists whose rank 1 is the truth,
+so a correct rank 1 can never be demoted there. With the truth removed from the analog pool (per molecule: truth key
+plus training structures at Tanimoto ≥ 0.95 to it), the numbers are:
+
+| Variant (leak-free pool) | MRR | Δ | 95% CI | win / loss | correct rank 1 demoted |
+|---|---|---|---|---|---|
+| base | 0.6168 | | | | |
+| gate 0.6, LAM 0.75 (= t0) | 0.6636 | +0.0468 | +0.0297..+0.0643 | 54 / 17 | 6 |
+| ungated | 0.6825 | +0.0657 | +0.0470..+0.0850 | 79 / 23 | 6 |
+| ranks 2–25 only, gate on | 0.6250 | +0.0083 | +0.0026..+0.0142 | 25 / 14 | 0 |
+| ranks 2–25 only, ungated | 0.6273 | +0.0105 | +0.0039..+0.0171 | 37 / 20 | 0 |
+| gate 0.4 / 0.5 / 0.7 | 0.6545 / 0.6565 / 0.6685 | | | | 6 each |
+| LAM 0.5, gate on | 0.6596 | +0.0429 | +0.0290..+0.0574 | 48 / 10 | 1 |
+| LAM 1.0, gate on | 0.6645 | +0.0477 | +0.0273..+0.0687 | 55 / 26 | 11 |
+| LAM 0.5, ungated | 0.6720 | +0.0553 | +0.0403..+0.0708 | 65 / 13 | 1 |
+| LAM 1.0, ungated | 0.6853 | +0.0686 | +0.0461..+0.0915 | 81 / 34 | 11 |
+
+By base rank 1 (leak-free, t0 settings): rank 1 = truth (180 lists) −0.0167, 0 wins / 6 losses; rank 1 = another
+training structure (149) +0.0478; rank 1 not a training structure (71) +0.2057.
+
+What it means:
+
+- Most of the gain is rank-1 swaps (fixing rank 1 keeps +0.008..+0.010 of +0.047..+0.066), and the largest gain is
+  where rank 1 is not a training structure.
+- TA-1 does demote a correct rank 1 on class-2 lists (6 of 180), and the gate cannot stop it: a class-2 truth has no
+  training twin to trigger it. On this file the gate only blocks gains (ungated is better at every setting).
+- This file cannot show what the gate is for (class-1 lists, rank 1 a right library hit). The only hint: on the full
+  train file, ungating demotes 14 truths that are in train (0.6505 vs 0.6602 gated). So the gate stays for class 1.
+- LAM 0.5 is the safest shape: nearly the same total, best win / loss ratio, 1 correct rank 1 demoted.
+- 135 of the 400 lists are never touched: no [M+H]+ or [M-H]- spectrum (base MRR 0.500 there vs 0.676 on the 265).
+- Note on the short list above: the "95% CI +0.041..+0.078; 75 improved, 28 worse" figures match the **ungated**
+  variant in the truth-removed setup (76 / 27, +0.0415..+0.0796), not the gated one.
+- Caveats unchanged: base lists are leaky (the models saw these molecules), class 2 only, one fold, 400 molecules.
