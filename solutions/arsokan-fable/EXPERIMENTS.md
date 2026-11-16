@@ -15,7 +15,7 @@ session are logged in `docs/experiments.md` (rows 129–131) and not repeated he
 | w2 | w0, high-confidence promotion only | 0.487 |
 | w3 | w0, a single candidate to rank 2/3 only | 0.486 |
 | n0 | copy of mathleteutd "0.492 Test-Set Network Rerank" (LAM 0.35) | 0.492 |
-| t0 | n0 + TA-1 (train-analog evidence) | pending |
+| t0 | n0 + TA-1 (train-analog evidence) | 0.461 |
 
 t0: Kaggle id 58419263, submitted 2026-11-16 09:21 Istanbul. Notebook `kaggle/t0/` (= n0 + one cell after N-1c).
 n0 notebook: `submissions/n0-0.492/`. Older forks of earlier public notebooks, of no further value: g0 0.461, h0 0.483,
@@ -37,8 +37,8 @@ Short list first (as agreed for the repo), then the detail from the handoff.
 - **Test-set network step:** in the offline harness 22 design variants are within noise; ceiling about +0.005, and
   the public 0.492 version already takes it. (`offline/net_bench.py`, `net_eval.py`, `net_grid.py`)
 - **TA-1 (train-analog evidence):** on the lists of 400 "class 2" molecules the pipeline had not seen, MRR
-  0.617 → 0.660 (gate on), 0.677 without the gate; 95% CI +0.041..+0.078; 75 improved, 28 worse. Public score not
-  known yet (t0). (`stages/train_analog_rerank.py`, `offline/an_prep.py`, `an_eval3.py`, `an_eval5.py`)
+  0.617 → 0.660 (gate on), 0.677 without the gate; 95% CI +0.041..+0.078; 75 improved, 28 worse. Public score
+  0.461 (t0), −0.031 against n0: see "t0 result" below. (`stages/train_analog_rerank.py`, `offline/an_prep.py`, `an_eval3.py`, `an_eval5.py`)
 
 ## Detail (handoff of 2026-11-16)
 
@@ -65,7 +65,7 @@ All measured; do not repeat.
    public 0.487 cluster (teams with 70–150 submissions) move nothing. The visible test.parquet has 400 molecules
    locally, 120 inside Kaggle.
 
-## After t0
+## After t0 (plan written before the score; superseded by "t0 result" below)
 
 - t0 > 0.492: TA-1 works on the hidden test. Next candidates (offline first): ungated (0.677), LAM 0.5 / 1.0,
   fallback to other adducts (+0.005), TA-1 + N-1c through one learned combiner. One submission a day, best single
@@ -113,3 +113,35 @@ What it means:
 - Note on the short list above: the "95% CI +0.041..+0.078; 75 improved, 28 worse" figures match the **ungated**
   variant in the truth-removed setup (76 / 27, +0.0415..+0.0796), not the gated one.
 - Caveats unchanged: base lists are leaky (the models saw these molecules), class 2 only, one fold, 400 molecules.
+
+## t0 result (2026-11-16): 0.461, −0.031 against n0
+
+TA-1 as written is harmful on the hidden test. n0 (0.492) stays the team best; t0 is not for final selection.
+Hypothesis (not proven) is in `stages/README.md`. Diagnostic: with the truths left in train the harness still gives
+0.660, so that setup cannot see the damage. **A class-2-only harness measurement is not a reason to submit.**
+
+### How offline measurements carried over to the hidden test (this line)
+
+| Measurement | Offline | Public | Carried over |
+|---|---|---|---|
+| Network step LAM curve | same shape | same shape | yes |
+| extlib2 match accuracy | low accuracy | −0.015 | yes (a small plus had been expected) |
+| Full PubChem rerank | +0.12 | 0 / −0.002 | no |
+| TA-1 | +0.04 | −0.031 | no |
+
+Common cause of the two failures: both sets held only molecules split off from train whose truth is not in the pool;
+they did not represent the hidden test's library-found (class 1) and nowhere-found (class 3) molecules. First question
+for any new idea: "can it break a rank 1 that is already right?" If yes, do not submit without a class-1 measurement.
+
+Also: among the 400 harness molecules there are only 17 network links (109 in the visible test), so the interaction
+of N-1c and TA-1 cannot be measured there.
+
+### To rescue the TA idea (all offline before any submission)
+
+a. A measurement set with class 1: query = part of a molecule's spectra, pool = the rest; different spectra, not copies
+   (other collision energy or spectrum_id). Measure on mixed class-1 + class-2 lists.
+b. Design candidates: no exclusion (every neighbour gives evidence, itself included; 0.617 → 0.648 on harness class 2,
+   `an_eval2` "max95/sum95"); structural gate (rank 1 in train by tautomer-canonical InChIKey14 → do not touch);
+   re-order ranks 2–25 only (+0.008 on the harness, safest).
+c. One candidate only if (a) shows no class-1 loss and a class-2 gain; then one submission, announced first.
+

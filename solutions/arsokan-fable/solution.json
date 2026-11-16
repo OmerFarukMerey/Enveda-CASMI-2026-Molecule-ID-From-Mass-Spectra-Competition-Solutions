@@ -1,7 +1,7 @@
 {
   "name": "arsokan-fable",
   "owner": "Arsokan",
-  "status": "t0 (n0 + TA-1) submitted, public score pending; best public 0.492 (n0, public copy)",
+  "status": "best public 0.492 (n0, public copy); t0 (n0 + TA-1) scored 0.461, not for final selection",
   "summary": "Stages on top of public 0.487 / 0.492 notebooks: TA-1 train-analog evidence rerank, plus offline harnesses for the network step, PubChem-wide rerank (negative), second library and FRIGID.",
   "based_on": {
     "notebooks": [

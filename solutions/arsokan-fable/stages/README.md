@@ -6,10 +6,18 @@ Rerank"). Each one reads `/kaggle/working/submission.csv`, re-orders lists, and 
 
 | File | Status |
 |---|---|
-| `train_analog_rerank.py` | **TA-1**, added to the pipeline (submission t0, public score pending) |
+| `train_analog_rerank.py` | **TA-1**, submission t0: **0.461 on the hidden test, −0.031 against n0. Harmful as written, do not use** (reason below) |
 | `pc_wide_rerank_NEGATIVE.py` | tried (w0–w3), no gain on the hidden test; kept for reference, do not add |
 
 ## TA-1: train-analog evidence rerank
+
+> **Hidden test: −0.031 (t0 0.461 vs n0 0.492).** Most likely reason (hypothesis, not proven): the stage leaves
+> training structures at ≥ 0.85 out of the evidence. When the truth is a training molecule (class 1), the right
+> candidate gets no evidence from its own spectra, while wrong candidates 0.40–0.85 similar to it collect evidence
+> from the truth's spectra and overtake it. The gate should prevent this, but on the real test the truth's separate
+> measurement can match below 0.6, and the Morgan ≥ 0.999 lookup can miss a tautomer / stereo variant; either one
+> disables the gate. The offline harness could not see this: its queries are perturbed copies of training spectra, so
+> the gate always fired there (180 of 180 correct rank-1 lists).
 
 - For every candidate in a list, find the 8 most similar structures in the training set (Morgan Tanimoto 0.40–0.85).
   Training molecules at ≥ 0.85 are left out on purpose, so a candidate is not rewarded just for being a training

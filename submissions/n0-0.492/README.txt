@@ -28,7 +28,8 @@ noise; ceiling about +0.005, which this version already takes.
 Follow-up
 ---------
 t0 = this notebook + one cell (TA-1, solutions/arsokan-fable/stages/train_analog_rerank.py) right after N-1c.
-Notebook: solutions/arsokan-fable/kaggle/t0/. Public score pending (docs/experiments.md row 141).
+Notebook: solutions/arsokan-fable/kaggle/t0/. Public score 0.461 (-0.031): harmful, not for final selection
+(docs/experiments.md row 141). n0 stays the team best.
 
 Files in this folder
 --------------------
