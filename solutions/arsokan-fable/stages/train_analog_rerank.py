@@ -1,3 +1,8 @@
+# !! WARNING (2026-11-16): submission t0 (n0 + this stage) scored 0.461 on the hidden test against 0.492 for n0 (-0.031).
+# !! Harmful as written; do not add to a submission. Most likely reason (hypothesis): training structures at >= 0.85 are
+# !! left out of the evidence, so a right candidate that IS a training molecule (class 1) gets none from its own spectra
+# !! while wrong candidates 0.40-0.85 similar to it collect evidence from them; the gate (rank 1 a training molecule with
+# !! self-match >= 0.6, found by Morgan >= 0.999) can fail to fire on real test spectra. See stages/README.md.
 # ── Train-analog evidence rerank (Arsokan TA-1) ─────────────────────────────────────────────────────────────
 # For every candidate, look up its closest *training* structures (Morgan Tanimoto 0.40-0.85, top 8) and ask whether
 # their measured spectra resemble the query spectrum (modified cosine). A right candidate's analogs fragment alike.

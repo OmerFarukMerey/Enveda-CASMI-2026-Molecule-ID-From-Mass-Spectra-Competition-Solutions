@@ -1,7 +1,7 @@
 {
   "name": "arsokan-fable",
   "owner": "Arsokan",
-  "status": "t0 (n0 + TA-1) submitted, public score pending; best public 0.492 (n0, public copy)",
+  "status": "best public 0.492 (n0, public copy); t0 (n0 + TA-1) scored 0.461, not for final selection",
   "summary": "Stages on top of public 0.487 / 0.492 notebooks: TA-1 train-analog evidence rerank, plus offline harnesses for the network step, PubChem-wide rerank (negative), second library and FRIGID.",
   "based_on": {
     "notebooks": [
@@ -13,7 +13,9 @@
     "stage_ta1": "stages/train_analog_rerank.py (paste after cell n1c, before the external-library overlay)",
     "offline_ta1": "offline/an_prep.py, offline/an_eval3.py, offline/an_eval5.py (paths must be adjusted)",
     "offline_network": "offline/net_bench.py, offline/net_eval.py, offline/net_grid.py",
-    "download": "python offline/dl_out.py <owner/kernel> <dst> <file_pattern>"
+    "download": "python offline/dl_out.py <owner/kernel> <dst> <file_pattern>",
+    "t0_notebook": "kaggle/t0/notebook.ipynb",
+    "n0_notebook": "../../submissions/n0-0.492/notebook.ipynb"
   },
   "kaggle": {
     "competition": "enveda-CASMI26-molecule-id-mass-spectra",

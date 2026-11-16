@@ -151,4 +151,4 @@ simulations overstate reach about 3×.
 ## Open questions
 - Is the GLACIER / ICEBERG MassSpecGym provenance fully prize-eligible? Watch the forum thread before the final pick.
 - The daily submission limit and how many we reserve for P1 vs P2.
-- External data / licence: the external spectrum library `takumuhata/casmi26-extlib` (attached by the public 0.487 / 0.492 base notebooks) has no source or licence information. The team must check it against the competition's external-data rule before the final selection (`solutions/arsokan-fable/README.md`).
+- External data / licence: the external spectrum library `takumuhata/casmi26-extlib` (attached by the public 0.487 / 0.492 base notebooks) has no source or licence information. The team must check it against the competition's external-data rule before the final selection (`solutions/arsokan-fable/README.md`). Conflicting notes: the n0/t0 overlay cell and `submissions/ax13n-0.488/README.txt` call it CC0 (GNPS + MassBank + MoNA, no NIST per its card); confirm against the card.
