@@ -5,7 +5,8 @@ Work from a separate Arsokan session (2026-11). Base: copies of two public noteb
 (ozertuu "From Peaks to Structures", 0.487; mathleteutd "0.492 Test-Set Network Rerank", 0.492), plus new stages
 measured offline. The submitted notebooks are kept as files: n0 in `submissions/n0-0.492/`, t0 in `kaggle/t0/`.
 
-Submission log and findings: [EXPERIMENTS.md](EXPERIMENTS.md). Stage descriptions: [stages/README.md](stages/README.md).
+Submission log and findings: [EXPERIMENTS.md](EXPERIMENTS.md). Validation harness and how to read it:
+[VALIDATION-HARNESS.md](VALIDATION-HARNESS.md). Stage descriptions: [stages/README.md](stages/README.md).
 
 ## Layout
 

@@ -176,3 +176,12 @@ neighbours removed ("P2", 400). Base lists are still the leaky harness lists. `d
 - **Decision: no TA candidate for submission.** TA work stops until there is a test with n0's own lists and query
   spectra from a different lab than the evidence spectra. If a diagnostic slot is ever spent, "ranks 2–25 only" is the
   informative one (it cannot demote rank 1); expected score change about zero.
+
+## Validation harness (2026-11-17)
+
+n0's own lists on 300 held-out molecules (cross-lab class 1, same-lab class 1, class 2), replaying TA-1, vpd, w30c
+and the LAM curve: see [VALIDATION-HARNESS.md](VALIDATION-HARNESS.md). It reproduces the hidden-test loss mechanisms
+(LAM > 0.35, w30c's demoted cross-lab leader, vpd = 0) but not TA-1's net sign; use it as a loss detector only.
+Rule from here on: a re-ranker is judged by "correct rank 1 demoted" per class and its loss side; gains are an upper
+bound.
+
