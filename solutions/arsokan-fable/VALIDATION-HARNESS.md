@@ -245,3 +245,17 @@ order (no reciprocal rank changed in this run; not guaranteed on the hidden set)
 Overlay: its 4 NP demotions are other molecules; in three the replaced leader was rank 1 in both engines and the
 external hit beat `library_max` by 0.008–0.018. A guard on engine agreement would block 3 bad / 0 good on NP, but it
 was found after looking and the overlay is worth about +0.006 on the board; not a candidate without a fresh set.
+
+#### LMG-1 in-notebook checks (2026-11-17, both pass; not submitted)
+
+- `casmi-vh-lmg16` (harness + n0 + LMG-1, 16 molecules incl. the 8 merge-moved NP molecules, same reduced train as the
+  NP run): `LMG-1 DRY RUN | status applied | lists 16 | merge leader moves 8 (merge report: 8) | guarded 6 |
+  restored 6 | unguarded lists identical True`. V2 lists, unguarded merge output and `library_max` identical to the
+  300-run on 16 / 16. Final lists differ on 5, all restored ones; MRR on these 16 (chosen because the guard acts on
+  them, so a function check, not an estimate) 0.7706 → 0.8644. No N-1c neighbours inside the 16, so guard + N-1c
+  together is covered only by the offline replay on 300.
+- `casmi-vh-lmg-sub` (n0 notebook + the LMG-1 cell after cell 18, nothing else changed, COMMIT_MODE 'smoke'): every
+  n0 stage logged as in n0; `merge leader moves 0 | guarded 0 | restored 0 | unguarded lists identical True` on the
+  visible test; `submission.csv` byte-identical to n0's smoke output.
+- Expected public effect: on ~130 public molecules the guard likely acts on 0–2 lists, so 0.492 unchanged is a
+  plausible outcome.
