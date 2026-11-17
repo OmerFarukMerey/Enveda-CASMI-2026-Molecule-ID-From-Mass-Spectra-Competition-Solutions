@@ -43,3 +43,15 @@ effect is known (N-1c LAM > 0.40, TA-1, vpd, w30c) the loss-side reading was rig
 
 Neural scorers, fpnet_full1 and the rankers were trained on the full train file; the candidate pool contains every
 training structure. Level (MRR 0.856) is far above the hidden test (0.492). One fold, one seed, 300 molecules.
+
+## Notes added when the files were committed (2026-11-17)
+
+- The scripts were written in a helper session and copied here verbatim (each verified by SHA-256); they were not run
+  from this location. Results: [../VALIDATION-HARNESS.md](../VALIDATION-HARNESS.md).
+- Also here: `own_evidence.py` (per-candidate own-spectrum agreement, the class-1 separability check). It needs
+  `audit.py` in the same working directory, run first.
+- Not committed: `task10.py`, `task10b.py`, `NOTES.md`, `selection.json` (0.9 MB; regenerate with the two selection
+  scripts: seed `vh-20261117`, quotas C1x 110 / C1s 60 / C2 130; sha256 of the original
+  `696edfa089758c7246616fc3427e7b504f317e344152943050a39d882cb179f2`).
+- `replay.py` reads the vpd / w30c veto cells from two teammate notebooks under `scratch/` that are not in git; add
+  them locally or drop those two stages.
