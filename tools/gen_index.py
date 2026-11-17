@@ -7,6 +7,7 @@ import ast, json, os, re, subprocess, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OVERRIDES = {
+    'solutions/arsokan-fable/vh/cell_lmg.py': 'LMG-1 notebook cell (candidate, not submitted): undo the merge step leader move when both engines ranked the old leader first and library_max >= 0.7',
     'solutions/arsokan-fable/offline/an_eval2.py': "TA-1 offline evaluation, earlier variant (paths: author machine)",
     'solutions/arsokan-fable/offline/an_eval4.py': "TA-1 offline evaluation of variants: K, lower bound, sum vs best, adduct fallback (paths: author machine)",
     'solutions/arsokan-fable/offline/an_prep30.py': "TA-1 offline prep with 30 analogs per candidate (paths: author machine)",
