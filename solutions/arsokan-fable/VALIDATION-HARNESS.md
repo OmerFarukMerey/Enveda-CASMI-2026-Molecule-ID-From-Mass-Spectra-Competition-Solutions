@@ -90,3 +90,42 @@ the visible test), so a dry run on a copy with the library gate off is needed be
 Builder cell, redirect patches, molecule selection and the replay script live in the helper session's working files
 (`scratch/vh/`), to be committed separately. To make the harness a net predictor, class-2 truths would have to be
 removed from the candidate-pool datasets for part of the set (private pool copies, one more ~2.6 GPU h run).
+
+## Stage audit of n0 and error anatomy (same run, offline)
+
+Consecutive pipeline snapshots (Δ MRR; win / loss; correct rank 1 demoted):
+
+| Stage | Δ | win / loss | dem | Where |
+|---|---|---|---|---|
+| pipeline reference → e006 control | +0.0094 | 5 / 0 | 0 | class 2 |
+| e006 control → frozen 0.465 final | −0.0035 | 0 / 8 | 0 | class 2 |
+| V0 → V1 neural 0.25 | +0.0044 | 11 / 0 | 0 | class 2 |
+| V1 → V2 (neural 0.5 on ranks 2–25) | +0.0027 | 10 / 5 | 0 | |
+| V2 → CUSTOM (neural 0.75 on ranks 2–25) | −0.0017 | 4 / 7 | 0 | class 1 |
+| CUSTOM → merge (fragment check + priors + mass prior) | −0.0040 | 1 / 13 | 0 | class 2 |
+| merge → mass rank-1 rule | +0.0050 | 3 / 0 | 0 | class 2 |
+| N-1c LAM 0.35 | −0.0003 | 4 / 6 | 1 | losses in class 1, gains in class 2 |
+| extlib overlay | 0 | | | 0 matches |
+
+- No stage of n0 demotes a correct leader except N-1c (one, same-lab class 1). After the base engine the leader
+  changes on 6 of 300 lists. **No stage deserves removal**: the two negative ones act on ranks 2–25 only, and the
+  public board contradicts removing them (w_mid 0.75 was +0.004; POP_W / SPEC_W and V8 MASS → BASE were +0.000); their
+  harness losses are the leaky-pool artefact (harness truths are unpopular library compounds).
+- Errors of n0 (truth not rank 1): C1x 11, C1s 11, C2 53. In 73 of 75 the leader is a same-formula isomer, usually
+  a training structure, not a near-twin (median Tanimoto 0.5–0.6), and it is already rank 1 in the base engine. No
+  later stage created these errors.
+- `library_max` in `frozen_candidate_evidence.parquet` is one value per molecule, not per candidate, so n0's outputs
+  cannot say which candidate the library hit belongs to.
+- Re-weighting class 2 to a plausible hidden level (a model, not a measurement) flips TA-1 to −0.004 in one variant
+  but does not make the harness a net predictor.
+
+Candidates tested by the loss-detector rule (none worth a submission slot on its own):
+
+| Change | Δ | win / loss | dem | Note |
+|---|---|---|---|---|
+| N-1c only where `library_max` < 0.9 | +0.0007 | 2 / 0 | 0 | principled gate; 2 lists |
+| N-1c only where `library_max` < 0.7 | +0.0029 | 4 / 0 | 0 | threshold chosen after looking |
+| confirmation only (0.85 / +0.20, gate 0.9; veto off) | +0.0033 | 2 / 0 | 0 | fires only in same-lab class 1 |
+| confirmation 0.75 / +0.10 | +0.0011 | 2 / 2 | 1 | starts demoting cross-lab leaders |
+| veto only 0.30 | +0.0008 | 3 / 0 | 0 | = vpd |
+| veto only 0.40 | −0.0003 | 5 / 1 | 1 | w30c's loss is the veto threshold, not the confirmation |
