@@ -152,3 +152,69 @@ train (best single pair and merged cosine on shared adducts, matched peaks).
 Conclusion: the remaining class-1 errors are isomer pairs whose same-instrument spectra are nearly identical while the
 truth's only reference comes from another instrument. Spectral agreement cannot break that tie in the right
 direction; re-ordering n0's output lists is exhausted as a source of gain. Only another kind of evidence could help.
+
+## Second run on natural products: `casmi-vh-np` (2026-11-17)
+
+Hidden-like set: the 250 `enveda-np-examples` molecules (timsTOF natural products, "closest to test"), queries = their
+own spectra, all their np-examples rows removed from the reduced train; plus 50 fresh enveda-only same-lab class-1
+molecules. All 250 keep outside-library references (median 168 rows); none is in enveda-180, none is left without a
+reference, so there is one NP group ("NPx", cross-lab class 1) and no NP class 2. Run: 3 h 40 min on a T4.
+
+Limits: these are common natural products with references everywhere; most of n0's models were trained on them
+(only the fold-safe FPNet excluded all 250). The set prices "known NP with a cross-lab reference", not molecules
+without references.
+
+n0 on this set: NPx MRR 0.9326, top-1 0.892, truth in list 0.992, `library_max` p10 / median / p90 0.70 / 0.86 / 0.93;
+C1s MRR 0.9467. About twice as easy as the hidden test (0.492): the hidden set must be dominated by molecules
+without a usable reference.
+
+### Acceptance replay: the signs match the board here
+
+Δ against n0 on the 300; `dem` = correct leaders demoted.
+
+| Change | Δ | NPx win / loss | dem | Hidden / public |
+|---|---|---|---|---|
+| LAM 0.25 | −0.0031 | 1 / 2 | 2 | −0.004 |
+| LAM 0.30 | −0.0014 | 1 / 1 | 1 | −0.004 |
+| LAM 0.38 | −0.0002 | 0 / 1 | 0 | −0.002 |
+| LAM 0.40 | −0.0007 | 0 / 2 | 0 | −0.002 |
+| LAM 0.45 | −0.0036 | 1 / 4 | 2 | −0.006 |
+| LAM 0.50 | −0.0052 | 1 / 6 | 2 | −0.008 |
+| TA-1 (t0) | −0.0104 (CI −0.0211..−0.0003) | 3 / 10 | 6 | −0.031 |
+| vpd | −0.0068 | 0 / 3 | 2 | 0.000 |
+| w30c | −0.0068 | 0 / 3 | 2 | −0.008 |
+
+The LAM curve peaks exactly at 0.35 with both sides lower, TA-1 is clearly negative, w30c is negative at the right
+size. Only vpd differs (−0.007 here, 0.000 hidden; 2 demotions, which can be zero events on ~130 public molecules).
+**For re-rankers that act on molecules with references, this run is a net-sign predictor**, which the first harness
+was not. It says nothing about molecules without references.
+
+### Instrument-aware swap rule: failed out of sample
+
+Rule (pre-registered, calibrated on molecules outside both harness sets): convert each candidate's own-spectrum cosine
+to a log likelihood ratio per reference-instrument family (timsTOF same-molecule median 0.94 but the nearest isomer
+reaches 0.93 in 10% of cases; Orbitrap family same-molecule median 0.86, isomers rarely above 0.35), swap the leader
+for a same-formula challenger in ranks 2–5 when the difference is ≥ log 3.
+
+- First harness: C1x 7 fixes / 0 demotions, C1s 3 / 2 (criterion failed on C1s).
+- NP run (frozen rule): **4 fixes, 4 correct leaders demoted**; never fires on the 50 C1s. Every fire is Orbitrap
+  against Orbitrap. The premise "an enveda-180 isomer leads while the truth has only outside references" occurred
+  0 times in 250 NP molecules (43 had an enveda isomer available): the 7 / 0 came from how the first harness was
+  built. Line closed.
+
+### Stage audit on natural products: n0's late stages lose 0.016 here
+
+NPx MRR 0.9485 at the public-0.466 stage → 0.9326 final.
+
+| Step | NPx Δ | win / loss | correct leaders demoted |
+|---|---|---|---|
+| neural 0.5 / 0.75 on ranks 2–25 | −0.0045 | 2 / 12 | 0 |
+| merge step (fragment check, reason `fragment_neural_top1`) | −0.0102 | 9 / 9 | 7 |
+| mass rank-1 rule | −0.0020 | 0 / 1 | 1 |
+| N-1c LAM 0.35 | +0.0008 | 4 / 6 | 3 |
+| extlib overlay | 0.0000 | 4 / 5 | 4 |
+
+The fragment check moved 8 leaders, 7 of them correct; all 7 had `library_max` 0.70–0.87 and the truth first in both
+engines. These stages gained on the public board (0.466 → 0.492), so they pay on molecules this set does not
+contain; the audit says they cost on known NPs with a cross-lab reference. A leader-move guard is being evaluated
+(hypothesis from this run, so the first harness is its out-of-sample set).
