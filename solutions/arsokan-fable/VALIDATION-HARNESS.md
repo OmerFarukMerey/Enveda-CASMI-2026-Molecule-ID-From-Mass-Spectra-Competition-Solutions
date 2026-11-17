@@ -129,3 +129,26 @@ Candidates tested by the loss-detector rule (none worth a submission slot on its
 | confirmation 0.75 / +0.10 | +0.0011 | 2 / 2 | 1 | starts demoting cross-lab leaders |
 | veto only 0.30 | +0.0008 | 3 / 0 | 0 | = vpd |
 | veto only 0.40 | −0.0003 | 5 / 1 | 1 | w30c's loss is the veto threshold, not the confirmation |
+
+## Can the class-1 isomer errors be separated? No (offline, same run)
+
+For the top 10 of every list, each candidate's own-spectrum agreement with the query was computed from the reduced
+train (best single pair and merged cosine on shared adducts, matched peaks).
+
+- **Cross-lab class 1 (11 errors): in all 8 comparable cases the WRONG leader's own spectrum matches the query better
+  than the truth's.** The truth's references are Orbitrap (0.86–0.96 on 5–36 peaks); the wrong leader is a
+  same-formula isomer with a same-instrument enveda-180 reference (0.87–0.995 on 10–76 peaks). The molecule-level
+  `library_max` there is the wrong isomer's match, so "promote the library-matched structure" would confirm the error.
+- Same-lab class 1 (11 errors): truth better in 4 of 10 comparable cases.
+- Control, the 148 class-1 lists n0 gets right: truth 0.95 / 0.90 (same-lab / cross-lab median) vs best same-formula
+  rival 0.69 / 0.58. The signal is good on average, which is why the base engine is already right on about 90%.
+- Swap rule, pre-registered (challenger ≥ 0.70, ≥ 6 peaks, ≥ 0.15 above the leader, leader has own spectra): fixes 3
+  (all same-lab), demotes 2 correct leaders. Over a 40-cell grid no cell has ≥ 5 fixes with 0 demotions; no cell has
+  a cross-lab fix without a cross-lab demotion. Without "leader has own spectra" the rule demotes 9–15 correct
+  class-2 leaders.
+- In n0, `library_max` is only a per-molecule gate after the base engine (LIB_TAU 0.9, LIB_HIT_GATE 0.78,
+  MASS_LIB_TAU 0.9); there is no library promotion threshold to lower.
+
+Conclusion: the remaining class-1 errors are isomer pairs whose same-instrument spectra are nearly identical while the
+truth's only reference comes from another instrument. Spectral agreement cannot break that tie in the right
+direction; re-ordering n0's output lists is exhausted as a source of gain. Only another kind of evidence could help.
