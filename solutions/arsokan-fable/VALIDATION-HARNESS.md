@@ -218,3 +218,30 @@ The fragment check moved 8 leaders, 7 of them correct; all 7 had `library_max` 0
 engines. These stages gained on the public board (0.466 → 0.492), so they pay on molecules this set does not
 contain; the audit says they cost on known NPs with a cross-lab reference. A leader-move guard is being evaluated
 (hypothesis from this run, so the first harness is its out-of-sample set).
+
+### Leader-move guard LMG-1 (candidate; `vh/cell_lmg.py`, not submitted yet)
+
+Anatomy of the merge step's leader moves: NP run 8 moves, 0 good (7 demote a correct leader, 1 wrong → wrong); in 7
+of 8 the new leader is not a training structure while the old one is. First harness 2 moves, both class 2: one good
+(truth promoted; `library_max` 0.39, engines disagree, fragment margin 0.51, the largest of all ten), one neutral.
+
+Guard G1: undo the move when the replaced leader was rank 1 in both engines and `library_max` ≥ 0.7. Downstream
+stages (mass rule, N-1c, overlay) replayed, not assumed.
+
+| Guard | Run | Blocked | bad / good / neutral | Final Δ | win / loss |
+|---|---|---|---|---|---|
+| G1 | NP (in-sample) | 6 of 8 | 6 / 0 / 0 | +0.0033 | 2 / 0 |
+| G2 (both engines only) | NP | 7 of 8 | 6 / 0 / 1 | +0.0036 | 3 / 0 |
+| G3 (`library_max` ≥ 0.7 only) | NP | 6 of 8 | 6 / 0 / 0 | +0.0033 | 2 / 0 |
+| G1 / G2 / G3 | first harness (out-of-sample) | 0 of 2 | – | 0 | – |
+| block every move | first harness | 2 of 2 | 0 / 1 / 1 | −0.0017 | 0 / 1 |
+
+Honest size: 6 blocked demotions give 2 final wins, because n0 already repairs 4 of them later (2 by N-1c, 2 by the
+overlay). The guard was suggested by the NP run, so that evidence is in-sample; the out-of-sample run only shows it
+blocks nothing there and leaves the one good move alone. Public history agrees it is small: tightening the fragment
+margin scored exactly the base (0.477). Side effect: N-1c reads all lists, so 11 other NP lists end in a different
+order (no reciprocal rank changed in this run; not guaranteed on the hidden set).
+
+Overlay: its 4 NP demotions are other molecules; in three the replaced leader was rank 1 in both engines and the
+external hit beat `library_max` by 0.008–0.018. A guard on engine agreement would block 3 bad / 0 good on NP, but it
+was found after looking and the overlay is worth about +0.006 on the board; not a candidate without a fresh set.
