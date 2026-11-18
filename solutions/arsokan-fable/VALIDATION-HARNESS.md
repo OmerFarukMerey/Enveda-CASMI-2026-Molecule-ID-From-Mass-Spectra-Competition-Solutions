@@ -263,3 +263,35 @@ was found after looking and the overlay is worth about +0.006 on the board; not 
   visible test; `submission.csv` byte-identical to n0's smoke output.
 - Expected public effect: on ~130 public molecules the guard likely acts on 0–2 lists, so 0.492 unchanged is a
   plausible outcome.
+
+### Replay of Ömer's leader-safe variants nls / tas / nlt (2026-11-18)
+
+Three submissions by Ömer on top of n0, all with rank 1 identical to n0 by construction; inputs identical to n0.
+
+- nls (Kaggle id 58508547): N-1c keeps rank 1 from the LAM 0.35 ordering, ranks 2-25 follow LAM 0.70.
+- tas (58510182): TA-1 after N-1c on ranks 2-25 only (`TA_LAM, TA_FREEZE_TOP1, TA_TOP1_MARGIN = 0.75, True, 0.0`), plus
+  the D-1 dedup cell after the overlay.
+- nlt (58510187): both.
+
+Offline replay with his cells executed verbatim (N-1c, TA, overlay with the real external libraries, D-1; CPU only).
+The replayed n0 chain reproduces the kernel's final file on 100 % of lists in both runs.
+
+| variant | NP run: delta vs n0 (wins / losses) | first run: delta vs n0 (wins / losses) | public score | vs n0 |
+|---|---|---|---|---|
+| n0 | 0.9349 | 0.8563 | 0.492 | |
+| n0 + D-1 only | 0.0000 (0 / 0) | 0 (0 / 0) | – | |
+| nls | −0.0019 (1 / 4) | −0.0019 (5 / 8) | 0.487 | −0.005 |
+| tas | −0.0031 (1 / 4) | +0.0022 (9 / 5) | 0.487 | −0.005 |
+| nlt | −0.0051 (2 / 8) | −0.0001 (12 / 12) | 0.483 | −0.009 |
+
+- Leader safety holds: rank 1 unchanged on 600 of 600 lists in all three variants, no correct leader demoted.
+- D-1 removed 34 duplicates on the NP set and changed no reciprocal rank.
+- tas on the first run by class (C1s / C1x / C2): −0.0028 (0/1) / 0.0000 (1/1) / +0.0064 (8/3). The gain is all in
+  class 2, where that harness inflates gains; same pattern as unfrozen TA-1.
+- The NP run got all three signs and the ordering right before the scores arrived; the first run got tas wrong. The
+  board losses are about twice the NP-run sizes.
+- Rank 1 was never touched, so every lost point is a truth pushed down inside ranks 2-25. Re-ordering the tail with
+  network evidence above LAM 0.35 or with train-analog evidence hurts by itself. Leader-safe variants of both stages
+  are closed.
+
+Helper-session files (not in git): `scratch/vh/om18_replay.py`, `out_np/om18.log`, `out_full/om18.log`.
