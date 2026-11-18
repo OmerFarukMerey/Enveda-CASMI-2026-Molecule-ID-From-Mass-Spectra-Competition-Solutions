@@ -219,11 +219,15 @@ engines. These stages gained on the public board (0.466 → 0.492), so they pay 
 contain; the audit says they cost on known NPs with a cross-lab reference. A leader-move guard is being evaluated
 (hypothesis from this run, so the first harness is its out-of-sample set).
 
-### Leader-move guard LMG-1 (candidate; `vh/cell_lmg.py`, not submitted yet)
+### Leader-move guard LMG-1 (`vh/cell_lmg.py`; submitted 2026-11-18 as lmg1, Kaggle id 58494853, public score 0.492)
 
 Anatomy of the merge step's leader moves: NP run 8 moves, 0 good (7 demote a correct leader, 1 wrong → wrong); in 7
 of 8 the new leader is not a training structure while the old one is. First harness 2 moves, both class 2: one good
 (truth promoted; `library_max` 0.39, engines disagree, fragment margin 0.51, the largest of all ten), one neutral.
+
+Result (read 2026-11-18 09:36 UTC): public score 0.492, the same as n0. The public part (about a third of the
+hidden test) cannot tell lmg1 from n0: the guard either did not fire there or changed no scored rank. Its effect on
+the private part is not known; the only evidence stays the harness numbers below.
 
 Guard G1: undo the move when the replaced leader was rank 1 in both engines and `library_max` ≥ 0.7. Downstream
 stages (mass rule, N-1c, overlay) replayed, not assumed.
@@ -246,7 +250,7 @@ Overlay: its 4 NP demotions are other molecules; in three the replaced leader wa
 external hit beat `library_max` by 0.008–0.018. A guard on engine agreement would block 3 bad / 0 good on NP, but it
 was found after looking and the overlay is worth about +0.006 on the board; not a candidate without a fresh set.
 
-#### LMG-1 in-notebook checks (2026-11-17, both pass; not submitted)
+#### LMG-1 in-notebook checks (2026-11-17, both pass)
 
 - `casmi-vh-lmg16` (harness + n0 + LMG-1, 16 molecules incl. the 8 merge-moved NP molecules, same reduced train as the
   NP run): `LMG-1 DRY RUN | status applied | lists 16 | merge leader moves 8 (merge report: 8) | guarded 6 |
