@@ -16,6 +16,7 @@ session are logged in `docs/experiments.md` (rows 129–131) and not repeated he
 | w3 | w0, a single candidate to rank 2/3 only | 0.486 |
 | n0 | copy of mathleteutd "0.492 Test-Set Network Rerank" (LAM 0.35) | 0.492 |
 | t0 | n0 + TA-1 (train-analog evidence) | 0.461 |
+| lmg1 | n0 + leader-move guard LMG-1 (`vh/cell_lmg.py`; Kaggle id 58494853, 2026-11-18) | pending |
 
 t0: Kaggle id 58419263, submitted 2026-11-16 09:21 Istanbul. Notebook `kaggle/t0/` (= n0 + one cell after N-1c).
 n0 notebook: `submissions/n0-0.492/`. Older forks of earlier public notebooks, of no further value: g0 0.461, h0 0.483,
