@@ -83,3 +83,25 @@ Küçük iş yükü için süre ve maliyeti ~0,45 ile, büyük için ~2 ile çar
 - Runpod: pod oluşturmadan önce donanım ve toplam saatlik fiyat onayı.
 - Kaggle: yardımcı oturumda yeni GPU bütçesi ve özel veri seti oluşturma için doğrudan onay.
 - Eğitime ancak fizibilite ölçümü geçerse başlanır (tahmin edilen parmak izinin kalitesi eşiğin üstündeyse).
+
+## Ücretsiz iki adımın sonucu (2026-11-18): A kapatıldı, eğitim başlatılmadı
+
+Ölçüm: 250 doğal ürün paneli, modellerin eğitimde görmediği moleküller; tahminler
+`dmitriigluzdov/casmi26-fold-safe-fpnet` içindeki `panel_logits.npz`, gerçek bitler boru hattının kendi koduyla.
+
+| Model | Tahmin-gerçek Tanimoto, ortanca | >= 0,5 olan pay | >= 0,7 olan pay | Çubuk (>= 0,75'te %8 ya da >= 0,5'te %35) |
+|---|---|---|---|---|
+| fold-safe FPNet | 0,21 | %0 | %0 | geçmedi |
+| FPNet A+B | 0,39 | %11 | %0 | geçmedi |
+
+Karşılaştırma: aynı bitlerde en yakın BAŞKA panel molekülü ortanca 0,56'da; yani tahmin edilen parmak izi gerçeğe,
+rastgele bir komşu doğal üründen daha uzak. Adayları sıralamaya yetiyor (bit AUC 0,83-0,91), yapıyı yazmaya yetmiyor.
+
+2. adım (gerçek parmak iziyle üst sınır) Ekim raporunda zaten ölçülmüş: ilk 25'te %32,7 (N) / %0,3 (F) / %15,3
+(iskelet ayrımı); yenilik benzeri F setinde açık başarısızlık.
+
+Yan bulgular: formül darboğaz değil (doğru yapı listeden çıkarılınca bile 1. sıranın formülü %88-96 doğru; üst
+sınır). n0'ın kendi listesi, doğru yapı çıkarıldığında bile doğal ürünlerde ortanca 0,73 benzerlikte bir analog
+içeriyor; bir şey kurulacaksa serbest üretim değil, üst adayların doğru formül altında düzenlenmesi daha sağlam
+temelli olurdu (kural tabanlı sürümü daha önce tabloda 0,000 / 0,007 almıştı). Açık bir üreticinin tabloda kazanç
+gösterdiğine dair kanıt yok (heliosli'nin ağırlıkları 16 Kasım'da geri çekildi).
