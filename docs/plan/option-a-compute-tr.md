@@ -1,6 +1,15 @@
 <!-- index: 2026-11-18 (TR) A seçeneği (yapı üretici) için hesaplama raporu: Kaggle ve Runpod gereklilikleri, donanım başına süre ve maliyet, öneri -->
 # A seçeneği için hesaplama raporu: Kaggle ve Runpod (2026-11-18)
 
+> **Güncelleme (aynı gün): GPU harcamadan önce okuyun.** Bu fikir repoda daha önce kurulup kapatılmış:
+> `solutions/fusion-v4n/reviews/fpgen-2026-10-12.md` (parmak izi + formül koşullu üretici, kod
+> `solutions/fusion-v4n/train/fpgen/`; tahmin edilen parmak iziyle ilk 25'te %10,6 / %0,0 / %4,0, gerçek parmak
+> iziyle bile %32,7 / %0,3 / %15,3; karar "bu hattı kapat") ve `frigidpilot-2026-10-17.md`. Darboğaz üretici değil,
+> parmak izi tahmininin kalitesi: literatürde üretim, tahmin-gerçek Tanimoto 0,5'in altında umutsuz, ancak
+> 0,75'in üstünde işe yarıyor; bizim modellerimiz 0,22-0,41 aralığında. Yeniden deneme bir "kodlayıcı" (spektrum
+> → parmak izi) projesi olur; tahmini başarı olasılığı ~%5. Aşağıdaki maliyet tablosu geçerli, ama eğitime ancak
+> ücretsiz ilk iki adım (parmak izi kalitesi histogramı, gerçek parmak iziyle üst sınır) geçerse başlanmalı.
+
 Runpod fiyatları ve stok durumu 2026-11-18 sabahı canlı okundu (saatlik, USD). Hız katsayıları ve iş yükü
 büyüklükleri tahmindir; fizibilite ölçümü ve mimari seçimi bitince netleşir.
 
