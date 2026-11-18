@@ -105,3 +105,19 @@ sınır). n0'ın kendi listesi, doğru yapı çıkarıldığında bile doğal ü
 içeriyor; bir şey kurulacaksa serbest üretim değil, üst adayların doğru formül altında düzenlenmesi daha sağlam
 temelli olurdu (kural tabanlı sürümü daha önce tabloda 0,000 / 0,007 almıştı). Açık bir üreticinin tabloda kazanç
 gösterdiğine dair kanıt yok (heliosli'nin ağırlıkları 16 Kasım'da geri çekildi).
+
+## Kodlayıcı denemesi (2026-11-18): başlamadan kapatıldı
+
+Plan: parmak izi modelini benzetilmiş doğal ürün spektrumlarıyla yeniden eğitmek. Okuma aşaması, bunun takım
+tarafından zaten yapılıp görülmemiş moleküllerde ölçüldüğünü gösterdi:
+
+- `solutions/fusion-v4n/reviews/simspec-2026-10-02.md`: ICEBERG benzetimiyle ince ayar. Benzetilen yapıların gerçek
+  spektrumlarında 1. sıra 0,407 → 0,520; benzetilMEyen yapılarda +0,014 ± 0,007 (ayrılmış set) ve −0,016 ± 0,024
+  (timsTOF paneli). "Kazanç tam olarak yapının benzetildiği yerde, başka hiçbir yerde değil."
+- `ownfp-2026-10-10.md`, `specenc-2026-10-13.md`: sıfırdan eğitim ve mimari varyantları açık modelle aynı düzeyde;
+  panel hiçbir koşuda yükselmedi. Satır 72: daha iyi görünen kodlayıcı tabloda −0,012.
+- Çubuk (panelde 1. sıra ≥ 0,50 ve Tanimoto ≥ 0,45) için tahmini olasılık ~%5; tek olumlu ölçümü olan
+  "aday yapıları benzet" sürümü için beklenen ~0,43 → 0,46, yine çubuğun altında.
+
+Not: çubuktaki 0,42-0,43, kolay aday kümesine (eğitim + COCONUT, ortanca ~55 aday) ait. PubChem penceresinde
+(ortanca ~5.500 aday) aynı modeller doğru yapıyı yalnızca %7-27 oranında 1. sıraya koyuyor.
