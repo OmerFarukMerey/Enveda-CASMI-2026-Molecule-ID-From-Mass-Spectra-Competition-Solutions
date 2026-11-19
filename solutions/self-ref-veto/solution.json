@@ -1,0 +1,57 @@
+{
+  "name": "self-ref-veto",
+  "owner": "Ömer",
+  "status": "closed 2026-11-18: vpd 0.492, w30c 0.484, nls 0.487, tas 0.487, nlt 0.483 (base n0 0.492)",
+  "summary": "The public 0.492 notebook plus (a) a self-reference contradiction veto: known candidates whose own train.parquet spectra match no query spectrum move below uncontradicted candidates, and (b) leader-safe re-orderings of ranks 2-25 (network weight 0.70, train-analog evidence) with rank 1 untouched. None beat the base.",
+  "based_on": {
+    "notebook": "https://www.kaggle.com/code/mathleteutd/casmi26-0-492-test-set-network-rerank",
+    "public_lb": 0.492,
+    "license": "Apache-2.0",
+    "snapshot": "reference/"
+  },
+  "entrypoints": {
+    "build": "python -I solutions/self-ref-veto/tools/build.py <variant>",
+    "push": "kaggle kernels push -p solutions/self-ref-veto/kaggle/<slug>",
+    "outputs": "python -I solutions/self-ref-veto/tools/getout.py <owner>/<slug> <out_dir> <file,file,...>",
+    "harness": "python -I solutions/self-ref-veto/tools/mkharness.py <competition_dir> <out_dir>",
+    "run_cell": "python -I solutions/self-ref-veto/tools/runcell.py <harness_dir> <cell.py> [NAME=VALUE ...]",
+    "measure": "python -I solutions/self-ref-veto/analysis/np_veto_measures.py <competition_dir> [refs_per_adduct]"
+  },
+  "kaggle": {
+    "kernel_slugs": [
+      "casmi26-om-vpd",
+      "casmi26-om-w30c",
+      "casmi26-om-nls",
+      "casmi26-om-tas",
+      "casmi26-om-nlt"
+    ],
+    "competition": "enveda-CASMI26-molecule-id-mass-spectra",
+    "accelerator": "NvidiaTeslaT4",
+    "internet": false,
+    "datasets": [
+      "samartalwar/casmi-2026-spectral-library-massbankharmonized",
+      "sanpier/casmi-spectrum-model-v1",
+      "dmitriigluzdov/casmi26-fold-safe-fpnet",
+      "dmitriigluzdov/casmi26-natural-product-knowledge-table",
+      "dmitriigluzdov/casmi26-natural-product-panel-benchmark",
+      "dmitriigluzdov/casmi26-pubchem-popularity-prior",
+      "dmitriigluzdov/casmi26-attributed-v4g-reproduction-assets",
+      "takumuhata/casmi26-extlib",
+      "sanpier/catalogue-experiment-saner",
+      "metric/rdkit-2026-3-3-wheel"
+    ],
+    "kernel_sources": [
+      "popwenman/casmi26-scorer-train-v80"
+    ]
+  },
+  "config": {
+    "V1_TAU": 0.3,
+    "V1_CAP": 6,
+    "V1_LIB_TAU": 0.9,
+    "V2_ON": false
+  },
+  "best_lb": 0.492,
+  "provenance": [
+    "no new external data or model; train.parquet (competition data) and the public notebook's inputs only; no NIST"
+  ]
+}

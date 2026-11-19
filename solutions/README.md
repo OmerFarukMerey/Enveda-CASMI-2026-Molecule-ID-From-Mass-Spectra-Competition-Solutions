@@ -7,6 +7,7 @@ One self-contained approach per folder. Each approach can be copied to Kaggle on
 |---|---|---|---|
 | [fusion-v4n/](fusion-v4n/) | Hemre | Public 0.399 notebook restructured: config-driven, stage dumps, tested fusion core; PubChem candidates ranked by the main engine; a ranker fitted on unseen molecules | **0.442** |
 | [arsokan-fable/](arsokan-fable/) | Arsokan | Stages on the public 0.487 / 0.492 notebooks: TA-1 train-analog evidence rerank (t0: 0.461, harmful), offline harnesses, negative PubChem-wide rerank | 0.492 (n0, public copy) |
+| [self-ref-veto/](self-ref-veto/) | Ömer | The public 0.492 notebook + a self-reference contradiction veto: known candidates whose own train spectra match no query spectrum move down (lists below library_max 0.9); leak-free NP measurements; leader-safe ranks-2-25 re-orderings. Closed: none beat the base | 0.492 |
 | *(branch `research/competition-analysis`)* | İlker | From-scratch pipeline + leak-aware validation. Suggested home when merged: `solutions/research-pipeline/` | 0.260 |
 
 ## Layout contract (every solution)

@@ -74,3 +74,12 @@ analyticaobscura (**Apache-2.0**), itself derived from
 [casmi26-lb-0-487-peaks-to-structures-scorer](https://www.kaggle.com/code/alexchilton/casmi26-lb-0-487-peaks-to-structures-scorer)
 by alex chilton (**Apache-2.0**), unchanged except for an added notice cell. The datasets it reads at run time are not
 redistributed and keep their own licences (see `kernel-metadata.json` and the folder's `README.txt`).
+
+## solutions/self-ref-veto
+`reference/casmi26-0-492-test-set-network-rerank.ipynb` and `reference/kernel-metadata.json` are a verbatim copy of the
+public notebook [CASMI26 0.492 | Test-Set Network Rerank](https://www.kaggle.com/code/mathleteutd/casmi26-0-492-test-set-network-rerank)
+(**Apache-2.0**), which is [rogersjohnson/casmi26-l4-lam035](https://www.kaggle.com/code/rogersjohnson/casmi26-l4-lam035) =
+[analyticaobscura/casmi-2026](https://www.kaggle.com/code/analyticaobscura/casmi-2026) with the network weight 0.35; the
+credits of every upstream author are inside the notebook. The generated notebooks in `kaggle/` are that notebook plus
+our cells (`cells/*.py`, MIT like the rest of this repository); the Kaggle inputs they attach keep their own licences
+and are not redistributed.
