@@ -74,3 +74,10 @@ analyticaobscura (**Apache-2.0**), itself derived from
 [casmi26-lb-0-487-peaks-to-structures-scorer](https://www.kaggle.com/code/alexchilton/casmi26-lb-0-487-peaks-to-structures-scorer)
 by alex chilton (**Apache-2.0**), unchanged except for an added notice cell. The datasets it reads at run time are not
 redistributed and keep their own licences (see `kernel-metadata.json` and the folder's `README.txt`).
+
+## submissions/tp5-0.495
+`notebook.ipynb` is the public Kaggle notebook
+[casmi26-lb-0-495-network-fr-p5-tail](https://www.kaggle.com/code/taeyangg4/casmi26-lb-0-495-network-fr-p5-tail) by
+Taeyang (**Apache-2.0**), built on the analyticaobscura / alex chilton / mathleteutd line credited in its cells; changed
+only by a notice cell and a filter that drops NIST-matched rows from the external library. Its run-time datasets are
+not redistributed and keep their own licences (taeyangg4's two are CC BY-NC-SA 4.0).
