@@ -11,6 +11,7 @@ One folder per submission worth keeping, named `<solution>-<version>-<public LB>
 
 | Folder | Public LB | Date | Change |
 |---|---|---|---|
+| [fpn-0.496](fpn-0.496/) | **0.496** | 2026-11-21 | Ömer's fp5 + p12f + n5f merged on tp5 (FR after P5, 12-parent P5, NetGen), NIST-matched library rows dropped; team best |
 | [tp5-0.495](tp5-0.495/) | **0.495** | 2026-11-20 | public notebook taeyangg4 "0.495 Network + FR + P5 Tail" copied, 117 NIST-matched library rows dropped; team best |
 | [n0-0.492](n0-0.492/) | **0.492** | 2026-11-16 | public notebook mathleteutd "0.492 Test-Set Network Rerank" copied (N-1c at LAM 0.35); team best |
 | [ax13n-0.488](ax13n-0.488/) | **0.488** | 2026-11-13 | public notebook analyticaobscura/casmi-2026 (alexchilton v13 + N-1c in-test network rerank) copied unchanged; team best |

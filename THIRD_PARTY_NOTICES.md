@@ -81,3 +81,10 @@ redistributed and keep their own licences (see `kernel-metadata.json` and the fo
 Taeyang (**Apache-2.0**), built on the analyticaobscura / alex chilton / mathleteutd line credited in its cells; changed
 only by a notice cell and a filter that drops NIST-matched rows from the external library. Its run-time datasets are
 not redistributed and keep their own licences (taeyangg4's two are CC BY-NC-SA 4.0).
+
+## submissions/fpn-0.496
+`notebook.ipynb` is the public Kaggle notebook
+[casmi26-lb-0-495-network-fr-p5-tail](https://www.kaggle.com/code/taeyangg4/casmi26-lb-0-495-network-fr-p5-tail) by
+Taeyang (**Apache-2.0**), with our team's changes (Ömer's fp5 / p12 / n5 edits to the FR and P5 tail cells, and the
+NIST-row filter in the external-library overlay). Its run-time datasets are not redistributed and keep their own
+licences (taeyangg4's two are CC BY-NC-SA 4.0).
