@@ -7,6 +7,7 @@ Last reviewed 2026-09-30. Links point to the Kaggle forum. Host answers are auth
 | Item | Status | Source |
 |---|---|---|
 | NIST spectra, or any model trained on NIST | **Forbidden, disqualifies** (not freely available; licence restricts derivatives incl. weights) | host, [744470](https://www.kaggle.com/competitions/enveda-CASMI26-molecule-id-mass-spectra/discussion/744470) |
+| GNPS library `GNPS-NIST14-MATCHES` (GNPS user spectra labelled by a NIST14 match; also inside `train.parquet` and in taeyangg4/casmi26-extlib-gnps-full as 117 rows) | **Allowed by name** "for library matching and training"; newly created NIST-matched sets are not. Team decision 2026-11-22: we use it (the 117-row filter of tp5 / fpn is off from gfpn on; it was neutral on public) | host, [745832](https://www.kaggle.com/competitions/enveda-CASMI26-molecule-id-mass-spectra/discussion/745832) (2026-10-09); `gnps-nist14-2026-10-12.md` |
 | Open models / artefacts trained on `train.parquet` (incl. other people's public Kaggle datasets) | Allowed ("fair game") | host, [742265](https://www.kaggle.com/competitions/enveda-CASMI26-molecule-id-mass-spectra/discussion/742265) |
 | Enveda-180 public Zenodo release | discussed in [the forum](https://www.kaggle.com/competitions/enveda-CASMI26-molecule-id-mass-spectra/discussion?sort=recent-comments), check before use | forum |
 | GLACIER / ICEBERG weights | Public ms-pred **MassSpecGym** checkpoints (MIT) as packaged by ahmedberatozer. Not NIST-trained per the dataset cards. An open eligibility thread about GLACIER exists | dataset cards |

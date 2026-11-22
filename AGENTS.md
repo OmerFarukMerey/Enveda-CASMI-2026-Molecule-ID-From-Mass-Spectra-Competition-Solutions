@@ -36,7 +36,8 @@ tools/              repo-level scripts (gen_index.py)
 
 - Never commit data, weights, run outputs or anything under `data/`, `runs/`, `scratch/` (see `.gitignore`).
 - Never use NIST or other non-free data or weights derived from it: it disqualifies the team. Only freely, publicly
-  available data and models. Record the provenance of any new external artifact in the solution's README.
+  available data and models. One named exception: the GNPS library `GNPS-NIST14-MATCHES`, which the host allowed for
+  library matching and training (thread 745832; see docs/competition/rules-and-pitfalls.md). Record the provenance of any new external artifact in the solution's README.
 - Do not tune on the visible `test.parquet`. It is a placeholder drawn from train and is replaced at scoring time.
   Anything keyed to its masks, masses or formulas silently does nothing on the hidden test.
 - RDKit must be `2026.03.3` wherever keys are compared (the metric pins it).
