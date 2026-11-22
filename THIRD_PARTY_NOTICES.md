@@ -89,6 +89,15 @@ Taeyang (**Apache-2.0**), with our team's changes (Ömer's fp5 / p12 / n5 edits 
 NIST-row filter in the external-library overlay). Its run-time datasets are not redistributed and keep their own
 licences (taeyangg4's two are CC BY-NC-SA 4.0).
 
+## submissions/gfp5-0.500
+`notebook.ipynb` is the public Kaggle notebook
+[enveda-casmi-stack-aprior-uniq-lb-0-498](https://www.kaggle.com/code/goodpjw2008/enveda-casmi-stack-aprior-uniq-lb-0-498)
+by goodpjw2008 (**Apache-2.0**), itself built on taeyangg4's
+[casmi26-lb-0-495-network-fr-p5-tail](https://www.kaggle.com/code/taeyangg4/casmi26-lb-0-495-network-fr-p5-tail)
+(**Apache-2.0**), with one change of ours (the FR 3-25 cell moved after the P5 tail). `build_om.py` patches those public
+notebooks; `vh_aprior.py` reuses goodpjw2008's APRIOR featurizer. Run-time datasets are not redistributed and keep their
+own licences (taeyangg4's two are CC BY-NC-SA 4.0).
+
 ## submissions/gfpe-0.501
 `notebook.ipynb` is the public Kaggle notebook
 [Stack + E180X + APRIOR + UNIQ](https://www.kaggle.com/code/goodpjw2008/enveda-casmi-stack-aprior-uniq-lb-0-498) by
