@@ -114,3 +114,10 @@ Apache-2.0 base), with goodpjw2008's E180X 1.1 cell from
 [Stack + NPX + E180X 1.1](https://www.kaggle.com/code/goodpjw2008/enveda-casmi-stack-npx-e180x-1-1-lb-0-505) (Apache-2.0)
 and our fpn P5 tail cell. Its run-time datasets are not redistributed and keep their own licences.
 
+## submissions/gnxv2-0.509
+`notebook.ipynb` is the public Kaggle notebook
+[CASMI26 LB 0.509: 47.7M virtual natural products](https://www.kaggle.com/code/ishankarnick/casmi26-lb-0-509-47-7m-virtual-natural-products)
+by ishankarnick (**Apache-2.0**, the Kaggle default for public notebooks; kozykappa's 0.505 stack plus the virtual natural-product tier cell), with goodpjw2008's
+E180X 1.1 cell (Apache-2.0) and our NP-extra cell. Its run-time datasets are not redistributed and keep their own
+licences: ishankarnick/casmi26-vt0, casmi26-vtlp and casmi-scorer-x1full are CC BY-NC-SA 4.0;
+qwertykeypadapple/casmi26-lotus-candidates is CC0.

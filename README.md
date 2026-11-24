@@ -125,6 +125,7 @@ Public leaderboard (MRR@25). Best in the scoring regime in force since 2026-10-0
 | 159 | 11-22 | public base + own change (Ömer) | **gfp5** | goodpjw2008 "Stack + APRIOR + UNIQ" (0.498) with FR 3-25 after the P5 tail; highest public notebook; GNPS-NIST14-MATCHES rows kept (host-allowed) | **0.500** | [folder](submissions/gfp5-0.500/) |
 | 161 | 11-22 | team base + public cell (Ömer + Hemre) | **gfpe** | Ömer's gfp5 (0.500) + goodpjw2008's E180X cell + fpn's P5 cell; team best, | **0.501** | [folder](submissions/gfpe-0.501/) |
 | 167 | 11-24 | public 0.505 line + team P5 | **gnx11** | kozykappa's 0.505 (Ömer's gfp5 + E180X + NPX) with fpn's P5 cell and E180X 1.1; team best | **0.505** | [folder](submissions/gnx11-0.505/) |
+| 169 | 11-24 | public 0.509 + own candidate block | **gnxv2** | ishankarnick's 0.509 (0.505 stack + virtual natural-product tier) with E180X 1.1 and 20,113 real natural products missing from the pool as extra tier rows; team best | **0.509** | [folder](submissions/gnxv2-0.509/) |
 
 ## Where things are
 

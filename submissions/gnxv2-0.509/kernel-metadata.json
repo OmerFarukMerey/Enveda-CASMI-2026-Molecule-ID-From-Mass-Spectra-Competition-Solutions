@@ -1,0 +1,36 @@
+{
+ "id": "huseyinemreaksoy/casmi26-sub-gnxv2",
+ "title": "casmi26-sub-gnxv2",
+ "code_file": "casmi26-sub-gnxv2.ipynb",
+ "is_private": true,
+ "language": "python",
+ "kernel_type": "notebook",
+ "enable_gpu": true,
+ "enable_tpu": false,
+ "enable_internet": false,
+ "dataset_sources": [
+  "samartalwar/casmi-2026-spectral-library-massbankharmonized",
+  "sanpier/casmi-spectrum-model-v1",
+  "taeyangg4/casmi26-extlib-gnps-full",
+  "dmitriigluzdov/casmi26-fold-safe-fpnet",
+  "taeyangg4/casmi26-fr3to25-clean",
+  "dmitriigluzdov/casmi26-natural-product-knowledge-table",
+  "dmitriigluzdov/casmi26-natural-product-panel-benchmark",
+  "dmitriigluzdov/casmi26-pubchem-popularity-prior",
+  "dmitriigluzdov/casmi26-attributed-v4g-reproduction-assets",
+  "bgunshui/casmi26-scorer-v2-model",
+  "ishankarnick/casmi-scorer-x1full",
+  "ishankarnick/casmi26-vt0",
+  "ishankarnick/casmi26-vtlp",
+  "sanpier/catalogue-experiment-saner",
+  "metric/rdkit-2026-3-3-wheel",
+  "qwertykeypadapple/casmi26-lotus-candidates"
+ ],
+ "kernel_sources": [
+  "popwenman/casmi26-scorer-train-v80"
+ ],
+ "competition_sources": [
+  "enveda-CASMI26-molecule-id-mass-spectra"
+ ],
+ "model_sources": []
+}
