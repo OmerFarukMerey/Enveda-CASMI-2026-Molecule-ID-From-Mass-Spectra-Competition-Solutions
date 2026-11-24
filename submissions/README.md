@@ -11,6 +11,7 @@ One folder per submission worth keeping, named `<solution>-<version>-<public LB>
 
 | Folder | Public LB | Date | Change |
 |---|---|---|---|
+| [gnx11-0.505](gnx11-0.505/) | **0.505** | 2026-11-24 | public 0.505 line (Ömer's gfp5 + E180X + kozykappa's NPX) with fpn's P5 cell and E180X 1.1; team best |
 | [gfpe-0.501](gfpe-0.501/) | **0.501** | 2026-11-23 | Ömer's gfp5 (goodpjw2008 0.498 stack + FR after P5) + goodpjw2008's E180X cell + fpn's P5 cell; GNPS-NIST14-MATCHES rows kept (host-allowed); team best |
 | [gfp5-0.500](gfp5-0.500/) | **0.500** | 2026-11-22 | goodpjw2008's 0.498 stack (APRIOR + UNIQ) with FR 3-25 after the P5 tail; GNPS-NIST14-MATCHES rows kept (host-allowed) |
 | [fpn-0.496](fpn-0.496/) | **0.496** | 2026-11-21 | Ömer's fp5 + p12f + n5f merged on tp5 (FR after P5, 12-parent P5, NetGen), NIST-matched library rows dropped |

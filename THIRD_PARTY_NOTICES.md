@@ -106,3 +106,11 @@ goodpjw2008 (**Apache-2.0**; itself built on taeyangg4's Apache-2.0
 including its E180X cell unchanged, with our team's changes (FR moved after the P5 tail, fpn's P5 tail cell, markdown
 cells trimmed). Its run-time datasets are not redistributed and keep their own licences (taeyangg4's two are
 CC BY-NC-SA 4.0).
+
+## submissions/gnx11-0.505
+`notebook.ipynb` is the public Kaggle notebook [CASMI26 LB 0.505](https://www.kaggle.com/code/kozykappa/casmi26-lb-0-505)
+by kozykappa (**Apache-2.0**; goodpjw2008's Stack + E180X + APRIOR + UNIQ plus kozykappa's NPX cell, on taeyangg4's
+Apache-2.0 base), with goodpjw2008's E180X 1.1 cell from
+[Stack + NPX + E180X 1.1](https://www.kaggle.com/code/goodpjw2008/enveda-casmi-stack-npx-e180x-1-1-lb-0-505) (Apache-2.0)
+and our fpn P5 tail cell. Its run-time datasets are not redistributed and keep their own licences.
+
